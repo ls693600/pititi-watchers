@@ -1,42 +1,61 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { PEOPLE } from '../config'
-import type { PersonId } from '../types'
+import type { JoinAs, JoinOptions } from '../store/cloud'
 
 interface Props {
   onSignIn: (email: string, password: string) => Promise<void>
   /** Resolves false when the account needs email confirmation before signing in. */
-  onSignUp: (email: string, password: string, person: PersonId) => Promise<boolean>
-  loadTaken: () => Promise<PersonId[]>
+  onSignUp: (email: string, password: string, code: string, as: JoinAs) => Promise<boolean>
+  loadOptions: (code: string) => Promise<JoinOptions>
 }
 
-export function Login({ onSignIn, onSignUp, loadTaken }: Props) {
+const NEW = '__new__'
+
+export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [person, setPerson] = useState<PersonId | null>(null)
-  const [taken, setTaken] = useState<PersonId[]>([])
+  const [code, setCode] = useState('')
+  const [options, setOptions] = useState<JoinOptions | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [pick, setPick] = useState<string>(NEW)
+  const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // Check the invite code as it's typed, then offer the matching profiles
   useEffect(() => {
-    if (mode !== 'signup') return
-    loadTaken()
-      .then((t) => {
-        setTaken(t)
-        setPerson((cur) => (cur && !t.includes(cur) ? cur : PEOPLE.find((p) => !t.includes(p.id))?.id ?? null))
-      })
-      .catch(() => setTaken([]))
-  }, [mode, loadTaken])
+    const c = code.trim()
+    if (mode !== 'signup' || c.length < 6) return
+    let alive = true
+    const t = setTimeout(async () => {
+      setChecking(true)
+      try {
+        const o = await loadOptions(c)
+        if (!alive) return
+        setOptions(o)
+        setPick(o.profiles[0]?.id ?? NEW)
+      } catch {
+        if (alive) setOptions(null)
+      } finally {
+        if (alive) setChecking(false)
+      }
+    }, 350)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [code, mode, loadOptions])
 
-  const free = PEOPLE.filter((p) => !taken.includes(p.id))
+  const codeOk = options?.valid && code.trim().length >= 6
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!email.trim() || !password) return setError('Enter your email and password.')
     if (mode === 'signup') {
+      if (!codeOk) return setError('Enter the invite code from Settings on a family member’s phone.')
+      if (pick === NEW && !name.trim()) return setError('Enter your name.')
       if (password.length < 6) return setError('Use at least 6 characters for the password.')
-      if (!person) return setError('Both accounts already exist. Sign in instead.')
     }
     setBusy(true)
     setError(null)
@@ -45,15 +64,15 @@ export function Login({ onSignIn, onSignUp, loadTaken }: Props) {
       if (mode === 'signin') {
         await onSignIn(email.trim(), password)
       } else {
-        const signedIn = await onSignUp(email.trim(), password, person!)
+        const as: JoinAs = pick === NEW ? { name: name.trim() } : { personId: pick }
+        const signedIn = await onSignUp(email.trim(), password, code.trim().toUpperCase(), as)
         if (!signedIn) {
           setNotice('Account created. Open the confirmation email, then come back and sign in.')
           setMode('signin')
         }
       }
     } catch (err) {
-      const msg = (err as Error).message || ''
-      setError(/invalid login/i.test(msg) ? 'Wrong email or password.' : msg || "Couldn't sign in. Try again.")
+      setError((err as Error).message || "Couldn't sign in. Try again.")
     } finally {
       setBusy(false)
     }
@@ -63,7 +82,7 @@ export function Login({ onSignIn, onSignUp, loadTaken }: Props) {
     <form className="screen login" onSubmit={submit} noValidate>
       <div className="logo" aria-hidden="true">▶</div>
       <h1>Pititi Watchers</h1>
-      <p className="muted center">{PEOPLE.map((p) => p.name).join(' and ')}'s shows</p>
+      <p className="muted center">The family TV log</p>
 
       <div className="segmented wide" role="tablist" aria-label="Account">
         {(['signin', 'signup'] as const).map((m) => (
@@ -84,27 +103,59 @@ export function Login({ onSignIn, onSignUp, loadTaken }: Props) {
       </div>
 
       {mode === 'signup' && (
-        <div className="stack">
-          <span className="muted">I'm</span>
-          {free.length === 0 ? (
-            <p className="muted">Both accounts already exist. Sign in instead.</p>
-          ) : (
-            <div className="segmented wide" role="radiogroup" aria-label="Who are you">
-              {free.map((p) => (
+        <>
+          <label className="stack">
+            <span className="muted">Invite code</span>
+            <input
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase())
+                setOptions(null)
+                setError(null)
+              }}
+              placeholder="A1B2C3D4"
+              autoCapitalize="characters"
+              autoComplete="off"
+              maxLength={12}
+            />
+            {checking && <span className="muted small">Checking…</span>}
+            {!checking && options && !options.valid && (
+              <span className="error small">That code isn't right. Check Settings → Invite code on a family member's phone.</span>
+            )}
+          </label>
+
+          {codeOk && (
+            <div className="stack">
+              <span className="muted">I'm</span>
+              <div className="chips" role="radiogroup" aria-label="Who are you">
+                {options!.profiles.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={pick === p.id}
+                    className={pick === p.id ? 'on' : ''}
+                    onClick={() => setPick(p.id)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
                 <button
-                  key={p.id}
                   type="button"
                   role="radio"
-                  aria-checked={person === p.id}
-                  className={person === p.id ? 'on' : ''}
-                  onClick={() => setPerson(p.id)}
+                  aria-checked={pick === NEW}
+                  className={pick === NEW ? 'on' : ''}
+                  onClick={() => setPick(NEW)}
                 >
-                  {p.name}
+                  Someone new
                 </button>
-              ))}
+              </div>
+              {pick === NEW && (
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={30} aria-label="Your name" />
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       <label className="stack">

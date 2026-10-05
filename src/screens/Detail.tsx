@@ -2,23 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
-import { PEOPLE } from '../config'
-import { coupleAverage, isPriorWatch, monthLabel, timesWatched } from '../logic'
+import { Avatar } from '../components/Avatar'
+import { averageRating, isPriorWatch, monthLabel, pendingRaters, timesWatched } from '../logic'
 import { getSeasons, type SeasonInfo } from '../tvmaze'
-import type { PersonId, Watch } from '../types'
+import type { Person, Watch } from '../types'
 
 interface Props {
   initial: Watch
   isNew: boolean
   watches: Watch[]
-  me: PersonId | null
+  people: Person[]
+  me: string | null
   saving: boolean
   onSave: (w: Watch) => void
   onDelete: (w: Watch) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, me, saving, onSave, onDelete, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, saving, onSave, onDelete, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,11 +48,35 @@ export function Detail({ initial, isNew, watches, me, saving, onSave, onDelete, 
   }, [initial.showId, isNew])
 
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
-  const avg = coupleAverage(w)
+  const avg = averageRating(w)
+  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
+  const watchers = people.filter((p) => w.watchedBy.includes(p.id))
+
+  function toggleWatcher(id: string) {
+    setW((cur) => {
+      if (cur.watchedBy.includes(id)) {
+        // Their rating goes with them
+        const rest = { ...cur.ratings }
+        delete rest[id]
+        return { ...cur, watchedBy: cur.watchedBy.filter((x) => x !== id), ratings: rest }
+      }
+      return { ...cur, watchedBy: [...cur.watchedBy, id] }
+    })
+  }
+
+  function rate(id: string, v: number | null) {
+    setW((cur) => {
+      const ratings = { ...cur.ratings }
+      if (v == null) delete ratings[id]
+      else ratings[id] = v
+      return { ...cur, ratings }
+    })
+  }
   const times = timesWatched(watches, w.showId, w.season) + (isNew ? 1 : 0)
   const total = w.totalEpisodes
 
   function save() {
+    if (!w.watchedBy.length) return setError('Pick who watched it.')
     if (!/^\d{4}-\d{2}$/.test(w.month)) return setError('Pick the month you watched it.')
     if (total != null && w.episodesWatched > total) return setError(`Season ${w.season} only has ${total} episodes.`)
     setError(null)
@@ -75,32 +100,42 @@ export function Detail({ initial, isNew, watches, me, saving, onSave, onDelete, 
       </div>
 
       <section className="card">
-        {PEOPLE.map((p) => (
+        <p className="field-label">Watched by</p>
+        <div className="chips" role="group" aria-label="Watched by">
+          {people.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={w.watchedBy.includes(p.id)}
+              className={w.watchedBy.includes(p.id) ? 'on' : ''}
+              onClick={() => toggleWatcher(p.id)}
+            >
+              <Avatar people={people} id={p.id} size={22} /> {p.name}
+            </button>
+          ))}
+        </div>
+        {watchers.map((p) => (
           <div key={p.id} className="field">
             <span className="who">
-              <span className={`av ${p.id}`}>{p.name[0]}</span>
+              <Avatar people={people} id={p.id} />
               {p.name}
               {me === p.id && <span className="you">you</span>}
             </span>
-            <Stars
-              label={p.name}
-              value={w.ratings[p.id]}
-              onChange={(v) => set({ ratings: { ...w.ratings, [p.id]: v } })}
-            />
+            <Stars label={p.name} value={w.ratings[p.id] ?? null} onChange={(v) => rate(p.id, v)} />
           </div>
         ))}
-        <div className="field average">
-          <span className="who">
-            Average {avg != null && <strong className="avg-num">{avg.toFixed(1)}</strong>}
-          </span>
-          {avg != null ? (
-            <AvgStars value={avg} />
-          ) : (
-            <span className="muted">
-              Waiting for {PEOPLE.filter((p) => w.ratings[p.id] == null).map((p) => p.name).join(' and ')}
+        {watchers.length > 0 && (
+          <div className="field average">
+            <span className="who">
+              Average {avg != null && <strong className="avg-num">{avg.toFixed(1)}</strong>}
             </span>
-          )}
-        </div>
+            {avg != null ? (
+              <AvgStars value={avg} />
+            ) : (
+              <span className="muted">Waiting for {pendingRaters(w).map(nameOf).join(', ')}</span>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="card">

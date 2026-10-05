@@ -1,13 +1,25 @@
+import { Avatar, PersonFilter } from '../components/Avatar'
 import { AvgStars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
-import { PEOPLE } from '../config'
-import { byUpdatedDesc, coupleAverage, currentMonth, monthLabel, shiftMonth, summarize, watchesInMonth } from '../logic'
-import type { Watch } from '../types'
+import {
+  averageRating,
+  byUpdatedDesc,
+  currentMonth,
+  monthLabel,
+  shiftMonth,
+  summarize,
+  watchedByPerson,
+  watchesInMonth,
+} from '../logic'
+import type { Person, Watch } from '../types'
 
 interface Props {
   watches: Watch[]
+  people: Person[]
   month: string
+  filter: string | null
+  onFilter: (id: string | null) => void
   onMonth: (m: string) => void
   onOpen: (w: Watch) => void
   onAddEpisode: (w: Watch) => void
@@ -19,11 +31,13 @@ function progress(w: Watch): string {
   return w.totalEpisodes ? `S${w.season} · ${w.episodesWatched}/${w.totalEpisodes} eps` : `S${w.season} · ${w.episodesWatched} eps`
 }
 
-export function Home({ watches, month, onMonth, onOpen, onAddEpisode, onAdd }: Props) {
-  const list = watchesInMonth(watches, month)
+export function Home({ watches, people, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onAdd }: Props) {
+  const mine = watchedByPerson(watches, filter)
+  const list = watchesInMonth(mine, month)
   const sum = summarize(list)
-  const hero = watches.filter((w) => w.status === 'watching').sort(byUpdatedDesc)[0]
+  const hero = mine.filter((w) => w.status === 'watching').sort(byUpdatedDesc)[0]
   const isCurrent = month === currentMonth()
+  const who = people.find((p) => p.id === filter)
 
   return (
     <div className="screen">
@@ -48,15 +62,12 @@ export function Home({ watches, month, onMonth, onOpen, onAddEpisode, onAdd }: P
           <Icon name="left" />
         </button>
         <h1>{monthLabel(month)}</h1>
-        <button
-          className="icon-btn"
-          aria-label="Next month"
-          onClick={() => onMonth(shiftMonth(month, 1))}
-          disabled={isCurrent}
-        >
+        <button className="icon-btn" aria-label="Next month" onClick={() => onMonth(shiftMonth(month, 1))} disabled={isCurrent}>
           <Icon name="right" />
         </button>
       </div>
+
+      <PersonFilter people={people} value={filter} onChange={onFilter} />
 
       <div className="summary">
         <div><strong>{sum.shows}</strong><span>shows</span></div>
@@ -67,8 +78,10 @@ export function Home({ watches, month, onMonth, onOpen, onAddEpisode, onAdd }: P
 
       {list.length === 0 ? (
         <div className="empty">
-          <p className="empty-title">{isCurrent ? 'Nothing logged this month' : `Nothing logged in ${monthLabel(month)}`}</p>
-          <p className="muted">Search for a show to add it to {isCurrent ? 'this month' : 'your log'}.</p>
+          <p className="empty-title">
+            {who ? `${who.name} hasn't logged anything in ${monthLabel(month)}` : isCurrent ? 'Nothing logged this month' : `Nothing logged in ${monthLabel(month)}`}
+          </p>
+          <p className="muted">Search for a show to add it to {isCurrent ? 'this month' : monthLabel(month)}.</p>
           <button className="btn primary" onClick={onAdd}>
             <Icon name="plus" size={18} /> Log a show
           </button>
@@ -76,7 +89,7 @@ export function Home({ watches, month, onMonth, onOpen, onAddEpisode, onAdd }: P
       ) : (
         <ul className="list">
           {list.map((w) => {
-            const avg = coupleAverage(w)
+            const avg = averageRating(w)
             return (
               <li key={w.id} className="row">
                 <button className="row-main" onClick={() => onOpen(w)}>
@@ -93,15 +106,17 @@ export function Home({ watches, month, onMonth, onOpen, onAddEpisode, onAdd }: P
                       </div>
                     ) : null}
                     <span className="row-ratings">
+                      <span className="watchers" aria-label="Watched by">
+                        {w.watchedBy.map((id) => (
+                          <Avatar key={id} people={people} id={id} />
+                        ))}
+                      </span>
                       {avg != null ? (
-                        <><AvgStars value={avg} size={14} /> <span className="avg-num">{avg.toFixed(1)}</span></>
+                        <>
+                          <AvgStars value={avg} size={14} /> <span className="avg-num">{avg.toFixed(1)}</span>
+                        </>
                       ) : (
-                        PEOPLE.map((p) => (
-                          <span key={p.id} className="muted">
-                            <span className={`av ${p.id}`}>{p.name[0]}</span>
-                            {w.ratings[p.id] ?? '–'}
-                          </span>
-                        ))
+                        <span className="muted">Not rated yet</span>
                       )}
                     </span>
                   </div>

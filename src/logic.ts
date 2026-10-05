@@ -1,10 +1,32 @@
 import type { Watch } from './types'
 
-/** Average of both ratings. Null until both people have rated. */
-export function coupleAverage(w: Pick<Watch, 'ratings'>): number | null {
-  const { p1, p2 } = w.ratings
-  if (p1 == null || p2 == null) return null
-  return (p1 + p2) / 2
+/** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
+export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
+  return w.watchedBy.length ? w.watchedBy : Object.keys(w.ratings)
+}
+
+/** People who watched it but haven't rated yet. */
+export function pendingRaters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
+  return raters(w).filter((id) => w.ratings[id] == null)
+}
+
+/** Average of everyone who watched it. Empty until all of them have rated. */
+export function averageRating(w: Pick<Watch, 'watchedBy' | 'ratings'>): number | null {
+  const ids = raters(w)
+  if (!ids.length || pendingRaters(w).length) return null
+  return ids.reduce((sum, id) => sum + w.ratings[id], 0) / ids.length
+}
+
+/** Logs a person watched; null means the whole family. */
+export function watchedByPerson(list: Watch[], personId: string | null): Watch[] {
+  return personId ? list.filter((w) => w.watchedBy.includes(personId)) : list
+}
+
+/** Each person's average rating across the given logs. */
+export function personAverages(list: Watch[], personIds: string[]): Record<string, number | null> {
+  return Object.fromEntries(
+    personIds.map((id) => [id, mean(list.flatMap((w) => (w.ratings[id] != null ? [w.ratings[id]] : [])))]),
+  )
 }
 
 export function currentMonth(now = new Date()): string {
@@ -90,7 +112,6 @@ export interface YearStats extends Summary {
   busiest: { month: string; count: number } | null
   topRated: { watch: Watch; avg: number }[]
   disagreements: { watch: Watch; diff: number }[]
-  personAverages: { p1: number | null; p2: number | null }
 }
 
 function mean(nums: number[]): number | null {
@@ -104,11 +125,14 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
     return { month, count: uniqueShows(list.filter((w) => w.month === month)) }
   })
   const rated = list
-    .map((watch) => ({ watch, avg: coupleAverage(watch) }))
+    .map((watch) => ({ watch, avg: averageRating(watch) }))
     .filter((r): r is { watch: Watch; avg: number } => r.avg != null)
   const topRated = [...rated].sort((a, b) => b.avg - a.avg).slice(0, 5)
   const disagreements = rated
-    .map(({ watch }) => ({ watch, diff: Math.abs((watch.ratings.p1 ?? 0) - (watch.ratings.p2 ?? 0)) }))
+    .map(({ watch }) => {
+      const stars = raters(watch).map((id) => watch.ratings[id])
+      return { watch, diff: Math.max(...stars) - Math.min(...stars) }
+    })
     .filter((d) => d.diff >= 2)
     .sort((a, b) => b.diff - a.diff)
     .slice(0, 3)
@@ -125,10 +149,6 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
     busiest,
     topRated,
     disagreements,
-    personAverages: {
-      p1: mean(list.flatMap((w) => (w.ratings.p1 != null ? [w.ratings.p1] : []))),
-      p2: mean(list.flatMap((w) => (w.ratings.p2 != null ? [w.ratings.p2] : []))),
-    },
   }
 }
 

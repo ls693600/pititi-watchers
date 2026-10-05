@@ -1,6 +1,11 @@
-export type PersonId = 'p1' | 'p2'
-
 export type WatchStatus = 'watching' | 'done'
+
+/** A family member. Has a login once they've created an account (userId set). */
+export interface Person {
+  id: string
+  name: string
+  userId: string | null
+}
 
 /** One show-season logged in a given month. A show lands in the month you last watched it. */
 export interface Watch {
@@ -18,14 +23,12 @@ export interface Watch {
   /** YYYY-MM */
   month: string
   status: WatchStatus
-  ratings: Record<PersonId, number | null>
+  /** Person ids who watched it */
+  watchedBy: string[]
+  /** Stars (1–5) by person id */
+  ratings: Record<string, number>
   isRewatch: boolean
   notes: string
   createdAt: string
   updatedAt: string
-}
-
-export interface Person {
-  id: PersonId
-  name: string
 }

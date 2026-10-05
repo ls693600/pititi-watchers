@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
-  coupleAverage,
+  averageRating,
+  pendingRaters,
+  personAverages,
+  watchedByPerson,
   isPriorWatch,
   shiftMonth,
   summarize,
@@ -26,7 +29,8 @@ function watch(over: Partial<Watch> = {}): Watch {
     runtime: 50,
     month: '2026-10',
     status: 'done',
-    ratings: { p1: null, p2: null },
+    watchedBy: ['L', 'A'],
+    ratings: {},
     isRewatch: false,
     notes: '',
     createdAt: '2026-10-01T00:00:00.000Z',
@@ -35,15 +39,38 @@ function watch(over: Partial<Watch> = {}): Watch {
   }
 }
 
-describe('coupleAverage', () => {
-  it('averages both ratings', () => {
-    expect(coupleAverage(watch({ ratings: { p1: 5, p2: 4 } }))).toBe(4.5)
-    expect(coupleAverage(watch({ ratings: { p1: 1, p2: 1 } }))).toBe(1)
+describe('averageRating', () => {
+  it('averages everyone who watched', () => {
+    expect(averageRating(watch({ ratings: { L: 5, A: 4 } }))).toBe(4.5)
+    expect(averageRating(watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 4, M: 3 } }))).toBe(4)
+    expect(averageRating(watch({ watchedBy: ['M'], ratings: { M: 5 } }))).toBe(5)
   })
-  it('stays empty until both have rated', () => {
-    expect(coupleAverage(watch({ ratings: { p1: 5, p2: null } }))).toBeNull()
-    expect(coupleAverage(watch({ ratings: { p1: null, p2: 3 } }))).toBeNull()
-    expect(coupleAverage(watch())).toBeNull()
+  it('stays empty until every watcher has rated', () => {
+    const w = watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 4 } })
+    expect(averageRating(w)).toBeNull()
+    expect(pendingRaters(w)).toEqual(['M'])
+    expect(averageRating(watch())).toBeNull()
+  })
+  it('ignores ratings from people who did not watch', () => {
+    expect(averageRating(watch({ watchedBy: ['L'], ratings: { L: 4, A: 1 } }))).toBe(4)
+  })
+  it('falls back to whoever rated when nobody is marked as watching', () => {
+    expect(averageRating(watch({ watchedBy: [], ratings: { L: 2, A: 4 } }))).toBe(3)
+    expect(averageRating(watch({ watchedBy: [], ratings: {} }))).toBeNull()
+  })
+})
+
+describe('family filter', () => {
+  it('keeps only logs a person watched, or everything for the whole family', () => {
+    const all = [watch({ watchedBy: ['L', 'A'] }), watch({ watchedBy: ['M'] })]
+    expect(watchedByPerson(all, 'M')).toHaveLength(1)
+    expect(watchedByPerson(all, 'L')).toHaveLength(1)
+    expect(watchedByPerson(all, null)).toHaveLength(2)
+    expect(watchedByPerson(all, 'X')).toHaveLength(0)
+  })
+  it("computes each person's average rating", () => {
+    const all = [watch({ ratings: { L: 5, A: 2 } }), watch({ ratings: { L: 3 } })]
+    expect(personAverages(all, ['L', 'A', 'M'])).toEqual({ L: 4, A: 2, M: null })
   })
 })
 
@@ -110,11 +137,11 @@ describe('stats', () => {
   it('builds the year recap', () => {
     const now = new Date(2026, 9, 5)
     const all = [
-      watch({ showId: 1, showName: 'A', ratings: { p1: 5, p2: 4 }, month: '2026-03' }),
-      watch({ showId: 2, showName: 'B', ratings: { p1: 5, p2: 2 }, month: '2026-03' }),
+      watch({ showId: 1, showName: 'A', ratings: { L: 5, A: 4 }, month: '2026-03' }),
+      watch({ showId: 2, showName: 'B', ratings: { L: 5, A: 2 }, month: '2026-03' }),
       watch({ showId: 2, showName: 'B', season: 2, month: '2026-03' }),
-      watch({ showId: 3, showName: 'C', ratings: { p1: 3, p2: null }, month: '2026-10' }),
-      watch({ showId: 4, showName: 'Old', ratings: { p1: 5, p2: 5 }, month: '2025-03' }),
+      watch({ showId: 3, showName: 'C', ratings: { L: 3 }, month: '2026-10' }),
+      watch({ showId: 4, showName: 'Old', ratings: { L: 5, A: 5 }, month: '2025-03' }),
     ]
     const y = yearStats(all, 2026, now)
     expect(y.shows).toBe(3)
@@ -124,8 +151,10 @@ describe('stats', () => {
     expect(y.busiest?.month).toBe('2026-03')
     expect(y.topRated.map((t) => t.watch.showName)).toEqual(['A', 'B'])
     expect(y.disagreements.map((d) => [d.watch.showName, d.diff])).toEqual([['B', 3]])
-    expect(y.personAverages.p1).toBeCloseTo(13 / 3)
-    expect(y.personAverages.p2).toBe(3)
+  })
+  it('measures disagreement as the gap between the highest and lowest rating', () => {
+    const w = watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 4, M: 2 } })
+    expect(yearStats([w], 2026, new Date(2026, 9, 5)).disagreements.map((d) => d.diff)).toEqual([3])
   })
   it('averages a past year over all 12 months', () => {
     const y = yearStats([watch({ month: '2025-06' }), watch({ showId: 2, month: '2025-07' })], 2025, new Date(2026, 9, 5))
@@ -138,6 +167,5 @@ describe('stats', () => {
     expect(y.avgPerMonth).toBe(0)
     expect(y.busiest).toBeNull()
     expect(y.topRated).toEqual([])
-    expect(y.personAverages).toEqual({ p1: null, p2: null })
   })
 })

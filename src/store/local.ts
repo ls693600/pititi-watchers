@@ -1,39 +1,63 @@
-import type { Watch } from '../types'
-import type { Store } from './store'
+import { newId } from '../logic'
+import type { Person, Watch } from '../types'
+import type { Snapshot, Store } from './store'
 
-const KEY = 'pititi.watches.v1'
+const WATCHES = 'pititi.watches.v2'
+const PEOPLE = 'pititi.people.v2'
 
-function read(): Watch[] {
+const DEFAULT_PEOPLE: Person[] = [
+  { id: 'local-leandro', name: 'Leandro', userId: null },
+  { id: 'local-ana', name: 'Ana', userId: null },
+]
+
+function readJson<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as Watch[]) : []
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : fallback
   } catch {
-    return []
+    return fallback
   }
 }
 
-function write(list: Watch[]) {
-  localStorage.setItem(KEY, JSON.stringify(list))
+function read(): Snapshot {
+  return { watches: readJson<Watch[]>(WATCHES, []), people: readJson<Person[]>(PEOPLE, DEFAULT_PEOPLE) }
 }
 
+function write(snap: Snapshot) {
+  localStorage.setItem(WATCHES, JSON.stringify(snap.watches))
+  localStorage.setItem(PEOPLE, JSON.stringify(snap.people))
+}
+
+/** Single-device mode, used when Supabase isn't configured. */
 export const localStore: Store = {
   mode: 'local',
   async load() {
     return read()
   },
   async save(w) {
-    const list = read().filter((x) => x.id !== w.id)
-    write([...list, w])
+    const snap = read()
+    write({ ...snap, watches: [...snap.watches.filter((x) => x.id !== w.id), w] })
   },
   async remove(id) {
-    write(read().filter((x) => x.id !== id))
+    const snap = read()
+    write({ ...snap, watches: snap.watches.filter((x) => x.id !== id) })
+  },
+  async addPerson(name) {
+    const snap = read()
+    const person = { id: newId(), name, userId: null }
+    write({ ...snap, people: [...snap.people, person] })
+    return person
+  },
+  async renamePerson(id, name) {
+    const snap = read()
+    write({ ...snap, people: snap.people.map((p) => (p.id === id ? { ...p, name } : p)) })
   },
   subscribe(onChange) {
-    const handler = (e: StorageEvent) => e.key === KEY && onChange()
+    const handler = (e: StorageEvent) => (e.key === WATCHES || e.key === PEOPLE) && onChange()
     window.addEventListener('storage', handler)
     return () => window.removeEventListener('storage', handler)
   },
 }
 
-/** Cache used by cloud mode so the app still opens offline. */
+/** Last synced copy, so cloud mode still opens offline. */
 export const cache = { read, write }

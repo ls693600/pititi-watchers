@@ -1,33 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, currentMonth, monthLabel, newId } from './logic'
+import { addEpisode, byUpdatedDesc, currentMonth, monthLabel, newId } from './logic'
 import { Detail } from './screens/Detail'
 import { Home } from './screens/Home'
 import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Stats } from './screens/Stats'
-import { cloudStore, currentSession, signIn, signOut, signUp, takenSeats } from './store/cloud'
+import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { ShowResult } from './tvmaze'
-import type { Watch } from './types'
+import type { Person, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
-
-const MIGRATED_KEY = 'pititi.migrated.v1'
-
-/** First sign-in on a phone: send anything logged before sync was on up to the shared log, once. */
-async function uploadLocalLog() {
-  try {
-    if (localStorage.getItem(MIGRATED_KEY)) return
-    for (const w of cache.read()) await cloudStore.save(w)
-    localStorage.setItem(MIGRATED_KEY, new Date().toISOString())
-  } catch {
-    // Not fatal: the local copy stays and the upload is retried on the next sign-in
-  }
-}
 
 type Tab = 'home' | 'search' | 'stats' | 'settings'
 const TABS: { id: Tab; icon: IconName; label: string }[] = [
@@ -39,7 +26,16 @@ const TABS: { id: Tab; icon: IconName; label: string }[] = [
 
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
-function draftFrom(show: ShowResult, month: string): Watch {
+/** New logs start with the same group as your latest log (usually the people you watch with). */
+function defaultWatchers(watches: Watch[], people: Person[], me: string | null): string[] {
+  const last = [...watches].sort(byUpdatedDesc).find((w) => !me || w.watchedBy.includes(me))
+  const known = new Set(people.map((p) => p.id))
+  const group = last?.watchedBy.filter((id) => known.has(id)) ?? []
+  if (group.length) return group
+  return me ? [me] : people.slice(0, 1).map((p) => p.id)
+}
+
+function draftFrom(show: ShowResult, month: string, watchedBy: string[]): Watch {
   const now = new Date().toISOString()
   return {
     id: newId(),
@@ -55,7 +51,8 @@ function draftFrom(show: ShowResult, month: string): Watch {
     totalEpisodes: null,
     month,
     status: 'watching',
-    ratings: { p1: null, p2: null },
+    watchedBy,
+    ratings: {},
     isRewatch: false,
     notes: '',
     createdAt: now,
@@ -66,6 +63,8 @@ function draftFrom(show: ShowResult, month: string): Watch {
 export default function App() {
   const [auth, setAuth] = useState<Auth>(CLOUD_ENABLED ? { state: 'checking' } : { state: 'ready', session: null })
   const [watches, setWatches] = useState<Watch[]>([])
+  const [people, setPeople] = useState<Person[]>([])
+  const [filter, setFilter] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
   const [tab, setTab] = useState<Tab>('home')
   const [month, setMonth] = useState(currentMonth())
@@ -88,11 +87,15 @@ export default function App() {
 
   const reload = useCallback(async () => {
     try {
-      setWatches(await store.load())
+      const snap = await store.load()
+      setWatches(snap.watches)
+      setPeople(snap.people)
       setOffline(false)
     } catch {
       // Cloud unreachable: fall back to the last synced copy
-      setWatches(cache.read())
+      const snap = cache.read()
+      setWatches(snap.watches)
+      setPeople(snap.people)
       setOffline(true)
     }
   }, [])
@@ -156,16 +159,14 @@ export default function App() {
       <div className="app">
         {auth.error && <p className="error banner" role="alert">{auth.error}</p>}
         <Login
-          loadTaken={takenSeats}
+          loadOptions={joinOptions}
           onSignIn={async (email, password) => {
             const session = await signIn(email, password)
-            await uploadLocalLog()
             setAuth({ state: 'ready', session })
           }}
-          onSignUp={async (email, password, person) => {
-            const session = await signUp(email, password, person)
+          onSignUp={async (email, password, code, as) => {
+            const session = await signUp(email, password, code, as)
             if (!session) return false
-            await uploadLocalLog()
             setAuth({ state: 'ready', session })
             return true
           }}
@@ -174,7 +175,7 @@ export default function App() {
     )
   }
 
-  const me = auth.session?.person ?? null
+  const me = auth.session?.personId ?? null
 
   return (
     <div className="app">
@@ -187,6 +188,7 @@ export default function App() {
             initial={detail.watch}
             isNew={detail.isNew}
             watches={watches}
+            people={people}
             me={me}
             saving={saving}
             onSave={handleSave}
@@ -196,6 +198,9 @@ export default function App() {
         ) : tab === 'home' ? (
           <Home
             watches={watches}
+            people={people}
+            filter={filter}
+            onFilter={setFilter}
             month={month}
             onMonth={setMonth}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
@@ -207,10 +212,15 @@ export default function App() {
             onAdd={() => setTab('search')}
           />
         ) : tab === 'search' ? (
-          <Search watches={watches} month={month} onPick={(show) => setDetail({ watch: draftFrom(show, month), isNew: true })} />
+          <Search watches={watches} month={month} onPick={(show) =>
+              setDetail({ watch: draftFrom(show, month, defaultWatchers(watches, people, me)), isNew: true })
+            } />
         ) : tab === 'stats' ? (
           <Stats
             watches={watches}
+            people={people}
+            filter={filter}
+            onFilter={setFilter}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
             onOpenMonth={(m) => {
               setMonth(m)
@@ -221,10 +231,19 @@ export default function App() {
           <Settings
             mode={store.mode}
             session={auth.session}
+            people={people}
             watches={watches}
+            loadInvite={store.mode === 'cloud' ? getInviteCode : null}
+            renewInvite={store.mode === 'cloud' ? renewInviteCode : null}
+            onAddPerson={async (name) => {
+              const person = await store.addPerson(name)
+              setPeople((list) => [...list, person])
+              flash(`${name} added to the family`)
+            }}
             onSignOut={async () => {
               await signOut()
               setWatches([])
+              setPeople([])
               setAuth({ state: 'signedOut' })
             }}
           />

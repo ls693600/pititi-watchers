@@ -1,20 +1,26 @@
 import { useState } from 'react'
+import { Avatar, PersonFilter } from '../components/Avatar'
 import { AvgStars } from '../components/Stars'
 import { Icon } from '../components/Icon'
-import { PEOPLE } from '../config'
-import { currentMonth, monthLabel, yearStats } from '../logic'
-import type { Watch } from '../types'
+import { currentMonth, monthLabel, personAverages, raters, watchedByPerson, yearStats } from '../logic'
+import type { Person, Watch } from '../types'
 
 interface Props {
   watches: Watch[]
+  people: Person[]
+  filter: string | null
+  onFilter: (id: string | null) => void
   onOpen: (w: Watch) => void
   onOpenMonth: (month: string) => void
 }
 
-export function Stats({ watches, onOpen, onOpenMonth }: Props) {
+export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
   const [year, setYear] = useState(thisYear)
-  const s = yearStats(watches, year)
+  const s = yearStats(watchedByPerson(watches, filter), year)
+  const yearLogs = watches.filter((w) => w.month.startsWith(`${year}-`))
+  const averages = personAverages(yearLogs, people.map((p) => p.id))
+  const who = people.find((p) => p.id === filter)
   const max = Math.max(1, ...s.perMonth.map((m) => m.count))
   const nowMonth = currentMonth()
   // Months that have happened, newest first
@@ -32,10 +38,12 @@ export function Stats({ watches, onOpen, onOpenMonth }: Props) {
         </button>
       </div>
 
+      <PersonFilter people={people} value={filter} onChange={onFilter} />
+
       <div className="year-total">
         <div>
           <strong>{s.shows}</strong>
-          <span>{s.shows === 1 ? 'show' : 'shows'} in {year}</span>
+          <span>{s.shows === 1 ? 'show' : 'shows'} in {year}{who ? ` · ${who.name}` : ''}</span>
         </div>
         <div>
           <strong>{s.avgPerMonth.toFixed(1)}</strong>
@@ -88,16 +96,25 @@ export function Stats({ watches, onOpen, onOpenMonth }: Props) {
         <div><strong>{s.rewatches}</strong><span>rewatch</span></div>
       </div>
 
-      <div className="summary two">
-        {PEOPLE.map((p) => (
-          <div key={p.id}>
-            <strong>{s.personAverages[p.id]?.toFixed(1) ?? '–'}</strong>
-            <span><span className={`av ${p.id}`}>{p.name[0]}</span>{p.name}'s avg rating</span>
-          </div>
+      <h2 className="section">Average rating given</h2>
+      <ul className="people-list">
+        {people.map((p) => (
+          <li key={p.id}>
+            <Avatar people={people} id={p.id} size={24} />
+            <span className="name">{p.name}</span>
+            {averages[p.id] != null ? (
+              <>
+                <AvgStars value={averages[p.id]!} size={13} />
+                <span className="avg-num">{averages[p.id]!.toFixed(1)}</span>
+              </>
+            ) : (
+              <span className="muted">No ratings in {year}</span>
+            )}
+          </li>
         ))}
-      </div>
+      </ul>
 
-      <h2 className="section">Top rated together</h2>
+      <h2 className="section">{who ? `${who.name}'s top rated` : 'Top rated'}</h2>
       {s.topRated.length === 0 ? (
         <p className="muted">Shows appear here once you've both rated them.</p>
       ) : (
@@ -124,10 +141,10 @@ export function Stats({ watches, onOpen, onOpenMonth }: Props) {
             <li key={watch.id}>
               <button onClick={() => onOpen(watch)}>
                 <span className="row-title">{watch.showName} <span className="muted">S{watch.season}</span></span>
-                {PEOPLE.map((p) => (
-                  <span key={p.id} className="muted">
-                    <span className={`av ${p.id}`}>{p.name[0]}</span>
-                    {watch.ratings[p.id]}
+                {raters(watch).map((id) => (
+                  <span key={id} className="muted">
+                    <Avatar people={people} id={id} />
+                    {watch.ratings[id]}
                   </span>
                 ))}
               </button>
