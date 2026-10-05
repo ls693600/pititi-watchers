@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, familyBadges, newlyEarned, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -36,6 +36,24 @@ const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
 const DEV_VIEWER = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('as') : null
 
 const SEEN_KEY = 'pititi.reveals.v1'
+const BADGES_KEY = 'pititi.badges.v1'
+
+function readSet(key: string): Set<string> | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? new Set(JSON.parse(raw) as string[]) : null
+  } catch {
+    return null
+  }
+}
+
+function writeSet(key: string, set: Set<string>) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...set]))
+  } catch {
+    // Not fatal: worst case a celebration shows again
+  }
+}
 
 /** Logs whose reveal this phone has already shown. Null on first run. */
 function readSeen(): Set<string> | null {
@@ -153,6 +171,30 @@ export default function App() {
       .catch((e: Error) => setAuth({ state: 'signedOut', error: e.message }))
   }, [])
 
+  /** Celebrates badges earned since this phone last looked (first run just records them). */
+  const checkBadges = useCallback(
+    (list: Watch[]) => {
+      const badges = familyBadges(list)
+      const seen = readSet(BADGES_KEY)
+      if (!seen) {
+        writeSet(BADGES_KEY, new Set(badges.filter((b) => b.earned).map((b) => b.id)))
+        return
+      }
+      const fresh = newlyEarned(badges, seen)
+      if (!fresh.length) return
+      fresh.forEach((b) => seen.add(b.id))
+      writeSet(BADGES_KEY, seen)
+      flash(
+        fresh.length === 1
+          ? `Badge unlocked: ${fresh[0].title}`
+          : fresh.length === 2
+            ? `Badges unlocked: ${fresh[0].title} and ${fresh[1].title}`
+            : `${fresh.length} new badges unlocked · see Stats`,
+      )
+    },
+    [flash],
+  )
+
   const reload = useCallback(async () => {
     try {
       const snap = await store.load()
@@ -161,6 +203,7 @@ export default function App() {
       setUpNext(snap.upNext)
       setOffline(false)
       queueReveals(snap.watches)
+      checkBadges(snap.watches)
     } catch {
       // Cloud unreachable: fall back to the last synced copy
       const snap = cache.read()
@@ -169,7 +212,7 @@ export default function App() {
       setUpNext(snap.upNext ?? [])
       setOffline(true)
     }
-  }, [queueReveals])
+  }, [queueReveals, checkBadges])
 
   useEffect(() => {
     if (auth.state !== 'ready') return
@@ -195,6 +238,7 @@ export default function App() {
       await store.save(next)
       flash(okMsg)
       queueReveals([...prev.filter((x) => x.id !== next.id), next])
+      checkBadges([...prev.filter((x) => x.id !== next.id), next])
       return true
     } catch {
       setWatches(prev)

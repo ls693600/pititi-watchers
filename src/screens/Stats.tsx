@@ -3,7 +3,8 @@ import { Avatar, PersonFilter } from '../components/Avatar'
 import { AvgStars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
-import { currentMonth, monthLabel, personAverages, raters, watchedByPerson, yearStats } from '../logic'
+import { BadgeTile, TasteCard } from '../components/Taste'
+import { currentMonth, familyBadges, monthLabel, personAverages, raters, tasteMatches, watchedByPerson, yearStats } from '../logic'
 import type { Person, Watch } from '../types'
 
 interface Props {
@@ -26,6 +27,10 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }
   const max = Math.max(1, ...s.perMonth.map((m) => m.count))
   // Months that have happened, newest first
   const months = s.perMonth.filter((m) => m.month <= nowMonth).reverse()
+  // Taste and badges use everything ever logged: more data, fairer scores
+  const matches = tasteMatches(watches, people.map((p) => p.id)).filter((m) => !filter || m.a === filter || m.b === filter)
+  const badges = familyBadges(watches)
+  const earned = badges.filter((b) => b.earned).length
 
   return (
     <div className="screen">
@@ -87,6 +92,20 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }
         </div>
       </section>
 
+      {matches.length > 0 && (
+        <>
+          <h2 className="h2">
+            Taste match
+            <small>all time</small>
+          </h2>
+          <div className="matches">
+            {matches.map((m, i) => (
+              <TasteCard key={`${m.a}-${m.b}`} match={m} people={people} big={i === 0} />
+            ))}
+          </div>
+        </>
+      )}
+
       {s.topRated.length > 0 && (
         <>
           <h2 className="h2">{who ? `${who.name}'s top ${s.topRated.length}` : `Top ${s.topRated.length} of ${year}`}</h2>
@@ -146,6 +165,16 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }
             </li>
           ))}
       </ul>
+
+      <h2 className="h2">
+        Family badges
+        <small>{earned} of {badges.length}</small>
+      </h2>
+      <div className="badges">
+        {[...badges].sort((a, b) => Number(b.earned) - Number(a.earned)).map((b) => (
+          <BadgeTile key={b.id} badge={b} />
+        ))}
+      </div>
 
       {s.disagreements.length > 0 && (
         <>

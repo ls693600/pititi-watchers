@@ -427,3 +427,22 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .ep.w { background: var(--grad); color: #fff; }
 .ep.n { box-shadow: inset 0 0 0 2px var(--brand); color: var(--brand-ink); background: transparent; }
 .ep.u { opacity: 0.45; }
+
+/* Taste match + badges */
+.match { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+.match.big { padding: 18px; gap: 18px; }
+.ring { border-radius: 50%; display: grid; place-items: center; flex: none; }
+.ring > div { border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-family: var(--display); font-weight: 900; color: var(--text); }
+.match-names { font-family: var(--display); font-weight: 800; font-size: 17px; margin-top: 6px; }
+.match:not(.big) .match-names { font-size: 15px; }
+.match-sub { font-size: 13.5px; line-height: 1.4; }
+.matches { display: flex; flex-direction: column; gap: 10px; }
+.badges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.bdg { background: var(--surface); border-radius: 20px; padding: 14px 8px 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.bdg .medal { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; color: #fff; margin-bottom: 2px; }
+.bdg.locked .medal { color: var(--muted); }
+.bdg b { font-size: 13px; line-height: 1.2; }
+.bdg small { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.bdg.locked b { color: var(--text-2); }
+.bdg-progress { width: 70%; height: 4px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+.bdg-progress i { display: block; height: 100%; background: var(--grad); }

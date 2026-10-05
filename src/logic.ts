@@ -267,3 +267,101 @@ export function airLabel(date: string, now = new Date()): string {
   if (diff === 1) return 'Tomorrow'
   return day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
+
+export interface TasteMatch {
+  a: string
+  b: string
+  /** 0–100: how close their stars are, on shows both rated */
+  score: number
+  shared: number
+  /** Shows within one star of each other */
+  agreed: number
+  /** Biggest gap between them, if 2+ stars */
+  clash: { watch: Watch; diff: number } | null
+}
+
+/** Shows both people rated, needed before a match score means anything. */
+export const MATCH_MIN_SHARED = 3
+
+/** Taste match for every pair who rated at least one show together. Strongest data first. */
+export function tasteMatches(list: Watch[], personIds: string[]): TasteMatch[] {
+  const out: TasteMatch[] = []
+  for (let i = 0; i < personIds.length; i++) {
+    for (let j = i + 1; j < personIds.length; j++) {
+      const a = personIds[i]
+      const b = personIds[j]
+      const both = list.filter((w) => w.ratings[a] != null && w.ratings[b] != null)
+      if (!both.length) continue
+      const diffs = both.map((w) => ({ watch: w, diff: Math.abs(w.ratings[a] - w.ratings[b]) }))
+      const closeness = diffs.reduce((s, d) => s + (1 - d.diff / 4), 0) / diffs.length
+      const worst = diffs.reduce((m, d) => (d.diff > m.diff ? d : m), diffs[0])
+      out.push({
+        a,
+        b,
+        score: Math.round(closeness * 100),
+        shared: both.length,
+        agreed: diffs.filter((d) => d.diff <= 1).length,
+        clash: worst.diff >= 2 ? worst : null,
+      })
+    }
+  }
+  return out.sort((x, y) => y.shared - x.shared || y.score - x.score)
+}
+
+export interface Badge {
+  id: string
+  title: string
+  detail: string
+  progress: number
+  target: number
+  earned: boolean
+}
+
+/** Longest run of consecutive months with at least one log. */
+export function monthStreak(list: Watch[]): number {
+  const months = [...new Set(list.map((w) => w.month))].sort()
+  let best = 0
+  let run = 0
+  let prev: string | null = null
+  for (const m of months) {
+    run = prev && shiftMonth(prev, 1) === m ? run + 1 : 1
+    best = Math.max(best, run)
+    prev = m
+  }
+  return best
+}
+
+/** Family badges, all computed from what's already logged. */
+export function familyBadges(list: Watch[]): Badge[] {
+  const perfect = list.filter((w) => w.watchedBy.length > 1 && averageRating(w) != null && ratingSpread(w) === 0).length
+  const busiestMonthEpisodes = Math.max(0, ...[...new Set(list.map((w) => w.month))].map((m) => summarize(watchesInMonth(list, m)).episodes))
+  const genres = new Set(list.flatMap((w) => w.genres))
+  const lateNight = list.filter((w) => {
+    const h = new Date(w.createdAt).getHours()
+    return h >= 1 && h < 5
+  }).length
+  const make = (id: string, title: string, detail: string, progress: number, target: number): Badge => ({
+    id,
+    title,
+    detail,
+    progress: Math.min(progress, target),
+    target,
+    earned: progress >= target,
+  })
+  return [
+    make('streak', 'On a roll', 'Log shows 3 months in a row', monthStreak(list), 3),
+    make('binge', 'Binge mode', '50 episodes in one month', busiestMonthEpisodes, 50),
+    make('soulmates', 'Soulmates', '5 perfect matches', perfect, 5),
+    make('family-night', 'Family night', 'A show watched by 3 or more', Math.max(0, ...list.map((w) => w.watchedBy.length)), 3),
+    make('debate', 'Agree to disagree', 'A show 3+ stars apart', Math.max(0, ...list.filter((w) => averageRating(w) != null).map(ratingSpread)), 3),
+    make('rewatch', 'Rewatch royalty', '5 rewatches', list.filter((w) => w.isRewatch).length, 5),
+    make('explorer', 'Explorer', 'Shows from 6 genres', genres.size, 6),
+    make('night-owl', 'Night owl', 'Log a show after 1 AM', lateNight, 1),
+    make('centurion', 'Centurion', '100 different shows', uniqueShows(list), 100),
+  ]
+}
+
+/** Badges earned now that weren't before, for the "badge unlocked" moment. */
+export function newlyEarned(badges: Badge[], seen: Set<string>): Badge[] {
+  return badges.filter((b) => b.earned && !seen.has(b.id))
+}

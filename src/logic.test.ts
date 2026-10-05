@@ -8,6 +8,10 @@ import {
   airLabel,
   tapEpisode,
   pendingReveals,
+  familyBadges,
+  monthStreak,
+  newlyEarned,
+  tasteMatches,
   pickTonight,
   rankUpNext,
   toggleWant,
@@ -297,5 +301,64 @@ describe('show page', () => {
     expect(plainText('<p><b>Mark</b> leads a team &amp; more</p>')).toBe('Mark leads a team & more')
     expect(plainText(null)).toBeNull()
     expect(plainText('<p></p>')).toBeNull()
+  })
+})
+
+describe('taste match', () => {
+  it('scores how close two people rate, on shows both rated', () => {
+    const list = [
+      watch({ ratings: { L: 5, A: 5 } }),
+      watch({ ratings: { L: 4, A: 5 } }),
+      watch({ ratings: { L: 5, A: 1 }, showName: 'The Office' }),
+      watch({ ratings: { L: 3 } }),
+    ]
+    const [m] = tasteMatches(list, ['L', 'A'])
+    // closeness: 1, 0.75, 0 -> 58%
+    expect(m.score).toBe(58)
+    expect(m.shared).toBe(3)
+    expect(m.agreed).toBe(2)
+    expect(m.clash?.watch.showName).toBe('The Office')
+    expect(m.clash?.diff).toBe(4)
+  })
+  it('leaves out pairs who never rated together and orders by shared shows', () => {
+    const list = [
+      watch({ watchedBy: ['L', 'A'], ratings: { L: 4, A: 4 } }),
+      watch({ watchedBy: ['L', 'A'], ratings: { L: 3, A: 3 } }),
+      watch({ watchedBy: ['A', 'M'], ratings: { A: 2, M: 2 } }),
+    ]
+    const pairs = tasteMatches(list, ['L', 'A', 'M']).map((m) => `${m.a}${m.b}:${m.score}:${m.clash ? 'x' : '-'}`)
+    expect(pairs).toEqual(['LA:100:-', 'AM:100:-'])
+  })
+})
+
+describe('badges', () => {
+  it('counts the longest run of consecutive months', () => {
+    const m = (month: string) => watch({ month })
+    expect(monthStreak([m('2026-08'), m('2026-09'), m('2026-10'), m('2026-05')])).toBe(3)
+    expect(monthStreak([m('2025-12'), m('2026-01')])).toBe(2)
+    expect(monthStreak([])).toBe(0)
+  })
+  it('earns badges from logged data and tracks progress', () => {
+    const list = [
+      watch({ showId: 1, month: '2026-08', ratings: { L: 5, A: 5 }, genres: ['Drama'] }),
+      watch({ showId: 2, month: '2026-09', ratings: { L: 5, A: 1 }, genres: ['Comedy'] }),
+      watch({ showId: 3, month: '2026-10', watchedBy: ['L', 'A', 'M'], ratings: {}, isRewatch: true, genres: ['Drama'] }),
+    ]
+    const b = Object.fromEntries(familyBadges(list).map((x) => [x.id, x]))
+    expect(b.streak.earned).toBe(true)
+    expect(b['family-night'].earned).toBe(true)
+    expect(b.debate.earned).toBe(true)
+    expect(b.soulmates).toMatchObject({ progress: 1, target: 5, earned: false })
+    expect(b.explorer).toMatchObject({ progress: 2, earned: false })
+    expect(b.rewatch.progress).toBe(1)
+    expect(b.centurion.progress).toBe(3)
+  })
+  it('handles an empty log', () => {
+    expect(familyBadges([]).every((b) => !b.earned && b.progress === 0)).toBe(true)
+  })
+  it('finds badges earned since last time', () => {
+    const list = familyBadges([watch({ watchedBy: ['L', 'A', 'M'] })])
+    expect(newlyEarned(list, new Set()).map((b) => b.id)).toEqual(['family-night'])
+    expect(newlyEarned(list, new Set(['family-night']))).toEqual([])
   })
 })
