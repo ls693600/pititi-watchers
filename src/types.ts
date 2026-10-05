@@ -35,3 +35,19 @@ export interface Watch {
   createdAt: string
   updatedAt: string
 }
+
+/** A show the family wants to watch, with hearts. */
+export interface UpNextItem {
+  id: string
+  showId: number
+  showName: string
+  poster: string | null
+  network: string | null
+  genres: string[]
+  year: string | null
+  runtime: number | null
+  addedBy: string | null
+  /** Person ids who want to watch it */
+  wantedBy: string[]
+  createdAt: string
+}

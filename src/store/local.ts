@@ -1,9 +1,10 @@
-import { newId } from '../logic'
-import type { Person, Watch } from '../types'
+import { newId, toggleWant } from '../logic'
+import type { Person, UpNextItem, Watch } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
 const PEOPLE = 'pititi.people.v2'
+const UP_NEXT = 'pititi.upnext.v1'
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -20,12 +21,17 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 function read(): Snapshot {
-  return { watches: readJson<Watch[]>(WATCHES, []), people: readJson<Person[]>(PEOPLE, DEFAULT_PEOPLE) }
+  return {
+    watches: readJson<Watch[]>(WATCHES, []),
+    people: readJson<Person[]>(PEOPLE, DEFAULT_PEOPLE),
+    upNext: readJson<UpNextItem[]>(UP_NEXT, []),
+  }
 }
 
 function write(snap: Snapshot) {
   localStorage.setItem(WATCHES, JSON.stringify(snap.watches))
   localStorage.setItem(PEOPLE, JSON.stringify(snap.people))
+  localStorage.setItem(UP_NEXT, JSON.stringify(snap.upNext))
 }
 
 /** Single-device mode, used when Supabase isn't configured. */
@@ -52,8 +58,28 @@ export const localStore: Store = {
     const snap = read()
     write({ ...snap, people: snap.people.map((p) => (p.id === id ? { ...p, name } : p)) })
   },
+  async addUpNext(item) {
+    const snap = read()
+    write({ ...snap, upNext: [...snap.upNext.filter((x) => x.showId !== item.showId), item] })
+  },
+  async toggleWant(itemId, personId) {
+    const snap = read()
+    let result: string[] = []
+    const upNext = snap.upNext.map((x) => {
+      if (x.id !== itemId) return x
+      const next = toggleWant(x, personId)
+      result = next.wantedBy
+      return next
+    })
+    write({ ...snap, upNext })
+    return result
+  },
+  async removeUpNext(id) {
+    const snap = read()
+    write({ ...snap, upNext: snap.upNext.filter((x) => x.id !== id) })
+  },
   subscribe(onChange) {
-    const handler = (e: StorageEvent) => (e.key === WATCHES || e.key === PEOPLE) && onChange()
+    const handler = (e: StorageEvent) => (e.key === WATCHES || e.key === PEOPLE || e.key === UP_NEXT) && onChange()
     window.addEventListener('storage', handler)
     return () => window.removeEventListener('storage', handler)
   },

@@ -3,8 +3,8 @@ import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
-import { averageRating, canEditRating, canSeeRating, defaultSeason, monthLabel, pendingRaters, timesWatched, withSeason } from '../logic'
-import { bigPoster, getSeasons, type SeasonInfo } from '../tvmaze'
+import { airLabel, averageRating, canEditRating, canSeeRating, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatched, withSeason } from '../logic'
+import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 
 interface Props {
@@ -25,6 +25,9 @@ interface Props {
 export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
+  const [info, setInfo] = useState<ShowInfo | null>(null)
+  const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
+  const [moreSynopsis, setMoreSynopsis] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Read the latest list without re-running the season fetch on every live sync
   const watchesRef = useRef(watches)
@@ -49,6 +52,30 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       alive = false
     }
   }, [initial.showId, initial.totalEpisodes, isNew])
+
+  // Synopsis, rating and the next air date (best effort: the page works without them)
+  useEffect(() => {
+    let alive = true
+    getShowInfo(initial.showId)
+      .then((i) => alive && setInfo(i))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [initial.showId])
+
+  // Episode grid for the season being logged
+  const seasonId = seasons?.find((x) => x.number === w.season)?.id
+  useEffect(() => {
+    if (!seasonId) return
+    let alive = true
+    getEpisodes(seasonId)
+      .then((e) => alive && setEpisodes(e))
+      .catch(() => alive && setEpisodes(null))
+    return () => {
+      alive = false
+    }
+  }, [seasonId])
 
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
   const avg = averageRating(w)
@@ -105,6 +132,38 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           </div>
         </div>
       </div>
+
+      {info && (
+        <section className="show-info">
+          <div className="meta-pills">
+            {info.rating != null && (
+              <span>
+                <b className="gold">★</b> {info.rating.toFixed(1)}
+              </span>
+            )}
+            {info.status && <span>{info.status === 'Running' ? 'Still airing' : info.status === 'Ended' ? 'Ended' : info.status}</span>}
+            {info.runtime != null && <span>~{info.runtime} min</span>}
+            {seasons && seasons.length > 0 && <span>{seasons.filter((x) => x.aired).length || seasons.length} seasons</span>}
+          </div>
+          {info.summary && (
+            <button className={`synopsis ${moreSynopsis ? 'open' : ''}`} onClick={() => setMoreSynopsis(!moreSynopsis)} aria-expanded={moreSynopsis}>
+              {info.summary}
+            </button>
+          )}
+          {info.nextEpisode && (
+            <div className="next-air">
+              <span className="next-air-icon"><Icon name="calendar" size={20} /></span>
+              <div>
+                <b>Next episode: {airLabel(info.nextEpisode.airdate)}</b>
+                <p className="muted">
+                  S{info.nextEpisode.season} E{info.nextEpisode.number}
+                  {info.nextEpisode.name ? ` · ${info.nextEpisode.name}` : ''}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="card">
         <p className="field-label">Who watched?</p>
@@ -168,6 +227,34 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         )}
       </section>
 
+      {episodes && episodes.length > 0 && (
+        <section className="card pad">
+          <div className="eps-head">
+            <b>Season {w.season} · {w.episodesWatched} of {total ?? episodes.length}</b>
+            <span className="muted">Tap the last one you watched</span>
+          </div>
+          <div className="eps" role="group" aria-label={`Season ${w.season} episodes`}>
+            {episodes.map((e) => {
+              const watched = e.number <= w.episodesWatched
+              const next = e.number === w.episodesWatched + 1
+              const upcoming = e.airdate != null && e.airdate > new Date().toISOString().slice(0, 10)
+              return (
+                <button
+                  key={e.number}
+                  className={`ep ${watched ? 'w' : ''} ${next ? 'n' : ''} ${upcoming ? 'u' : ''}`}
+                  aria-pressed={watched}
+                  aria-label={`Episode ${e.number}${e.name ? `: ${e.name}` : ''}${upcoming && e.airdate ? `, airs ${airLabel(e.airdate)}` : ''}`}
+                  title={e.name}
+                  onClick={() => setW((cur) => tapEpisode({ ...cur, totalEpisodes: cur.totalEpisodes ?? episodes.length }, e.number))}
+                >
+                  {e.number}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="card">
         <label className="field">
           <span>Season</span>
@@ -215,6 +302,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           </div>
         </div>
 
+        {!(episodes && episodes.length > 0) && (
         <div className="field">
           <span>Episodes</span>
           <div className="stepper">
@@ -233,6 +321,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
             </button>
           </div>
         </div>
+        )}
 
         <label className="field">
           <span>Watched in</span>

@@ -5,7 +5,12 @@ import {
   canDelete,
   canEditRating,
   canSeeRating,
+  airLabel,
+  tapEpisode,
   pendingReveals,
+  pickTonight,
+  rankUpNext,
+  toggleWant,
   ratingSpread,
   verdict,
   pendingRaters,
@@ -19,6 +24,7 @@ import {
   yearStats,
 } from './logic'
 import { resolveTheme } from './theme'
+import { plainText } from './tvmaze'
 import type { Watch } from './types'
 
 function watch(over: Partial<Watch> = {}): Watch {
@@ -240,5 +246,56 @@ describe('evening theme', () => {
   it('respects a fixed choice', () => {
     expect(resolveTheme('light', new Date(2026, 9, 5, 23, 0))).toBe('light')
     expect(resolveTheme('dark', new Date(2026, 9, 5, 12, 0))).toBe('dark')
+  })
+})
+
+describe('up next', () => {
+  const item = (id: string, wantedBy: string[], createdAt = '2026-10-01') => ({ id, wantedBy, createdAt })
+  it('ranks by hearts, newest first on ties', () => {
+    const list = [item('a', ['L']), item('b', ['L', 'A', 'M']), item('c', ['A'], '2026-10-03')]
+    expect(rankUpNext(list).map((i) => i.id)).toEqual(['b', 'c', 'a'])
+  })
+  it('draws tonight\'s pick weighted by hearts', () => {
+    const list = [item('a', []), item('b', ['L', 'A', 'M'])] // tickets: a=1, b=4
+    expect(pickTonight(list, 0)?.id).toBe('a')
+    expect(pickTonight(list, 0.19)?.id).toBe('a')
+    expect(pickTonight(list, 0.21)?.id).toBe('b')
+    expect(pickTonight(list, 0.999)?.id).toBe('b')
+  })
+  it('picks again without repeating, and handles tiny lists', () => {
+    const list = [item('a', ['L']), item('b', ['L'])]
+    expect(pickTonight(list, 0.1, 'a')?.id).toBe('b')
+    expect(pickTonight([item('a', [])], 0.5, 'a')?.id).toBe('a')
+    expect(pickTonight([], 0.5)).toBeNull()
+  })
+  it('toggles a heart on and off', () => {
+    const on = toggleWant(item('a', ['L']), 'A')
+    expect(on.wantedBy).toEqual(['L', 'A'])
+    expect(toggleWant(on, 'L').wantedBy).toEqual(['A'])
+  })
+})
+
+describe('show page', () => {
+  it('marks everything up to the tapped episode', () => {
+    const w = tapEpisode(watch({ episodesWatched: 2, totalEpisodes: 10, status: 'watching' }), 6)
+    expect([w.episodesWatched, w.status]).toEqual([6, 'watching'])
+  })
+  it('finishes the season on the last episode, and un-watches on a repeat tap', () => {
+    const done = tapEpisode(watch({ episodesWatched: 9, totalEpisodes: 10, status: 'watching' }), 10)
+    expect([done.episodesWatched, done.status]).toEqual([10, 'done'])
+    const back = tapEpisode(done, 10)
+    expect([back.episodesWatched, back.status]).toEqual([9, 'watching'])
+    expect(tapEpisode(watch({ episodesWatched: 1, totalEpisodes: 10 }), 1).episodesWatched).toBe(0)
+  })
+  it('labels air dates', () => {
+    const now = new Date(2026, 9, 5)
+    expect(airLabel('2026-10-05', now)).toBe('Today')
+    expect(airLabel('2026-10-06', now)).toBe('Tomorrow')
+    expect(airLabel('2026-10-09', now)).toBe('Fri, Oct 9')
+  })
+  it('turns TVmaze HTML into plain text', () => {
+    expect(plainText('<p><b>Mark</b> leads a team &amp; more</p>')).toBe('Mark leads a team & more')
+    expect(plainText(null)).toBeNull()
+    expect(plainText('<p></p>')).toBeNull()
   })
 })

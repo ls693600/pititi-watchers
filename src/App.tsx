@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -10,23 +10,25 @@ import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Stats } from './screens/Stats'
+import { UpNext } from './screens/UpNext'
 import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { ShowResult } from './tvmaze'
-import type { Person, Watch } from './types'
+import type { Person, UpNextItem, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
-type Tab = 'home' | 'search' | 'stats' | 'family' | 'settings'
+type Tab = 'home' | 'upnext' | 'search' | 'stats' | 'family' | 'settings'
+// Settings lives behind your avatar (Home) and the gear on Family
 const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
   [
     { id: 'home', icon: 'home', label: 'Home' },
-    { id: 'stats', icon: 'chart', label: 'Stats' },
+    { id: 'upnext', icon: 'list', label: 'Up Next' },
   ],
   [
+    { id: 'stats', icon: 'chart', label: 'Stats' },
     { id: 'family', icon: 'users', label: 'Family' },
-    { id: 'settings', icon: 'settings', label: 'Settings' },
   ],
 ]
 
@@ -94,9 +96,19 @@ export default function App() {
   const [auth, setAuth] = useState<Auth>(CLOUD_ENABLED ? { state: 'checking' } : { state: 'ready', session: null })
   const [watches, setWatches] = useState<Watch[]>([])
   const [people, setPeople] = useState<Person[]>([])
+  const [upNext, setUpNext] = useState<UpNextItem[]>([])
+  /** Up Next item being logged via Quick log; removed from the list once logged */
+  const [fromUpNext, setFromUpNext] = useState<string | null>(null)
   const [filter, setFilter] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
-  const [tab, setTab] = useState<Tab>('home')
+  const [tab, setTabState] = useState<Tab>('home')
+  const prevTab = useRef<Tab>('home')
+  const setTab = (t: Tab) => {
+    setTabState((cur) => {
+      if (t === 'settings' && cur !== 'settings') prevTab.current = cur
+      return t
+    })
+  }
   const [month, setMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -146,6 +158,7 @@ export default function App() {
       const snap = await store.load()
       setWatches(snap.watches)
       setPeople(snap.people)
+      setUpNext(snap.upNext)
       setOffline(false)
       queueReveals(snap.watches)
     } catch {
@@ -153,6 +166,7 @@ export default function App() {
       const snap = cache.read()
       setWatches(snap.watches)
       setPeople(snap.people)
+      setUpNext(snap.upNext ?? [])
       setOffline(true)
     }
   }, [queueReveals])
@@ -194,10 +208,65 @@ export default function App() {
     const ok = await persist(w, isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved')
     setSaving(false)
     if (ok) {
+      // Logged from Up Next: it's being watched now, so it leaves the queue
+      const queued = upNext.find((i) => i.id === fromUpNext || i.showId === w.showId)
+      if (queued && isNew) removeQueued(queued, true)
+      setFromUpNext(null)
       setDetail(null)
       setQuick(null)
       setMonth(w.month)
       setTab('home')
+    }
+  }
+
+  async function queueShow(show: ShowResult) {
+    if (upNext.some((i) => i.showId === show.showId)) return
+    const item: UpNextItem = {
+      id: newId(),
+      showId: show.showId,
+      showName: show.showName,
+      poster: show.poster,
+      network: show.network,
+      genres: show.genres,
+      year: show.year,
+      runtime: show.runtime,
+      addedBy: viewerRef.current ?? me,
+      // Saving a show counts as wanting it
+      wantedBy: me ? [me] : [],
+      createdAt: new Date().toISOString(),
+    }
+    setUpNext((list) => [...list, item])
+    try {
+      await store.addUpNext(item)
+      flash(`${show.showName} saved to Up Next`)
+    } catch (e) {
+      setUpNext((list) => list.filter((x) => x.id !== item.id))
+      flash((e as Error).message || "Couldn't save it. Check your connection.")
+    }
+  }
+
+  async function toggleHeart(item: UpNextItem) {
+    if (!me) return
+    const prev = upNext
+    setUpNext((list) => list.map((x) => (x.id === item.id ? toggleWant(x, me) : x)))
+    try {
+      const wantedBy = await store.toggleWant(item.id, me)
+      setUpNext((list) => list.map((x) => (x.id === item.id ? { ...x, wantedBy } : x)))
+    } catch {
+      setUpNext(prev)
+      flash("Couldn't save your heart. Check your connection.")
+    }
+  }
+
+  async function removeQueued(item: UpNextItem, quiet = false) {
+    const prev = upNext
+    setUpNext((list) => list.filter((x) => x.id !== item.id))
+    try {
+      await store.removeUpNext(item.id)
+      if (!quiet) flash(`${item.showName} removed from Up Next`)
+    } catch (e) {
+      setUpNext(prev)
+      if (!quiet) flash((e as Error).message || "Couldn't remove it. Check your connection.")
     }
   }
 
@@ -291,9 +360,29 @@ export default function App() {
             onAdd={() => setTab('search')}
           />
         ) : tab === 'search' ? (
-          <Search watches={watches} month={month} onPick={(show) =>
-              setQuick(draftFrom(show, month, defaultWatchers(watches, people, me), me))
-            } />
+          <Search
+            watches={watches}
+            month={month}
+            queued={new Set(upNext.map((i) => i.showId))}
+            onQueue={queueShow}
+            onPick={(show) => setQuick(draftFrom(show, month, defaultWatchers(watches, people, me), me))}
+          />
+        ) : tab === 'upnext' ? (
+          <UpNext
+            items={upNext}
+            people={people}
+            me={me}
+            canRemove={(item) => isAdmin || item.addedBy === me}
+            onToggle={toggleHeart}
+            onRemove={(item) => removeQueued(item)}
+            onFind={() => setTab('search')}
+            onLog={(item) => {
+              setFromUpNext(item.id)
+              // Everyone who hearted it is probably watching together
+              const watchers = item.wantedBy.length ? item.wantedBy : defaultWatchers(watches, people, me)
+              setQuick(draftFrom(item, currentMonth(), watchers, me))
+            }}
+          />
         ) : tab === 'stats' ? (
           <Stats
             watches={watches}
@@ -310,6 +399,8 @@ export default function App() {
           <Settings
             key={tab}
             view={tab === 'family' ? 'family' : 'account'}
+            onOpenSettings={() => setTab('settings')}
+            onBack={() => setTab(prevTab.current)}
             mode={store.mode}
             session={auth.session}
             isAdmin={isAdmin}
@@ -345,7 +436,10 @@ export default function App() {
             setQuick(null)
             setDetail({ watch: w, isNew: true })
           }}
-          onClose={() => setQuick(null)}
+          onClose={() => {
+            setQuick(null)
+            setFromUpNext(null)
+          }}
         />
       )}
 

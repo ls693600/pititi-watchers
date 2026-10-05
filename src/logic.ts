@@ -219,3 +219,51 @@ export function withSeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
 export function defaultSeason(seasons: SeasonInfo[]): SeasonInfo | undefined {
   return seasons.filter((x) => x.aired).at(-1) ?? seasons[0]
 }
+
+/** Most wanted first; ties go to the most recently added. */
+export function rankUpNext<T extends { wantedBy: string[]; createdAt: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => b.wantedBy.length - a.wantedBy.length || b.createdAt.localeCompare(a.createdAt))
+}
+
+/**
+ * Tonight's pick: a weighted draw where every heart is a ticket (plus one so nothing is impossible).
+ * Pass `exclude` to "pick again" without landing on the same show.
+ */
+export function pickTonight<T extends { id: string; wantedBy: string[] }>(items: T[], rand = Math.random(), exclude?: string): T | null {
+  const pool = items.filter((i) => i.id !== exclude)
+  if (!pool.length) return items[0] ?? null
+  const total = pool.reduce((s, i) => s + i.wantedBy.length + 1, 0)
+  let ticket = rand * total
+  for (const i of pool) {
+    ticket -= i.wantedBy.length + 1
+    if (ticket < 0) return i
+  }
+  return pool[pool.length - 1]
+}
+
+/** Toggle one person's heart (local mirror of the database function). */
+export function toggleWant<T extends { wantedBy: string[] }>(item: T, personId: string): T {
+  const has = item.wantedBy.includes(personId)
+  return { ...item, wantedBy: has ? item.wantedBy.filter((x) => x !== personId) : [...item.wantedBy, personId] }
+}
+
+/**
+ * Tap an episode in the grid: everything up to it is watched.
+ * Tapping your latest watched episode again un-watches it (fixes a mis-tap).
+ */
+export function tapEpisode(w: Watch, n: number): Watch {
+  const watched = n === w.episodesWatched ? n - 1 : n
+  const done = w.totalEpisodes != null && watched >= w.totalEpisodes
+  return { ...w, episodesWatched: Math.max(0, watched), status: done ? 'done' : 'watching' }
+}
+
+/** "Thu, Oct 9" for an ISO date, or "Today"/"Tomorrow". */
+export function airLabel(date: string, now = new Date()): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const day = new Date(y, m - 1, d)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  return day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}

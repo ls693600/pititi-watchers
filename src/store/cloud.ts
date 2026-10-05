@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Person, Watch } from '../types'
+import type { Person, UpNextItem, Watch } from '../types'
 import { cache } from './local'
 import type { Session, Store } from './store'
 
@@ -81,6 +81,34 @@ const fromRow = (r: WatchRow, ratings: Record<string, number>): Watch => ({
   createdBy: r.created_by ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
+})
+
+interface UpNextRow {
+  id: string
+  show_id: number
+  show_name: string
+  poster: string | null
+  network: string | null
+  genres: string[]
+  year: string | null
+  runtime: number | null
+  added_by: string | null
+  wanted_by: string[]
+  created_at: string
+}
+
+const toUpNext = (r: UpNextRow): UpNextItem => ({
+  id: r.id,
+  showId: r.show_id,
+  showName: r.show_name,
+  poster: r.poster,
+  network: r.network,
+  genres: r.genres ?? [],
+  year: r.year,
+  runtime: r.runtime,
+  addedBy: r.added_by,
+  wantedBy: r.wanted_by ?? [],
+  createdAt: r.created_at,
 })
 
 const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id, isAdmin: Boolean(r.is_admin) })
@@ -175,12 +203,15 @@ export async function renewInviteCode(): Promise<string> {
 export const cloudStore: Store = {
   mode: 'cloud',
   async load() {
-    const [w, r, p] = await Promise.all([
+    const [w, r, p, u] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase().from('ratings').select('watch_id, person_id, stars'),
       supabase().from('people').select('id, name, user_id, is_admin').order('created_at'),
+      supabase().from('up_next').select('*'),
     ])
     if (w.error) throw w.error
+    // Up Next is optional: a missing table (migration not run yet) must not take the whole app offline
+    if (u.error) console.warn('Up Next unavailable:', u.error.message)
     if (r.error) throw r.error
     if (p.error) throw p.error
     const byWatch = new Map<string, Record<string, number>>()
@@ -190,6 +221,7 @@ export const cloudStore: Store = {
     const snap = {
       watches: (w.data as WatchRow[]).map((row) => fromRow(row, byWatch.get(row.id) ?? {})),
       people: (p.data as PersonRow[]).map(toPerson),
+      upNext: u.error ? [] : (u.data as UpNextRow[]).map(toUpNext),
     }
     cache.write(snap)
     return snap
@@ -217,6 +249,31 @@ export const cloudStore: Store = {
     if (error) throw error
     if (!data?.length) throw new Error('Only Leandro or the person who added it can remove this.')
   },
+  async addUpNext(item) {
+    const { error } = await supabase().from('up_next').insert({
+      id: item.id,
+      show_id: item.showId,
+      show_name: item.showName,
+      poster: item.poster,
+      network: item.network,
+      genres: item.genres,
+      year: item.year,
+      runtime: item.runtime,
+      wanted_by: item.wantedBy,
+    })
+    if (error?.code === '23505') throw new Error('That show is already in Up Next.')
+    if (error) throw error
+  },
+  async toggleWant(itemId, personId) {
+    const { data, error } = await supabase().rpc('toggle_want', { item: itemId, person: personId })
+    if (error) throw error
+    return (data as string[]) ?? []
+  },
+  async removeUpNext(id) {
+    const { data, error } = await supabase().from('up_next').delete().eq('id', id).select('id')
+    if (error) throw error
+    if (!data?.length) throw new Error('Only Leandro or the person who added it can remove this.')
+  },
   async addPerson(name) {
     const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id, is_admin').single()
     if (error) throw error
@@ -238,6 +295,7 @@ export const cloudStore: Store = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'watches' }, ping)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, ping)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'up_next' }, ping)
       .subscribe()
     return () => {
       clearTimeout(t)

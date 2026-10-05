@@ -9,10 +9,13 @@ interface Props {
   watches: Watch[]
   /** Month new logs go into (the month open on Home) */
   month: string
+  /** Shows already in Up Next */
+  queued: Set<number>
+  onQueue: (show: ShowResult) => void
   onPick: (show: ShowResult) => void
 }
 
-export function Search({ watches, month, onPick }: Props) {
+export function Search({ watches, month, queued, onQueue, onPick }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ShowResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -58,6 +61,9 @@ export function Search({ watches, month, onPick }: Props) {
       <span className={`month-chip ${month === currentMonth() ? '' : 'past'}`}>
         <Icon name="calendar" size={15} /> Adding to {monthLabel(month)}
       </span>
+      <p className="muted" style={{ marginTop: -8 }}>
+        Tap a show to log it, or <Icon name="bookmark" size={13} stroke={2.4} /> to save it for later.
+      </p>
       <div className="searchbox">
         <Icon name="search" size={20} />
         <input
@@ -82,14 +88,21 @@ export function Search({ watches, month, onPick }: Props) {
       {(query.trim() ? results : recent).length > 0 && (
         <ul className="card">
           {(query.trim() ? results : recent).map((s) => (
-            <li key={s.showId}>
-              <button className="lrow" onClick={() => onPick(s)}>
+            <li key={s.showId} className="qrow">
+              <button className="qrow-main" onClick={() => onPick(s)} aria-label={`Log ${s.showName}`}>
                 <Poster src={s.poster} name={s.showName} w={46} />
                 <span className="lrow-text">
                   <span className="lrow-title">{s.showName}</span>
                   <span className="muted">{[s.year, s.network, s.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</span>
                 </span>
-                <span className="chev"><Icon name="plus" size={20} /></span>
+              </button>
+              <button
+                className={`queue-btn ${queued.has(s.showId) ? 'on' : ''}`}
+                aria-pressed={queued.has(s.showId)}
+                aria-label={queued.has(s.showId) ? `${s.showName} is in Up Next` : `Save ${s.showName} to Up Next`}
+                onClick={() => !queued.has(s.showId) && onQueue(s)}
+              >
+                <Icon name="bookmark" size={18} stroke={2.2} />
               </button>
             </li>
           ))}

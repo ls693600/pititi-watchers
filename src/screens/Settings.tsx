@@ -18,11 +18,15 @@ interface Props {
   onSignOut: () => void
   /** Family tab shows people and invites; Settings tab shows account and app */
   view: 'family' | 'account'
+  /** Family tab shows a gear that opens Settings */
+  onOpenSettings?: () => void
+  /** Settings has no tab of its own; this returns to where you came from */
+  onBack?: () => void
 }
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onBack }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -92,9 +96,21 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
 
   return (
     <div className="screen">
-      <header>
-        <p className="eyebrow">{view === 'family' ? 'Who watches with you' : 'Your account'}</p>
-        <h1 className="title-xl">{view === 'family' ? 'Family' : 'Settings'}</h1>
+      <header className="topbar">
+        {view === 'account' && onBack && (
+          <button className="icon-btn" aria-label="Back" onClick={onBack} style={{ marginRight: 4 }}>
+            <Icon name="left" size={20} />
+          </button>
+        )}
+        <div style={{ flex: 1 }}>
+          <p className="eyebrow">{view === 'family' ? 'Who watches with you' : 'Your account'}</p>
+          <h1 className="title-xl">{view === 'family' ? 'Family' : 'Settings'}</h1>
+        </div>
+        {view === 'family' && onOpenSettings && (
+          <button className="icon-btn" aria-label="Settings" onClick={onOpenSettings}>
+            <Icon name="settings" size={20} />
+          </button>
+        )}
       </header>
 
       {view === 'account' && me && (
