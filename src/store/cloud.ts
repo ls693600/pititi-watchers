@@ -19,6 +19,7 @@ interface WatchRow {
   month: string
   status: Watch['status']
   watched_by: string[]
+  episodes_by_month?: Record<string, number> | null
   created_by?: string | null
   is_rewatch: boolean
   notes: string
@@ -54,6 +55,7 @@ const toRow = (w: Watch): WatchRow => ({
   month: w.month,
   status: w.status,
   watched_by: w.watchedBy,
+  episodes_by_month: w.episodesByMonth ?? {},
   is_rewatch: w.isRewatch,
   notes: w.notes,
   created_at: w.createdAt,
@@ -75,6 +77,7 @@ const fromRow = (r: WatchRow, ratings: Record<string, number>): Watch => ({
   month: r.month,
   status: r.status,
   watchedBy: r.watched_by ?? [],
+  episodesByMonth: r.episodes_by_month ?? {},
   ratings,
   isRewatch: r.is_rewatch,
   notes: r.notes ?? '',
@@ -227,7 +230,13 @@ export const cloudStore: Store = {
     return snap
   },
   async save(w) {
-    const { error } = await supabase().from('watches').upsert(toRow(w))
+    let { error } = await supabase().from('watches').upsert(toRow(w))
+    if (error && /episodes_by_month/.test(error.message)) {
+      // Database not migrated yet (005): save without the monthly breakdown rather than failing
+      const row: Partial<WatchRow> = toRow(w)
+      delete row.episodes_by_month
+      ;({ error } = await supabase().from('watches').upsert(row))
+    }
     if (error) throw error
     const rated = Object.entries(w.ratings)
     // Clear ratings that were removed, then write the current ones

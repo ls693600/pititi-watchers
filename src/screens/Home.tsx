@@ -1,11 +1,12 @@
+import { useState } from 'react'
 import { Avatar, PersonFilter } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
-import { bigPoster } from '../tvmaze'
 import {
   averageRating,
-  byUpdatedDesc,
   currentMonth,
+  currentlyWatching,
+  episodesIn,
   monthLabel,
   pendingRaters,
   shiftMonth,
@@ -36,18 +37,19 @@ function greeting(now = new Date()): string {
   return h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
 
-function progressText(w: Watch): string {
-  if (w.status === 'done') return `Season ${w.season} · finished`
-  return w.totalEpisodes ? `Season ${w.season} · ${w.episodesWatched} of ${w.totalEpisodes}` : `Season ${w.season} · ${w.episodesWatched} eps`
-}
-
 export function Home(props: Props) {
   const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onAdd, onProfile } = props
   const mine = watchedByPerson(watches, filter)
   const list = watchesInMonth(mine, month)
-  const sum = summarize(list)
-  const hero = mine.filter((w) => w.status === 'watching').sort(byUpdatedDesc)[0]
+  // Only episodes watched this month count toward this month's numbers
+  const sum = summarize(list, month)
   const isCurrent = month === currentMonth()
+  const watching = currentlyWatching(mine)
+  // This month: in-progress shows live on the shelf above, so the grid shows what was finished
+  const grid = isCurrent ? list.filter((w) => w.status === 'done') : list
+  const [showAll, setShowAll] = useState(false)
+  const shelf = showAll ? watching : watching.slice(0, 4)
+  const monthName = monthLabel(month, 'long').split(' ')[0]
   const who = people.find((p) => p.id === filter)
   const meName = people.find((p) => p.id === me)?.name
 
@@ -65,38 +67,54 @@ export function Home(props: Props) {
         )}
       </header>
 
-      {hero && (
-        <div className="hero" role="group" aria-label={`Continue watching ${hero.showName}`}>
-          {hero.poster && <img src={bigPoster(hero.poster)!} alt="" className="hero-bg" />}
-          <button onClick={() => onOpen(hero)} aria-label={`Open ${hero.showName}`} style={{ flex: 'none' }}>
-            {hero.poster ? (
-              <img src={hero.poster} alt="" className="hero-poster" />
-            ) : (
-              <div className="hero-poster" style={{ width: 96, height: 140 }}>
-                <PosterFill src={null} name={hero.showName} />
-              </div>
-            )}
-          </button>
-          <div className="hero-body">
-            <span className="hero-kicker">
-              <Icon name="play" size={12} stroke={2.6} /> Continue watching
-            </span>
-            <button className="hero-title" style={{ textAlign: 'left' }} onClick={() => onOpen(hero)}>
-              {hero.showName}
+      {isCurrent && watching.length > 0 && (
+        <section aria-label="Currently watching">
+          <h2 className="h2" style={{ marginBottom: 10 }}>
+            Currently watching
+            <small>{watching.length} {watching.length === 1 ? 'show' : 'shows'}</small>
+          </h2>
+          <ul className="card shelf">
+            {shelf.map((w) => {
+              const thisMonth = episodesIn(w, month)
+              return (
+                <li key={w.id} className="shelf-row">
+                  <button className="shelf-main" onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`}>
+                    <span className="shelf-poster">
+                      <PosterFill src={w.poster} name={w.showName} />
+                    </span>
+                    <span className="lrow-text">
+                      <span className="lrow-title">{w.showName}</span>
+                      <span className="muted">
+                        S{w.season} · {w.totalEpisodes ? `${w.episodesWatched} of ${w.totalEpisodes}` : `${w.episodesWatched} eps`}
+                        {thisMonth > 0 ? ` · ${thisMonth} this month` : ''}
+                      </span>
+                      {w.totalEpisodes ? (
+                        <span className="bar" style={{ marginTop: 4 }}>
+                          <i style={{ width: `${(w.episodesWatched / w.totalEpisodes) * 100}%` }} />
+                        </span>
+                      ) : null}
+                      {w.watchedBy.length > 0 && (
+                        <span className="stack" style={{ marginTop: 4 }}>
+                          {w.watchedBy.map((id) => (
+                            <Avatar key={id} people={people} id={id} size={18} />
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <button className="ep-plus" onClick={() => onAddEpisode(w)} aria-label={`Mark next episode of ${w.showName} watched`}>
+                    <Icon name="plus" size={14} stroke={2.8} /> 1 ep
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          {watching.length > 4 && (
+            <button className="help-link" style={{ marginTop: 10 }} onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show fewer' : `Show all ${watching.length}`}
             </button>
-            <span className="hero-sub">{progressText(hero)}</span>
-            {hero.totalEpisodes ? (
-              <div className="bar">
-                <i style={{ width: `${(hero.episodesWatched / hero.totalEpisodes) * 100}%` }} />
-              </div>
-            ) : (
-              <div style={{ height: 8 }} />
-            )}
-            <button className="hero-plus" onClick={() => onAddEpisode(hero)}>
-              <Icon name="plus" size={16} stroke={2.6} /> Watched next episode
-            </button>
-          </div>
-        </div>
+          )}
+        </section>
       )}
 
       <div className="monthbar">
@@ -138,7 +156,7 @@ export function Home(props: Props) {
         </div>
       </div>
 
-      {list.length === 0 ? (
+      {list.length === 0 && !(isCurrent && watching.length) ? (
         <div className="empty">
           <div className="empty-icon"><Icon name="tv" size={30} /></div>
           <p className="empty-title">
@@ -154,11 +172,16 @@ export function Home(props: Props) {
       ) : (
         <>
           <h2 className="h2">
-            Watched {isCurrent ? 'this month' : `in ${monthLabel(month, 'long').split(' ')[0]}`}
-            <small>{list.length} {list.length === 1 ? 'log' : 'logs'}</small>
+            {isCurrent ? 'Watched this month' : `Watched in ${monthName}`}
+            <small>{isCurrent ? `${grid.length} finished` : `${grid.length} ${grid.length === 1 ? 'show' : 'shows'}`}</small>
           </h2>
+          {grid.length === 0 && (
+            <p className="muted" style={{ fontSize: 14.5, marginTop: -8 }}>
+              Nothing finished yet this month. Episodes you watch from the shows above still count in the numbers.
+            </p>
+          )}
           <div className="grid">
-            {list.map((w, i) => {
+            {grid.map((w, i) => {
               const avg = averageRating(w)
               return (
                 <div key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
@@ -181,11 +204,7 @@ export function Home(props: Props) {
                     {avg != null && w.status === 'done' && (
                       <span className="pcard-rating"><b>★</b>{avg.toFixed(1)}</span>
                     )}
-                    {w.status === 'watching' && (
-                      <button className="pcard-plus" onClick={() => onAddEpisode(w)} aria-label={`Mark next episode of ${w.showName} watched`}>
-                        +1 ep
-                      </button>
-                    )}
+                    {/* +1 lives on the Currently watching shelf; past months are a record, not a remote */}
                     {w.status === 'watching' && w.totalEpisodes ? (
                       <span className="pcard-progress"><i style={{ width: `${(w.episodesWatched / w.totalEpisodes) * 100}%` }} /></span>
                     ) : null}
@@ -195,7 +214,9 @@ export function Home(props: Props) {
                   </button>
                   <span className={`pcard-sub ${viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
                     {w.status === 'watching'
-                      ? `S${w.season} · ${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''} eps`
+                      ? isCurrent
+                        ? `S${w.season} · ${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''} eps`
+                        : `S${w.season} · ${episodesIn(w, month)} eps in ${monthName}`
                       : avg != null
                         ? `S${w.season}`
                         : viewer && w.watchedBy.includes(viewer) && w.ratings[viewer] == null

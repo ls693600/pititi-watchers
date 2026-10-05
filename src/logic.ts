@@ -58,8 +58,58 @@ export function byUpdatedDesc(a: Watch, b: Watch): number {
   return b.updatedAt.localeCompare(a.updatedAt)
 }
 
+/** Episodes per month for a log; older logs without the breakdown count everything in their month. */
+export function monthBuckets(w: Pick<Watch, 'month' | 'episodesWatched' | 'episodesByMonth'>): Record<string, number> {
+  const b = w.episodesByMonth
+  if (b && Object.keys(b).length) return b
+  return w.episodesWatched > 0 ? { [w.month]: w.episodesWatched } : {}
+}
+
+/** Episodes of this log watched in a given month. */
+export function episodesIn(w: Watch, month: string): number {
+  return monthBuckets(w)[month] ?? 0
+}
+
+/** A log belongs to every month it had episodes in, plus the month it was last logged in. */
+export function activeIn(w: Watch, month: string): boolean {
+  return w.month === month || episodesIn(w, month) > 0
+}
+
 export function watchesInMonth(all: Watch[], month: string): Watch[] {
-  return all.filter((w) => w.month === month).sort(byUpdatedDesc)
+  return all.filter((w) => activeIn(w, month)).sort(byUpdatedDesc)
+}
+
+/** Shows in progress, most recently touched first (not tied to a month). */
+export function currentlyWatching(all: Watch[]): Watch[] {
+  return all.filter((w) => w.status === 'watching').sort(byUpdatedDesc)
+}
+
+/**
+ * Keeps the per-month episode breakdown in step with a change.
+ * New episodes count in the log's month; removed episodes come off the latest months first;
+ * changing only the month of a single-month log moves its episodes with it.
+ */
+export function reconcileMonths(prev: Watch | null, next: Watch): Watch {
+  if (!prev) {
+    return { ...next, episodesByMonth: next.episodesWatched > 0 ? { [next.month]: next.episodesWatched } : {} }
+  }
+  const before = { ...monthBuckets(prev) }
+  const keys = Object.keys(before)
+  // Month edited with no new episodes = relocating the log (e.g. it was really watched last year)
+  const relocated = prev.month !== next.month && next.episodesWatched === prev.episodesWatched
+  if (relocated && keys.every((k) => k === prev.month)) {
+    return { ...next, episodesByMonth: next.episodesWatched > 0 ? { [next.month]: next.episodesWatched } : {} }
+  }
+  let delta = next.episodesWatched - prev.episodesWatched
+  if (delta > 0) before[next.month] = (before[next.month] ?? 0) + delta
+  for (const k of keys.sort().reverse()) {
+    if (delta >= 0) break
+    const take = Math.min(before[k], -delta)
+    before[k] -= take
+    delta += take
+  }
+  const episodesByMonth = Object.fromEntries(Object.entries(before).filter(([, n]) => n > 0))
+  return { ...next, episodesByMonth }
 }
 
 /** How many times this show-season has been logged in total. */
@@ -72,8 +122,15 @@ export function isPriorWatch(all: Watch[], showId: number, season: number, exclu
   return all.some((w) => w.showId === showId && w.season === season && w.id !== excludeId)
 }
 
-export function hoursWatched(list: Watch[]): number {
-  const minutes = list.reduce((sum, w) => sum + w.episodesWatched * (w.runtime ?? 0), 0)
+/** Episodes of a log in a period: one month, a set of months, or all time. */
+function episodesFor(w: Watch, months?: string | ((m: string) => boolean)): number {
+  if (months == null) return w.episodesWatched
+  if (typeof months === 'string') return episodesIn(w, months)
+  return Object.entries(monthBuckets(w)).reduce((s, [m, n]) => (months(m) ? s + n : s), 0)
+}
+
+export function hoursWatched(list: Watch[], months?: string | ((m: string) => boolean)): number {
+  const minutes = list.reduce((sum, w) => sum + episodesFor(w, months) * (w.runtime ?? 0), 0)
   return Math.round(minutes / 60)
 }
 
@@ -89,11 +146,12 @@ export function uniqueShows(list: Watch[]): number {
   return new Set(list.map((w) => w.showId)).size
 }
 
-export function summarize(list: Watch[]): Summary {
+/** Totals for a list of logs; pass a month (or month test) to count only episodes watched then. */
+export function summarize(list: Watch[], months?: string | ((m: string) => boolean)): Summary {
   return {
     shows: uniqueShows(list),
-    episodes: list.reduce((s, w) => s + w.episodesWatched, 0),
-    hours: hoursWatched(list),
+    episodes: list.reduce((s, w) => s + episodesFor(w, months), 0),
+    hours: hoursWatched(list, months),
     rewatches: list.filter((w) => w.isRewatch).length,
   }
 }
@@ -126,10 +184,11 @@ function mean(nums: number[]): number | null {
 }
 
 export function yearStats(all: Watch[], year: number, now = new Date()): YearStats {
-  const list = all.filter((w) => w.month.startsWith(`${year}-`))
+  const inYear = (m: string) => m.startsWith(`${year}-`)
+  const list = all.filter((w) => inYear(w.month) || Object.keys(monthBuckets(w)).some(inYear))
   const perMonth = Array.from({ length: 12 }, (_, i) => {
     const month = `${year}-${String(i + 1).padStart(2, '0')}`
-    return { month, count: uniqueShows(list.filter((w) => w.month === month)) }
+    return { month, count: uniqueShows(list.filter((w) => activeIn(w, month))) }
   })
   const rated = list
     .map((watch) => ({ watch, avg: averageRating(watch) }))
@@ -150,7 +209,7 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
     null,
   )
   return {
-    ...summarize(list),
+    ...summarize(list, inYear),
     perMonth,
     avgPerMonth: monthsElapsed ? counted.reduce((s, m) => s + m.count, 0) / monthsElapsed : 0,
     busiest,

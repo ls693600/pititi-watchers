@@ -57,6 +57,15 @@ const SECTIONS: Section[] = [
         ],
       },
       {
+        id: 'shelf',
+        q: 'What\'s the difference between Currently watching and Watched this month?',
+        a: [
+          'Currently watching lists every show you\'re in the middle of, no matter when you started it. Tap + 1 ep after each episode.',
+          'Watched this month shows what you finished this month.',
+          'Episodes from shows you\'re still watching count in this month\'s numbers too.',
+        ],
+      },
+      {
         id: 'month',
         q: 'How do I log something we watched in an earlier month?',
         a: ['On Home, use the arrows to go to that month, then tap +. The screen says "Adding to <month>".', 'You can also change "Watched in" on any show.'],
@@ -142,7 +151,8 @@ const SECTIONS: Section[] = [
         q: 'How are shows, episodes and hours counted?',
         a: [
           'Shows: different shows in that month or year (two seasons of the same show count once).',
-          'Episodes: episodes marked watched, aired ones only.',
+          'Episodes: counted in the month you watched them. Watch 5 in September and 5 in October, and each month gets 5.',
+          'Only aired episodes count.',
           'Hours: episodes × the show\'s average episode length, rounded.',
         ],
       },

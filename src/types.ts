@@ -30,6 +30,11 @@ export interface Watch {
   ratings: Record<string, number>
   isRewatch: boolean
   notes: string
+  /**
+   * Episodes watched in each month (YYYY-MM → count), so a show watched across several months
+   * counts in each of them. Older logs may not have it: then everything counts in `month`.
+   */
+  episodesByMonth?: Record<string, number>
   /** Person who added it; null for older logs. Only they or the admin can delete it. */
   createdBy: string | null
   createdAt: string

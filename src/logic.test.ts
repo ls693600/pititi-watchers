@@ -8,6 +8,9 @@ import {
   airLabel,
   tapEpisode,
   pendingReveals,
+  activeIn,
+  currentlyWatching,
+  reconcileMonths,
   capToAired,
   timesWatchedFor,
   withSeason,
@@ -392,5 +395,48 @@ describe('seasons still airing (MobLand bug)', () => {
     expect(timesWatchedFor(all, { id: 'x', showId: 1, season: 1 })).toBe(2)
     expect(timesWatchedFor(all, { id: 'x', showId: 1, season: 2 })).toBe(1)
     expect(timesWatchedFor(all, { id: 'new', showId: 1, season: 3 })).toBe(1)
+  })
+})
+
+describe('episodes counted in the month they were watched', () => {
+  const show = (over: Partial<Watch> = {}) =>
+    watch({ episodesWatched: 0, totalEpisodes: 10, status: 'watching', month: '2026-09', runtime: 60, episodesByMonth: {}, ...over })
+  it('splits a show watched across two months', () => {
+    const sept = reconcileMonths(null, show({ episodesWatched: 5 }))
+    const oct = reconcileMonths(sept, { ...sept, episodesWatched: 10, status: 'done', month: '2026-10' })
+    expect(oct.episodesByMonth).toEqual({ '2026-09': 5, '2026-10': 5 })
+    expect(summarize([oct], '2026-09')).toMatchObject({ shows: 1, episodes: 5, hours: 5 })
+    expect(summarize([oct], '2026-10')).toMatchObject({ shows: 1, episodes: 5, hours: 5 })
+    expect(activeIn(oct, '2026-09') && activeIn(oct, '2026-10')).toBe(true)
+    expect(activeIn(oct, '2026-08')).toBe(false)
+  })
+  it('counts +1 episode in the current month', () => {
+    const sept = reconcileMonths(null, show({ episodesWatched: 3 }))
+    const next = addEpisode(sept, new Date(2026, 9, 2))
+    expect(reconcileMonths(sept, next).episodesByMonth).toEqual({ '2026-09': 3, '2026-10': 1 })
+  })
+  it('takes removed episodes off the latest month first', () => {
+    const w = show({ episodesWatched: 8, episodesByMonth: { '2026-09': 5, '2026-10': 3 }, month: '2026-10' })
+    expect(reconcileMonths(w, { ...w, episodesWatched: 4 }).episodesByMonth).toEqual({ '2026-09': 4 })
+  })
+  it('moves a single-month log when its month changes (logging an old season)', () => {
+    const w = reconcileMonths(null, show({ episodesWatched: 10, status: 'done', month: '2026-10' }))
+    expect(reconcileMonths(w, { ...w, month: '2025-05' }).episodesByMonth).toEqual({ '2025-05': 10 })
+  })
+  it('treats older logs without a breakdown as all in their month', () => {
+    const old = show({ episodesWatched: 6, month: '2026-08', episodesByMonth: undefined })
+    expect(summarize([old], '2026-08').episodes).toBe(6)
+    expect(reconcileMonths(old, { ...old, episodesWatched: 7, month: '2026-10' }).episodesByMonth).toEqual({ '2026-08': 6, '2026-10': 1 })
+  })
+  it('year stats count each month separately', () => {
+    const w = show({ episodesWatched: 10, status: 'done', month: '2026-10', episodesByMonth: { '2025-12': 4, '2026-01': 6 } })
+    const y = yearStats([w], 2026, new Date(2026, 9, 5))
+    expect(y.episodes).toBe(6)
+    expect(y.perMonth[0].count).toBe(1)
+    expect(yearStats([w], 2025, new Date(2026, 9, 5)).episodes).toBe(4)
+  })
+  it('lists shows in progress regardless of month', () => {
+    const list = [show({ id: 'a', month: '2026-07' }), show({ id: 'b', status: 'done' }), show({ id: 'c', updatedAt: '2026-10-09' })]
+    expect(currentlyWatching(list).map((w) => w.id)).toEqual(['c', 'a'])
   })
 })

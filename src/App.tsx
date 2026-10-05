@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, familyBadges, newlyEarned, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, familyBadges, newlyEarned, reconcileMonths, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -238,8 +238,10 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [tab, detail?.watch.id])
 
-  async function persist(next: Watch, okMsg: string) {
+  async function persist(change: Watch, okMsg: string) {
     const prev = watches
+    // Record which month these episodes belong to
+    const next = reconcileMonths(prev.find((x) => x.id === change.id) ?? null, change)
     setWatches((list) => [...list.filter((x) => x.id !== next.id), next])
     try {
       await store.save(next)
