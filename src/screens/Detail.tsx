@@ -28,6 +28,8 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
   const [info, setInfo] = useState<ShowInfo | null>(null)
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
   const [moreSynopsis, setMoreSynopsis] = useState(false)
+  // Fixed for the life of the page; used to fade episodes that haven't aired
+  const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
   // Read the latest list without re-running the season fetch on every live sync
   const watchesRef = useRef(watches)
@@ -237,7 +239,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
             {episodes.map((e) => {
               const watched = e.number <= w.episodesWatched
               const next = e.number === w.episodesWatched + 1
-              const upcoming = e.airdate != null && e.airdate > new Date().toISOString().slice(0, 10)
+              const upcoming = e.airdate != null && e.airdate > today
               return (
                 <button
                   key={e.number}
