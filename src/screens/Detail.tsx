@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { averageRating, isPriorWatch, monthLabel, pendingRaters, timesWatched } from '../logic'
-import { getSeasons, type SeasonInfo } from '../tvmaze'
+import { bigPoster, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 
 interface Props {
@@ -14,12 +14,13 @@ interface Props {
   people: Person[]
   me: string | null
   saving: boolean
+  canDelete: boolean
   onSave: (w: Watch) => void
   onDelete: (w: Watch) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, saving, onSave, onDelete, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, saving, canDelete, onSave, onDelete, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -85,22 +86,23 @@ export function Detail({ initial, isNew, watches, people, me, saving, onSave, on
 
   return (
     <div className="screen detail">
-      <div className="detail-head">
-        {w.poster && <img src={w.poster} alt="" className="hero-bg" />}
-        <button className="icon-btn close" aria-label="Close" onClick={onClose}>
-          <Icon name="close" />
+      <div className="dhead">
+        {w.poster && <img src={bigPoster(w.poster)!} alt="" className="dhead-bg" />}
+        <button className="icon-btn glass close" aria-label="Close" onClick={onClose}>
+          <Icon name="close" size={20} />
         </button>
-        <div className="detail-id">
-          <Poster src={w.poster} name={w.showName} w={72} />
-          <div>
+        <div className="dhead-id">
+          <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
+          <div style={{ minWidth: 0, paddingBottom: 4 }}>
+            {isNew && <span className="badge admin" style={{ marginBottom: 8 }}>New log</span>}
             <h1>{w.showName}</h1>
-            <p className="muted">{[w.year, w.network, w.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</p>
+            <p className="dhead-meta">{[w.year, w.network, w.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
       </div>
 
       <section className="card">
-        <p className="field-label">Watched by</p>
+        <p className="field-label">Who watched?</p>
         <div className="chips" role="group" aria-label="Watched by">
           {people.map((p) => (
             <button
@@ -125,14 +127,15 @@ export function Detail({ initial, isNew, watches, people, me, saving, onSave, on
           </div>
         ))}
         {watchers.length > 0 && (
-          <div className="field average">
-            <span className="who">
-              Average {avg != null && <strong className="avg-num">{avg.toFixed(1)}</strong>}
+          <div className="avg-row">
+            <span className="label">
+              Average
+              {avg != null && <span className="big grad-text">{avg.toFixed(1)}</span>}
             </span>
             {avg != null ? (
-              <AvgStars value={avg} />
+              <AvgStars value={avg} size={24} />
             ) : (
-              <span className="muted">Waiting for {pendingRaters(w).map(nameOf).join(', ')}</span>
+              <span className="muted" style={{ textAlign: 'right' }}>Waiting for {pendingRaters(w).map(nameOf).join(', ')}</span>
             )}
           </div>
         )}
@@ -231,7 +234,7 @@ export function Detail({ initial, isNew, watches, people, me, saving, onSave, on
 
       <section className="card">
         <label className="notes">
-          <span className="muted">Notes</span>
+          <span className="field-label" style={{ paddingTop: 0 }}>Notes</span>
           <textarea
             value={w.notes}
             maxLength={1000}
@@ -245,9 +248,9 @@ export function Detail({ initial, isNew, watches, people, me, saving, onSave, on
 
       <div className="actions">
         <button className="btn primary block" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : isNew ? 'Add to log' : 'Save changes'}
+          {saving ? 'Saving…' : isNew ? `Add to ${monthLabel(w.month)}` : 'Save changes'}
         </button>
-        {!isNew && (
+        {!isNew && canDelete && (
           <button
             className="btn danger block"
             onClick={() => {

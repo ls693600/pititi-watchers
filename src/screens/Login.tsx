@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Icon } from '../components/Icon'
 import type { JoinAs, JoinOptions } from '../store/cloud'
+import { popularPosters } from '../tvmaze'
 
 interface Props {
   onSignIn: (email: string, password: string) => Promise<void>
@@ -22,6 +24,11 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [posters, setPosters] = useState<string[]>([])
+
+  useEffect(() => {
+    popularPosters().then(setPosters).catch(() => setPosters([]))
+  }, [])
 
   // Check the invite code as it's typed, then offer the matching profiles
   useEffect(() => {
@@ -79,10 +86,32 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
   }
 
   return (
-    <form className="screen login" onSubmit={submit} noValidate>
-      <div className="logo" aria-hidden="true">▶</div>
-      <h1>Pititi Watchers</h1>
-      <p className="muted center">The family TV log</p>
+    <form className="login" onSubmit={submit} noValidate>
+      <div className="mosaic" aria-hidden="true">
+        <div className="mosaic-grid">
+          {Array.from({ length: 4 }, (_, col) => (
+            <div key={col} className={col % 2 ? 'col2' : ''} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {Array.from({ length: 4 }, (_, row) => {
+                const src = posters[col * 4 + row]
+                return src ? (
+                  <img key={row} src={src} alt="" style={{ animationDelay: `${(col + row) * 60}ms` }} />
+                ) : (
+                  <div key={row} className="ph" />
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="login-body">
+      <div className="logo" aria-hidden="true">
+        <Icon name="tv" size={32} stroke={2.2} />
+      </div>
+      <h1>
+        Pititi <span className="grad-text">Watchers</span>
+      </h1>
+      <p className="tagline">Everything your family watches. Rated, remembered, together.</p>
 
       <div className="segmented wide" role="tablist" aria-label="Account">
         {(['signin', 'signup'] as const).map((m) => (
@@ -104,7 +133,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
 
       {mode === 'signup' && (
         <>
-          <label className="stack">
+          <label className="stack-field">
             <span className="muted">Invite code</span>
             <input
               value={code}
@@ -125,7 +154,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
           </label>
 
           {codeOk && (
-            <div className="stack">
+            <div className="stack-field">
               <span className="muted">I'm</span>
               <div className="chips" role="radiogroup" aria-label="Who are you">
                 {options!.profiles.map((p) => (
@@ -158,7 +187,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
         </>
       )}
 
-      <label className="stack">
+      <label className="stack-field">
         <span className="muted">Email</span>
         <input
           type="email"
@@ -169,7 +198,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
           placeholder="you@example.com"
         />
       </label>
-      <label className="stack">
+      <label className="stack-field">
         <span className="muted">Password</span>
         <input
           type="password"
@@ -183,6 +212,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       <button className="btn primary block" type="submit" disabled={busy}>
         {busy ? 'One moment…' : mode === 'signin' ? 'Sign in' : 'Create account'}
       </button>
+      </div>
     </form>
   )
 }

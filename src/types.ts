@@ -5,6 +5,7 @@ export interface Person {
   id: string
   name: string
   userId: string | null
+  isAdmin: boolean
 }
 
 /** One show-season logged in a given month. A show lands in the month you last watched it. */
@@ -29,6 +30,8 @@ export interface Watch {
   ratings: Record<string, number>
   isRewatch: boolean
   notes: string
+  /** Person who added it; null for older logs. Only they or the admin can delete it. */
+  createdBy: string | null
   createdAt: string
   updatedAt: string
 }

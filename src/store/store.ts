@@ -19,4 +19,5 @@ export interface Store {
 export interface Session {
   email: string
   personId: string
+  isAdmin: boolean
 }

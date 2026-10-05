@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { byUpdatedDesc, currentMonth, monthLabel } from '../logic'
 import { searchShows, type ShowResult } from '../tvmaze'
@@ -50,19 +51,24 @@ export function Search({ watches, month, onPick }: Props) {
 
   return (
     <div className="screen">
-      <div>
-        <h1 className="screen-title">Log a show</h1>
-        <p className={month === currentMonth() ? 'muted' : 'adding-to'}>Adding to {monthLabel(month)}</p>
+      <header>
+        <p className="eyebrow">What did you watch?</p>
+        <h1 className="title-xl">Add a show</h1>
+      </header>
+      <span className={`month-chip ${month === currentMonth() ? '' : 'past'}`}>
+        <Icon name="calendar" size={15} /> Adding to {monthLabel(month)}
+      </span>
+      <div className="searchbox">
+        <Icon name="search" size={20} />
+        <input
+          type="search"
+          placeholder="Search any TV show"
+          aria-label="Search shows"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          autoFocus
+        />
       </div>
-      <input
-        className="search-input"
-        type="search"
-        placeholder="Severance"
-        aria-label="Search shows"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        autoFocus
-      />
 
       {query.trim() && error && <p className="error" role="alert">{error}</p>}
       {query.trim() && loading && <p className="muted center">Searching…</p>}
@@ -71,21 +77,24 @@ export function Search({ watches, month, onPick }: Props) {
         <p className="muted center">No shows match "{query.trim()}". Check the spelling or try the original title.</p>
       )}
 
-      {!query.trim() && recent.length > 0 && <h2 className="section">Recently logged</h2>}
+      {!query.trim() && recent.length > 0 && <h2 className="h2">Recently logged</h2>}
 
-      <ul className="list">
-        {(query.trim() ? results : recent).map((s) => (
-          <li key={s.showId} className="row">
-            <button className="row-main" onClick={() => onPick(s)}>
-              <Poster src={s.poster} name={s.showName} />
-              <div className="row-text">
-                <span className="row-title">{s.showName}</span>
-                <span className="muted">{[s.year, s.network, s.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</span>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {(query.trim() ? results : recent).length > 0 && (
+        <ul className="card">
+          {(query.trim() ? results : recent).map((s) => (
+            <li key={s.showId}>
+              <button className="lrow" onClick={() => onPick(s)}>
+                <Poster src={s.poster} name={s.showName} w={46} />
+                <span className="lrow-text">
+                  <span className="lrow-title">{s.showName}</span>
+                  <span className="muted">{[s.year, s.network, s.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</span>
+                </span>
+                <span className="chev"><Icon name="plus" size={20} /></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

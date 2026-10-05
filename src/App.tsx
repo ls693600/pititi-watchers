@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, byUpdatedDesc, currentMonth, monthLabel, newId } from './logic'
+import { addEpisode, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId } from './logic'
 import { Detail } from './screens/Detail'
 import { Home } from './screens/Home'
 import { Login } from './screens/Login'
@@ -16,12 +16,16 @@ import type { Person, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
-type Tab = 'home' | 'search' | 'stats' | 'settings'
-const TABS: { id: Tab; icon: IconName; label: string }[] = [
-  { id: 'home', icon: 'home', label: 'Home' },
-  { id: 'search', icon: 'search', label: 'Add' },
-  { id: 'stats', icon: 'chart', label: 'Stats' },
-  { id: 'settings', icon: 'settings', label: 'Settings' },
+type Tab = 'home' | 'search' | 'stats' | 'family' | 'settings'
+const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
+  [
+    { id: 'home', icon: 'home', label: 'Home' },
+    { id: 'stats', icon: 'chart', label: 'Stats' },
+  ],
+  [
+    { id: 'family', icon: 'users', label: 'Family' },
+    { id: 'settings', icon: 'settings', label: 'Settings' },
+  ],
 ]
 
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
@@ -35,7 +39,7 @@ function defaultWatchers(watches: Watch[], people: Person[], me: string | null):
   return me ? [me] : people.slice(0, 1).map((p) => p.id)
 }
 
-function draftFrom(show: ShowResult, month: string, watchedBy: string[]): Watch {
+function draftFrom(show: ShowResult, month: string, watchedBy: string[], createdBy: string | null): Watch {
   const now = new Date().toISOString()
   return {
     id: newId(),
@@ -55,6 +59,7 @@ function draftFrom(show: ShowResult, month: string, watchedBy: string[]): Watch 
     ratings: {},
     isRewatch: false,
     notes: '',
+    createdBy,
     createdAt: now,
     updatedAt: now,
   }
@@ -112,6 +117,11 @@ export default function App() {
     }
   }, [auth.state, reload])
 
+  // Every screen change starts at the top (iOS keeps the old scroll position otherwise)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [tab, detail?.watch.id])
+
   async function persist(next: Watch, okMsg: string) {
     const prev = watches
     setWatches((list) => [...list.filter((x) => x.id !== next.id), next])
@@ -151,7 +161,13 @@ export default function App() {
   }
 
   if (auth.state === 'checking') {
-    return <div className="app"><p className="muted center pad-top">Loading…</p></div>
+    return (
+      <div className="app loading">
+        <div className="logo" aria-label="Loading">
+          <Icon name="tv" size={32} stroke={2.2} />
+        </div>
+      </div>
+    )
   }
 
   if (auth.state === 'signedOut') {
@@ -175,7 +191,10 @@ export default function App() {
     )
   }
 
-  const me = auth.session?.personId ?? null
+  // Single-phone mode has no login: the phone belongs to the admin
+  const me = auth.session?.personId ?? people.find((p) => p.isAdmin)?.id ?? null
+  const isAdmin = auth.session ? auth.session.isAdmin : true
+  const who = auth.session ? { personId: auth.session.personId, isAdmin: auth.session.isAdmin } : null
 
   return (
     <div className="app">
@@ -191,6 +210,7 @@ export default function App() {
             people={people}
             me={me}
             saving={saving}
+            canDelete={canDelete(detail.watch, who)}
             onSave={handleSave}
             onDelete={handleDelete}
             onClose={() => setDetail(null)}
@@ -199,6 +219,8 @@ export default function App() {
           <Home
             watches={watches}
             people={people}
+            me={me}
+            onProfile={() => setTab('settings')}
             filter={filter}
             onFilter={setFilter}
             month={month}
@@ -213,7 +235,7 @@ export default function App() {
           />
         ) : tab === 'search' ? (
           <Search watches={watches} month={month} onPick={(show) =>
-              setDetail({ watch: draftFrom(show, month, defaultWatchers(watches, people, me)), isNew: true })
+              setDetail({ watch: draftFrom(show, month, defaultWatchers(watches, people, me), me), isNew: true })
             } />
         ) : tab === 'stats' ? (
           <Stats
@@ -229,8 +251,11 @@ export default function App() {
           />
         ) : (
           <Settings
+            key={tab}
+            view={tab === 'family' ? 'family' : 'account'}
             mode={store.mode}
             session={auth.session}
+            isAdmin={isAdmin}
             people={people}
             watches={watches}
             loadInvite={store.mode === 'cloud' ? getInviteCode : null}
@@ -250,15 +275,33 @@ export default function App() {
         )}
       </main>
 
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status">
+          <Icon name="check" size={18} stroke={2.6} /> {toast}
+        </div>
+      )}
 
       {!detail && (
         <nav className="tabbar" aria-label="Main">
-          {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>
-              <Icon name={t.icon} />
-              <span>{t.label}</span>
-            </button>
+          {SIDE_TABS.map((group, gi) => (
+            <Fragment key={gi}>
+              {gi === 1 && (
+                <button className={`fab ${tab === 'search' ? 'on' : ''}`} aria-label="Add a show" onClick={() => setTab('search')}>
+                  <Icon name="plus" size={28} stroke={2.6} />
+                </button>
+              )}
+              {group.map((t) => (
+                <button
+                  key={t.id}
+                  className={`tab ${tab === t.id ? 'on' : ''}`}
+                  aria-current={tab === t.id ? 'page' : undefined}
+                  onClick={() => setTab(t.id)}
+                >
+                  <Icon name={t.icon} size={23} />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </Fragment>
           ))}
         </nav>
       )}

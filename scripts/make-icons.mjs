@@ -1,4 +1,4 @@
-// Generates the app icons (red tile, white play mark) without image dependencies.
+// Generates the app icons (coral-to-amber tile, white TV mark) without image dependencies.
 import { writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
@@ -23,29 +23,41 @@ const chunk = (type, data) => {
 
 function icon(size) {
   const raw = Buffer.alloc((size * 3 + 1) * size)
-  // Play triangle, centered with a slight optical nudge right
-  const ax = size * 0.38, ay = size * 0.28, bx = size * 0.38, by = size * 0.72, cx = size * 0.74, cy = size * 0.5
-  const inside = (x, y) => {
+  const S = size
+  // TV body (rounded rect outline) + stand + play triangle, as signed-distance-ish tests
+  const inRoundRect = (x, y, x0, y0, x1, y1, r) => {
+    const cx = Math.max(x0 + r, Math.min(x, x1 - r)), cy = Math.max(y0 + r, Math.min(y, y1 - r))
+    return (x - cx) ** 2 + (y - cy) ** 2 <= r * r
+  }
+  const tv = (x, y) => {
+    const outer = inRoundRect(x, y, S * 0.2, S * 0.3, S * 0.8, S * 0.74, S * 0.08)
+    const inner = inRoundRect(x, y, S * 0.255, S * 0.355, S * 0.745, S * 0.685, S * 0.04)
+    const ant1 = Math.abs((y - S * 0.3) + (x - S * 0.5) * 1.1) < S * 0.028 && y > S * 0.17 && y < S * 0.3 && x < S * 0.5
+    const ant2 = Math.abs((y - S * 0.3) - (x - S * 0.5) * 1.1) < S * 0.028 && y > S * 0.17 && y < S * 0.3 && x > S * 0.5
+    const ax = S * 0.45, ay = S * 0.42, bx = S * 0.45, by = S * 0.62, cx = S * 0.6, cy = S * 0.52
     const d = (x1, y1, x2, y2) => (x - x2) * (y1 - y2) - (x1 - x2) * (y - y2)
     const d1 = d(ax, ay, bx, by), d2 = d(bx, by, cx, cy), d3 = d(cx, cy, ax, ay)
-    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
+    const play = !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
+    return (outer && !inner) || ant1 || ant2 || play
   }
-  for (let y = 0; y < size; y++) {
-    raw[y * (size * 3 + 1)] = 0
-    for (let x = 0; x < size; x++) {
-      // 4x supersampling for smooth edges
+  for (let y = 0; y < S; y++) {
+    raw[y * (S * 3 + 1)] = 0
+    for (let x = 0; x < S; x++) {
       let hits = 0
-      for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) hits += inside(x + 0.25 + sx * 0.5, y + 0.25 + sy * 0.5)
-      const t = hits / 4
-      const o = y * (size * 3 + 1) + 1 + x * 3
-      raw[o] = Math.round(237 + (255 - 237) * t)
-      raw[o + 1] = Math.round(28 + (255 - 28) * t)
-      raw[o + 2] = Math.round(36 + (255 - 36) * t)
+      for (let sy = 0; sy < 3; sy++) for (let sx = 0; sx < 3; sx++) hits += tv(x + (sx + 0.5) / 3, y + (sy + 0.5) / 3)
+      const t = hits / 9
+      // diagonal gradient #ff4d6d -> #ff8a3d
+      const g = (x + y) / (2 * S)
+      const br = 255, bg = Math.round(77 + (138 - 77) * g), bb = Math.round(109 + (61 - 109) * g)
+      const o = y * (S * 3 + 1) + 1 + x * 3
+      raw[o] = Math.round(br + (255 - br) * t)
+      raw[o + 1] = Math.round(bg + (255 - bg) * t)
+      raw[o + 2] = Math.round(bb + (255 - bb) * t)
     }
   }
   const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(size, 0)
-  ihdr.writeUInt32BE(size, 4)
+  ihdr.writeUInt32BE(S, 0)
+  ihdr.writeUInt32BE(S, 4)
   ihdr[8] = 8
   ihdr[9] = 2
   return Buffer.concat([

@@ -19,6 +19,7 @@ interface WatchRow {
   month: string
   status: Watch['status']
   watched_by: string[]
+  created_by?: string | null
   is_rewatch: boolean
   notes: string
   created_at: string
@@ -35,6 +36,7 @@ interface PersonRow {
   id: string
   name: string
   user_id: string | null
+  is_admin: boolean
 }
 
 const toRow = (w: Watch): WatchRow => ({
@@ -76,11 +78,12 @@ const fromRow = (r: WatchRow, ratings: Record<string, number>): Watch => ({
   ratings,
   isRewatch: r.is_rewatch,
   notes: r.notes ?? '',
+  createdBy: r.created_by ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 })
 
-const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id })
+const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id, isAdmin: Boolean(r.is_admin) })
 
 let client: SupabaseClient | null = null
 export function supabase(): SupabaseClient {
@@ -103,10 +106,10 @@ export async function currentSession(): Promise<Session | null> {
   const { data } = await supabase().auth.getSession()
   const user = data.session?.user
   if (!user) return null
-  const { data: person, error } = await supabase().from('people').select('id').eq('user_id', user.id).maybeSingle()
+  const { data: person, error } = await supabase().from('people').select('id, is_admin').eq('user_id', user.id).maybeSingle()
   if (error) throw error
   if (!person) throw new Error("This account isn't part of the family yet. Sign out and create an account with the invite code.")
-  return { email: user.email ?? '', personId: person.id as string }
+  return { email: user.email ?? '', personId: person.id as string, isAdmin: Boolean(person.is_admin) }
 }
 
 export async function signIn(email: string, password: string): Promise<Session> {
@@ -175,7 +178,7 @@ export const cloudStore: Store = {
     const [w, r, p] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase().from('ratings').select('watch_id, person_id, stars'),
-      supabase().from('people').select('id, name, user_id').order('created_at'),
+      supabase().from('people').select('id, name, user_id, is_admin').order('created_at'),
     ])
     if (w.error) throw w.error
     if (r.error) throw r.error
@@ -209,11 +212,13 @@ export const cloudStore: Store = {
     }
   },
   async remove(id) {
-    const { error } = await supabase().from('watches').delete().eq('id', id)
+    // RLS silently skips rows you may not delete, so check something was actually removed
+    const { data, error } = await supabase().from('watches').delete().eq('id', id).select('id')
     if (error) throw error
+    if (!data?.length) throw new Error('Only Leandro or the person who added it can remove this.')
   },
   async addPerson(name) {
-    const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id').single()
+    const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id, is_admin').single()
     if (error) throw error
     return toPerson(data as PersonRow)
   },

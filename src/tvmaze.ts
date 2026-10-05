@@ -68,3 +68,18 @@ export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
       aired: Boolean(s.premiereDate && s.premiereDate <= today),
     }))
 }
+
+/** A wall of well-known posters for the sign-in screen. Empty if TVmaze is unreachable. */
+export async function popularPosters(count = 16): Promise<string[]> {
+  const rows = await get<(RawShow & { weight?: number })[]>('/shows?page=1')
+  return rows
+    .filter((s) => s.image?.medium)
+    .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+    .slice(0, count)
+    .map((s) => s.image!.medium!.replace('http://', 'https://'))
+}
+
+/** Poster at full resolution (search returns the small one). */
+export function bigPoster(src: string | null): string | null {
+  return src ? src.replace('/medium_portrait/', '/original_untouched/') : null
+}

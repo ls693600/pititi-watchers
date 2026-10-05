@@ -6,8 +6,8 @@ const WATCHES = 'pititi.watches.v2'
 const PEOPLE = 'pititi.people.v2'
 
 const DEFAULT_PEOPLE: Person[] = [
-  { id: 'local-leandro', name: 'Leandro', userId: null },
-  { id: 'local-ana', name: 'Ana', userId: null },
+  { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
+  { id: 'local-ana', name: 'Ana', userId: null, isAdmin: false },
 ]
 
 function readJson<T>(key: string, fallback: T): T {
@@ -44,7 +44,7 @@ export const localStore: Store = {
   },
   async addPerson(name) {
     const snap = read()
-    const person = { id: newId(), name, userId: null }
+    const person = { id: newId(), name, userId: null, isAdmin: false }
     write({ ...snap, people: [...snap.people, person] })
     return person
   },

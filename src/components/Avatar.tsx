@@ -1,6 +1,6 @@
 import type { Person } from '../types'
 
-const COLORS = ['#2f7fd1', '#c2456f', '#1d9e75', '#ba7517', '#7f77dd', '#d85a30', '#378add', '#993556']
+const COLORS = ['#5b6cff', '#ff4d8d', '#12b886', '#f59f00', '#9b5de5', '#ff6b3d', '#0ea5e9', '#e64980']
 
 /** Stable color per person, based on their position in the family list. */
 function personColor(people: Person[], id: string): string {
@@ -35,7 +35,12 @@ export function PersonFilter({
   if (people.length < 2) return null
   return (
     <div className="filter" role="radiogroup" aria-label="Whose shows">
-      <button role="radio" aria-checked={value === null} className={value === null ? 'on' : ''} onClick={() => onChange(null)}>
+      <button
+        role="radio"
+        aria-checked={value === null}
+        className={`everyone ${value === null ? 'on' : ''}`}
+        onClick={() => onChange(null)}
+      >
         Everyone
       </button>
       {people.map((p) => (
@@ -46,7 +51,7 @@ export function PersonFilter({
           className={value === p.id ? 'on' : ''}
           onClick={() => onChange(p.id)}
         >
-          <Avatar people={people} id={p.id} size={16} /> {p.name}
+          <Avatar people={people} id={p.id} size={24} /> {p.name}
         </button>
       ))}
     </div>

@@ -1,22 +1,27 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Avatar } from '../components/Avatar'
+import { Icon } from '../components/Icon'
 import type { Session } from '../store/store'
 import type { Person, Watch } from '../types'
 
 interface Props {
   mode: 'local' | 'cloud'
   session: Session | null
+  /** Admin manages family members and the invite code */
+  isAdmin: boolean
   people: Person[]
   watches: Watch[]
   onAddPerson: (name: string) => Promise<void>
   loadInvite: (() => Promise<string>) | null
   renewInvite: (() => Promise<string>) | null
   onSignOut: () => void
+  /** Family tab shows people and invites; Settings tab shows account and app */
+  view: 'family' | 'account'
 }
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -24,10 +29,11 @@ export function Settings({ mode, session, people, watches, onAddPerson, loadInvi
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!isAdmin) return
     loadInvite?.()
       .then(setCode)
       .catch(() => setInviteMsg("Couldn't load the invite code. Check your connection."))
-  }, [loadInvite])
+  }, [loadInvite, isAdmin])
 
   const me = people.find((p) => p.id === session?.personId)
 
@@ -84,94 +90,129 @@ export function Settings({ mode, session, people, watches, onAddPerson, loadInvi
 
   return (
     <div className="screen">
-      <h1 className="screen-title">Settings</h1>
+      <header>
+        <p className="eyebrow">{view === 'family' ? 'Who watches with you' : 'Your account'}</p>
+        <h1 className="title-xl">{view === 'family' ? 'Family' : 'Settings'}</h1>
+      </header>
 
-      <h2 className="section">Family</h2>
-      <section className="card">
-        <ul className="people-list">
-          {people.map((p) => (
-            <li key={p.id}>
-              <Avatar people={people} id={p.id} size={28} />
-              <span className="name">
-                {p.name}
-                {me?.id === p.id && <span className="you"> you</span>}
-              </span>
-              {mode === 'cloud' && (
-                <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? 'Has account' : 'No account yet'}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-        <form className="inline-form" onSubmit={add} noValidate>
-          <input
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value)
-              setError(null)
-            }}
-            placeholder="Mom"
-            aria-label="New family member's name"
-            maxLength={30}
-          />
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? 'Adding…' : 'Add person'}
-          </button>
-        </form>
-        {error && <p className="error" role="alert">{error}</p>}
-        <p className="muted small" style={{ paddingBottom: 10 }}>
-          Add anyone you watch with. They can be marked in "Watched by" right away, even without a phone.
-        </p>
-      </section>
-
-      {mode === 'cloud' && (
-        <section className="card">
-          <div className="invite">
-            <div>
-              <p className="muted small">Invite code</p>
-              <code>{code ?? '········'}</code>
-            </div>
-            <button className="btn primary" onClick={shareInvite} disabled={!code}>
-              Share invite
-            </button>
+      {view === 'account' && me && (
+        <section className="card pad profile">
+          <Avatar people={people} id={me.id} size={58} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p className="profile-name">{me.name}</p>
+            <p className="muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{session?.email}</p>
           </div>
-          <p className="muted small">
-            Family members install the app, tap Create account, and enter this code. If you added them above, they pick
-            their name; otherwise they type it.
-          </p>
-          {inviteMsg && <p className="ok small" role="status">{inviteMsg}</p>}
-          <button className="btn danger block" onClick={renew} disabled={!code}>
-            Make a new code
-          </button>
+          {isAdmin && (
+            <span className="badge admin">
+              <Icon name="crown" size={12} stroke={2.4} /> Admin
+            </span>
+          )}
         </section>
       )}
 
+      {view === 'family' && (
+      <>
+      <h2 className="h2">
+        Members
+        <small>{people.length} {people.length === 1 ? 'person' : 'people'}</small>
+      </h2>
+      <section className="card">
+        <ul>
+          {people.map((p) => (
+            <li key={p.id}>
+              <div className="lrow">
+                <Avatar people={people} id={p.id} size={38} />
+                <span className="lrow-text">
+                  <span className="lrow-title">
+                    {p.name} {me?.id === p.id && <span className="you">you</span>}
+                  </span>
+                  {p.isAdmin && <span className="muted">Admin</span>}
+                </span>
+                {mode === 'cloud' && (
+                  <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? 'Joined' : 'Not joined'}</span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {isAdmin ? (
+          <>
+            <form className="inline-form" onSubmit={add} noValidate>
+              <input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setError(null)
+                }}
+                placeholder="Add someone, like Mom"
+                aria-label="New family member's name"
+                maxLength={30}
+              />
+              <button className="btn dark sm" type="submit" disabled={busy} style={{ minHeight: 46 }}>
+                {busy ? 'Adding…' : 'Add'}
+              </button>
+            </form>
+            {error && <p className="error" role="alert">{error}</p>}
+            <p className="muted small" style={{ padding: '4px 0 14px' }}>
+              They can be picked in "Who watched?" right away, even without a phone.
+            </p>
+          </>
+        ) : (
+          <p className="muted small" style={{ padding: '4px 0 14px' }}>
+            {people.find((p) => p.isAdmin)?.name ?? 'The admin'} manages the family and invites.
+          </p>
+        )}
+      </section>
+
+      {mode === 'cloud' && isAdmin && (
+        <>
+          <h2 className="h2">Invite family</h2>
+          <section className="card pad">
+            <p className="muted" style={{ fontSize: 14.5 }}>
+              Share this code. They install the app, tap Create account, and enter it.
+            </p>
+            <div className="invite-code" aria-label="Invite code">{code ?? '········'}</div>
+            <button className="btn primary block" onClick={shareInvite} disabled={!code}>
+              <Icon name="share" size={18} /> Share invite
+            </button>
+            {inviteMsg && <p className="ok small center" role="status" style={{ marginTop: 10 }}>{inviteMsg}</p>}
+            <button className="btn ghost block" onClick={renew} disabled={!code} style={{ marginTop: 4 }}>
+              Make a new code
+            </button>
+          </section>
+        </>
+      )}
+
+      </>
+      )}
+
+      {view === 'account' && (
+      <>
+      <h2 className="h2">App</h2>
       <section className="card">
         <div className="field">
           <span>Sync</span>
-          <span className={mode === 'cloud' ? 'ok' : 'muted'}>{mode === 'cloud' ? 'On · all family phones' : 'Off · this phone only'}</span>
+          <span className={mode === 'cloud' ? 'ok' : 'muted'}>{mode === 'cloud' ? 'On · every family phone' : 'Off · this phone only'}</span>
         </div>
-        {session && (
-          <div className="field">
-            <span>Signed in as</span>
-            <span className="muted">{me?.name} · {session.email}</span>
-          </div>
-        )}
         <div className="field">
           <span>Logged shows</span>
           <strong>{watches.length}</strong>
         </div>
-        <button className="btn block" onClick={exportBackup} disabled={watches.length === 0} style={{ margin: '10px 0' }}>
-          Export backup (JSON)
+        <button className="field" onClick={exportBackup} disabled={watches.length === 0} style={{ width: '100%' }}>
+          <span>Export backup</span>
+          <span className="chev"><Icon name="download" size={20} /></span>
         </button>
       </section>
 
       {session && (
         <button className="btn danger block" onClick={onSignOut}>
-          Sign out
+          <Icon name="logout" size={18} /> Sign out
         </button>
       )}
+      </>
+      )}
 
-      <p className="muted small center">Show data from TVmaze</p>
+      {view === 'account' && <p className="muted small center">Show data from TVmaze</p>}
     </div>
   )
 }

@@ -17,6 +17,12 @@ export function averageRating(w: Pick<Watch, 'watchedBy' | 'ratings'>): number |
   return ids.reduce((sum, id) => sum + w.ratings[id], 0) / ids.length
 }
 
+/** Admin removes anything; everyone else only logs they added. No session = single-phone mode. */
+export function canDelete(w: Pick<Watch, 'createdBy'>, who: { personId: string; isAdmin: boolean } | null): boolean {
+  if (!who) return true
+  return who.isAdmin || (w.createdBy != null && w.createdBy === who.personId)
+}
+
 /** Logs a person watched; null means the whole family. */
 export function watchedByPerson(list: Watch[], personId: string | null): Watch[] {
   return personId ? list.filter((w) => w.watchedBy.includes(personId)) : list

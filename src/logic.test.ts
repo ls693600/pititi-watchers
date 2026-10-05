@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
   averageRating,
+  canDelete,
   pendingRaters,
   personAverages,
   watchedByPerson,
@@ -33,6 +34,7 @@ function watch(over: Partial<Watch> = {}): Watch {
     ratings: {},
     isRewatch: false,
     notes: '',
+    createdBy: null,
     createdAt: '2026-10-01T00:00:00.000Z',
     updatedAt: '2026-10-01T00:00:00.000Z',
     ...over,
@@ -57,6 +59,19 @@ describe('averageRating', () => {
   it('falls back to whoever rated when nobody is marked as watching', () => {
     expect(averageRating(watch({ watchedBy: [], ratings: { L: 2, A: 4 } }))).toBe(3)
     expect(averageRating(watch({ watchedBy: [], ratings: {} }))).toBeNull()
+  })
+})
+
+describe('canDelete', () => {
+  it('lets the admin delete anything and others only what they added', () => {
+    const w = watch({ createdBy: 'A' })
+    expect(canDelete(w, { personId: 'L', isAdmin: true })).toBe(true)
+    expect(canDelete(w, { personId: 'A', isAdmin: false })).toBe(true)
+    expect(canDelete(w, { personId: 'M', isAdmin: false })).toBe(false)
+    expect(canDelete(watch({ createdBy: null }), { personId: 'A', isAdmin: false })).toBe(false)
+  })
+  it('allows everything in single-phone mode', () => {
+    expect(canDelete(watch(), null)).toBe(true)
   })
 })
 
