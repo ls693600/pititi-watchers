@@ -3,7 +3,7 @@ import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
-import { airLabel, averageRating, canEditRating, canSeeRating, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatched, withSeason } from '../logic'
+import { airLabel, averageRating, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 
@@ -79,6 +79,10 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
     }
   }, [seasonId])
 
+  // Episodes out so far; anything later is announced but can't have been watched
+  const airedCount = episodes ? episodes.filter((e) => e.airdate != null && e.airdate <= today).length : null
+  const overCounted = airedCount != null && w.episodesWatched > airedCount
+
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
   const avg = averageRating(w)
   // Blind rating follows what's saved, so tapping your stars never spoils the reveal
@@ -107,7 +111,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       return { ...cur, ratings }
     })
   }
-  const times = timesWatched(watches, w.showId, w.season) + (isNew ? 1 : 0)
+  const times = timesWatchedFor(watches, w)
   const total = w.totalEpisodes
 
   function save() {
@@ -235,6 +239,20 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
             <b>Season {w.season} · {w.episodesWatched} of {total ?? episodes.length}</b>
             <span className="muted">Tap the last one you watched</span>
           </div>
+          {overCounted && (
+            <div className="eps-warn" role="alert">
+              <span>
+                Only {airedCount} of {total ?? episodes.length} episodes have aired, so this log counts {w.episodesWatched - airedCount!} that
+                haven't happened yet.
+              </span>
+              <button className="btn sm dark" onClick={() => setW((cur) => capToAired({ ...cur, status: 'done' }, airedCount))}>
+                Fix: set to {airedCount}
+              </button>
+            </div>
+          )}
+          {!overCounted && airedCount != null && total != null && airedCount < total && w.episodesWatched === airedCount && (
+            <p className="eps-note">Caught up. {total - airedCount} more episodes still to air.</p>
+          )}
           <div className="eps" role="group" aria-label={`Season ${w.season} episodes`}>
             {episodes.map((e) => {
               const watched = e.number <= w.episodesWatched
@@ -247,7 +265,8 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                   aria-pressed={watched}
                   aria-label={`Episode ${e.number}${e.name ? `: ${e.name}` : ''}${upcoming && e.airdate ? `, airs ${airLabel(e.airdate)}` : ''}`}
                   title={e.name}
-                  onClick={() => setW((cur) => tapEpisode({ ...cur, totalEpisodes: cur.totalEpisodes ?? episodes.length }, e.number))}
+                  disabled={upcoming && !watched}
+                  onClick={() => setW((cur) => tapEpisode({ ...cur, totalEpisodes: cur.totalEpisodes ?? episodes.length }, e.number, airedCount))}
                 >
                   {e.number}
                 </button>
@@ -296,7 +315,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                 role="radio"
                 aria-checked={w.status === s}
                 className={w.status === s ? 'on' : ''}
-                onClick={() => set({ status: s, episodesWatched: s === 'done' && total ? total : w.episodesWatched })}
+                onClick={() => setW((cur) => capToAired({ ...cur, status: s, episodesWatched: s === 'done' && total ? total : cur.episodesWatched }, airedCount))}
               >
                 {s === 'watching' ? 'Watching' : 'Finished'}
               </button>

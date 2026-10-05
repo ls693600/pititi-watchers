@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { defaultSeason, monthLabel, withSeason } from '../logic'
-import { getSeasons, type SeasonInfo } from '../tvmaze'
+import { getAiredCount, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
@@ -17,6 +17,16 @@ interface Props {
   onLog: (w: Watch) => void
   onMore: (w: Watch) => void
   onClose: () => void
+}
+
+/** Adds the aired-episode count to a season that's still airing (no-op otherwise). */
+async function withAired(s: SeasonInfo): Promise<SeasonInfo> {
+  if (!s.inProgress || !s.id || s.airedEpisodes != null) return s
+  try {
+    return { ...s, airedEpisodes: await getAiredCount(s.id) }
+  } catch {
+    return s
+  }
 }
 
 /** Bottom sheet: log a show in three taps. Month, rewatch and notes live under More options. */
@@ -36,7 +46,14 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
         if (!alive) return
         setSeasons(s)
         const latest = defaultSeason(s)
-        if (latest) setW((cur) => withSeason({ ...cur, status: 'done' }, latest, watchesRef.current))
+        if (!latest) return
+        setW((cur) => withSeason({ ...cur, status: 'done' }, latest, watchesRef.current))
+        // Still airing: find out how many episodes are actually out before "finished" counts them
+        withAired(latest).then((full) => {
+          if (!alive || full === latest) return
+          setSeasons((list) => list?.map((x) => (x.number === full.number ? full : x)) ?? list)
+          setW((cur) => (cur.season === full.number ? withSeason(cur, full, watchesRef.current) : cur))
+        })
       })
       .catch(() => alive && setSeasons([]))
     return () => {
@@ -51,11 +68,19 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
   }, [onClose])
 
   const total = w.totalEpisodes
-  const finished = w.status === 'done'
+  const season = seasons?.find((x) => x.number === w.season)
+  const aired = season?.airedEpisodes ?? null
+  const airing = aired != null && total != null && aired < total
+  // On a season that's still airing, "Finished it" means caught up with everything out so far
+  const finished = airing ? w.episodesWatched >= aired : w.status === 'done'
   const iWatched = me != null && w.watchedBy.includes(me)
   const others = people.filter((p) => p.id !== me && w.watchedBy.includes(p.id) && p.userId)
 
   function setStatus(done: boolean) {
+    if (airing) {
+      setW((cur) => ({ ...cur, status: 'watching', episodesWatched: done ? aired! : Math.min(1, aired!) }))
+      return
+    }
     setW((cur) => ({
       ...cur,
       status: done ? 'done' : 'watching',
@@ -112,7 +137,13 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
                     aria-label="Season"
                     onChange={(e) => {
                       const s = seasons.find((x) => x.number === Number(e.target.value))
-                      if (s) setW((cur) => withSeason(cur, s, watches))
+                      if (!s) return
+                      setW((cur) => withSeason(cur, s, watches))
+                      withAired(s).then((full) => {
+                        if (full === s) return
+                        setSeasons((list) => list?.map((x) => (x.number === full.number ? full : x)) ?? list)
+                        setW((cur) => (cur.season === full.number ? withSeason(cur, full, watchesRef.current) : cur))
+                      })
                     }}
                   >
                     {seasons.map((s) => (
@@ -136,8 +167,8 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
         <div className="big-choice" role="radiogroup" aria-label="Status">
           <button role="radio" aria-checked={finished} className={finished ? 'on' : ''} onClick={() => setStatus(true)}>
             <Icon name="check" size={18} stroke={2.6} />
-            <b>Finished it</b>
-            <small>{total ? `All ${total} episodes` : 'The whole season'}</small>
+            <b>{airing ? 'Caught up' : 'Finished it'}</b>
+            <small>{airing ? `All ${aired} aired of ${total}` : total ? `All ${total} episodes` : 'The whole season'}</small>
           </button>
           <button role="radio" aria-checked={!finished} className={!finished ? 'on' : ''} onClick={() => setStatus(false)}>
             <Icon name="play" size={16} stroke={2.2} />
@@ -156,7 +187,9 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
               <span aria-live="polite">{w.episodesWatched}{total ? ` / ${total}` : ''}</span>
               <button
                 aria-label="One episode more"
-                onClick={() => setW((c) => ({ ...c, episodesWatched: total ? Math.min(total - 1, c.episodesWatched + 1) : c.episodesWatched + 1 }))}
+                onClick={() =>
+                  setW((c) => ({ ...c, episodesWatched: Math.min(airing ? aired! : total ? total - 1 : Infinity, c.episodesWatched + 1) }))
+                }
               >
                 <Icon name="plus" size={18} />
               </button>
@@ -181,7 +214,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
           </div>
         </div>
 
-        {finished && iWatched && (
+        {(w.status === 'done' || airing) && finished && iWatched && (
           <div className="quick-rate">
             <p className="label-sm">Your rating</p>
             <div className="quick-stars">

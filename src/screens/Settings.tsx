@@ -22,11 +22,12 @@ interface Props {
   onOpenSettings?: () => void
   /** Settings has no tab of its own; this returns to where you came from */
   onBack?: () => void
+  onOpenHelp?: () => void
 }
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onBack }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onBack, onOpenHelp }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -237,6 +238,12 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
           <span>Logged shows</span>
           <strong>{watches.length}</strong>
         </div>
+        {onOpenHelp && (
+          <button className="field" onClick={onOpenHelp} style={{ width: '100%' }}>
+            <span>Help and questions</span>
+            <span className="chev"><Icon name="right" size={20} /></span>
+          </button>
+        )}
         <button className="field" onClick={exportBackup} disabled={watches.length === 0} style={{ width: '100%' }}>
           <span>Export backup</span>
           <span className="chev"><Icon name="download" size={20} /></span>

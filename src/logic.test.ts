@@ -8,6 +8,9 @@ import {
   airLabel,
   tapEpisode,
   pendingReveals,
+  capToAired,
+  timesWatchedFor,
+  withSeason,
   familyBadges,
   monthStreak,
   newlyEarned,
@@ -360,5 +363,34 @@ describe('badges', () => {
     const list = familyBadges([watch({ watchedBy: ['L', 'A', 'M'] })])
     expect(newlyEarned(list, new Set()).map((b) => b.id)).toEqual(['family-night'])
     expect(newlyEarned(list, new Set(['family-night']))).toEqual([])
+  })
+})
+
+describe('seasons still airing (MobLand bug)', () => {
+  const mob = (over: Partial<Watch> = {}) => watch({ showName: 'MobLand', season: 2, totalEpisodes: 10, episodesWatched: 10, status: 'done', runtime: 46, ...over })
+  it('caps a "finished" in-progress season at the aired episodes and keeps it watching', () => {
+    const w = capToAired(mob(), 3)
+    expect([w.episodesWatched, w.status]).toEqual([3, 'watching'])
+    expect(summarize([w]).hours).toBe(2)
+  })
+  it('leaves fully aired seasons and honest counts alone', () => {
+    expect(capToAired(mob(), 10).episodesWatched).toBe(10)
+    expect(capToAired(mob(), null).episodesWatched).toBe(10)
+    expect(capToAired(mob({ episodesWatched: 2, status: 'watching' }), 3).episodesWatched).toBe(2)
+  })
+  it('applies the cap when picking a season that is still airing', () => {
+    const w = withSeason(mob({ season: 1 }), { number: 2, episodes: 10, aired: true, inProgress: true, airedEpisodes: 3 }, [])
+    expect([w.season, w.episodesWatched, w.status]).toEqual([2, 3, 'watching'])
+  })
+  it('will not mark unaired episodes as watched', () => {
+    const w = mob({ episodesWatched: 3, status: 'watching' })
+    expect(tapEpisode(w, 7, 3)).toBe(w)
+    expect(tapEpisode(w, 2, 3).episodesWatched).toBe(2)
+  })
+  it('counts the log being edited once when its season changes', () => {
+    const all = [mob({ id: 'x', season: 2 }), mob({ id: 'y', season: 1, month: '2025-05' })]
+    expect(timesWatchedFor(all, { id: 'x', showId: 1, season: 1 })).toBe(2)
+    expect(timesWatchedFor(all, { id: 'x', showId: 1, season: 2 })).toBe(1)
+    expect(timesWatchedFor(all, { id: 'new', showId: 1, season: 3 })).toBe(1)
   })
 })

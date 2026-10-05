@@ -9,6 +9,7 @@ import { Home } from './screens/Home'
 import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
+import { Help } from './screens/Help'
 import { Stats } from './screens/Stats'
 import { UpNext } from './screens/UpNext'
 import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
@@ -19,7 +20,7 @@ import type { Person, UpNextItem, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
-type Tab = 'home' | 'upnext' | 'search' | 'stats' | 'family' | 'settings'
+type Tab = 'home' | 'upnext' | 'search' | 'stats' | 'family' | 'settings' | 'help'
 // Settings lives behind your avatar (Home) and the gear on Family
 const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
   [
@@ -121,11 +122,17 @@ export default function App() {
   const [offline, setOffline] = useState(false)
   const [tab, setTabState] = useState<Tab>('home')
   const prevTab = useRef<Tab>('home')
+  const [helpTopic, setHelpTopic] = useState<string | null>(null)
   const setTab = (t: Tab) => {
     setTabState((cur) => {
-      if (t === 'settings' && cur !== 'settings') prevTab.current = cur
+      // Settings and Help have no tab of their own; remember where to go back to
+      if ((t === 'settings' || t === 'help') && cur !== t && cur !== 'help') prevTab.current = cur
       return t
     })
+  }
+  const openHelp = (topic: string | null = null) => {
+    setHelpTopic(topic)
+    setTab('help')
   }
   const [month, setMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
@@ -411,6 +418,8 @@ export default function App() {
             onQueue={queueShow}
             onPick={(show) => setQuick(draftFrom(show, month, defaultWatchers(watches, people, me), me))}
           />
+        ) : tab === 'help' ? (
+          <Help key={helpTopic ?? 'all'} topic={helpTopic} onBack={() => setTab(prevTab.current)} />
         ) : tab === 'upnext' ? (
           <UpNext
             items={upNext}
@@ -429,6 +438,7 @@ export default function App() {
           />
         ) : tab === 'stats' ? (
           <Stats
+            onHelp={openHelp}
             watches={watches}
             people={people}
             filter={filter}
@@ -444,6 +454,7 @@ export default function App() {
             key={tab}
             view={tab === 'family' ? 'family' : 'account'}
             onOpenSettings={() => setTab('settings')}
+            onOpenHelp={() => openHelp()}
             onBack={() => setTab(prevTab.current)}
             mode={store.mode}
             session={auth.session}

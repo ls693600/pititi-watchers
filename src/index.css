@@ -446,3 +446,16 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .bdg.locked b { color: var(--text-2); }
 .bdg-progress { width: 70%; height: 4px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
 .bdg-progress i { display: block; height: 100%; background: var(--grad); }
+.eps-warn { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 12px; border-radius: 14px; background: var(--warn-bg); color: var(--warn-fg); font-size: 14px; line-height: 1.4; }
+.eps-note { margin: -4px 0 12px; font-size: 13.5px; font-weight: 600; color: var(--ok); }
+.ep:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Help */
+.faq details { border-bottom: 1px solid var(--line); }
+.faq details:last-child { border-bottom: 0; }
+.faq summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 0; font-weight: 650; font-size: 15.5px; cursor: pointer; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary svg { color: var(--muted); flex: none; transition: transform .2s; }
+.faq details[open] summary svg { transform: rotate(90deg); color: var(--brand-ink); }
+.faq-a { padding: 0 0 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; line-height: 1.5; color: var(--text-2); }
+.help-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--brand-ink); }

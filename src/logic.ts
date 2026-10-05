@@ -206,13 +206,31 @@ export function pendingReveals(list: Watch[], viewer: string | null, seen: Set<s
 
 /** Switch a log to another season: picks up its episode count and whether it's a rewatch. */
 export function withSeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
-  return {
+  const next: Watch = {
     ...cur,
     season: s.number,
     totalEpisodes: s.episodes,
     episodesWatched: cur.status === 'done' && s.episodes ? s.episodes : Math.min(cur.episodesWatched, s.episodes ?? Infinity),
     isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id),
   }
+  return capToAired(next, s.airedEpisodes ?? null)
+}
+
+/**
+ * A season that's still airing can't be finished: "finished" means caught up with what's out.
+ * Keeps hours and episode counts honest (announced-but-unaired episodes never count).
+ */
+export function capToAired(w: Watch, aired: number | null): Watch {
+  if (aired == null || w.totalEpisodes == null || aired >= w.totalEpisodes) return w
+  if (w.status === 'done' || w.episodesWatched > aired) {
+    return { ...w, episodesWatched: Math.min(w.status === 'done' ? aired : w.episodesWatched, aired), status: 'watching' }
+  }
+  return w
+}
+
+/** Times this show-season has been logged, counting the log being edited once even if its season just changed. */
+export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season'>): number {
+  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season).length + 1
 }
 
 /** The season a new log should start on: the latest one that has aired. */
@@ -251,7 +269,9 @@ export function toggleWant<T extends { wantedBy: string[] }>(item: T, personId: 
  * Tap an episode in the grid: everything up to it is watched.
  * Tapping your latest watched episode again un-watches it (fixes a mis-tap).
  */
-export function tapEpisode(w: Watch, n: number): Watch {
+export function tapEpisode(w: Watch, n: number, aired: number | null = null): Watch {
+  // Episodes that haven't aired can't be watched yet
+  if (aired != null && n > aired) return w
   const watched = n === w.episodesWatched ? n - 1 : n
   const done = w.totalEpisodes != null && watched >= w.totalEpisodes
   return { ...w, episodesWatched: Math.max(0, watched), status: done ? 'done' : 'watching' }

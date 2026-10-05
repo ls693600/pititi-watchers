@@ -18,6 +18,10 @@ export interface SeasonInfo {
   episodes: number | null
   /** False for announced seasons that haven't premiered yet */
   aired: boolean
+  /** Premiered but more episodes still to come */
+  inProgress?: boolean
+  /** Episodes released so far, when the season is in progress (filled in by getAiredCount) */
+  airedEpisodes?: number | null
 }
 
 interface RawShow {
@@ -58,7 +62,7 @@ export async function searchShows(query: string, signal?: AbortSignal): Promise<
 }
 
 export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
-  const rows = await get<{ id: number; number: number; episodeOrder: number | null; premiereDate: string | null }[]>(
+  const rows = await get<{ id: number; number: number; episodeOrder: number | null; premiereDate: string | null; endDate: string | null }[]>(
     `/shows/${showId}/seasons`,
   )
   const today = new Date().toISOString().slice(0, 10)
@@ -69,7 +73,15 @@ export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
       number: s.number,
       episodes: s.episodeOrder,
       aired: Boolean(s.premiereDate && s.premiereDate <= today),
+      inProgress: Boolean(s.premiereDate && s.premiereDate <= today && (!s.endDate || s.endDate > today)),
     }))
+}
+
+/** How many episodes of a season have aired by today. */
+export async function getAiredCount(seasonId: number): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10)
+  const eps = await getEpisodes(seasonId)
+  return eps.filter((e) => e.airdate != null && e.airdate <= today).length
 }
 
 /** A wall of well-known posters for the sign-in screen. Empty if TVmaze is unreachable. */

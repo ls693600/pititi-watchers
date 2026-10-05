@@ -14,9 +14,10 @@ interface Props {
   onFilter: (id: string | null) => void
   onOpen: (w: Watch) => void
   onOpenMonth: (month: string) => void
+  onHelp: (topic: string) => void
 }
 
-export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }: Props) {
+export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, onHelp }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
   const [year, setYear] = useState(thisYear)
   const s = yearStats(watchedByPerson(watches, filter), year)
@@ -98,6 +99,9 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }
             Taste match
             <small>all time</small>
           </h2>
+          <button className="help-link" onClick={() => onHelp('taste')} style={{ marginTop: -8 }}>
+            <Icon name="info" size={15} stroke={2.2} /> What is Taste match?
+          </button>
           <div className="matches">
             {matches.map((m, i) => (
               <TasteCard key={`${m.a}-${m.b}`} match={m} people={people} big={i === 0} />
@@ -170,6 +174,9 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth }
         Family badges
         <small>{earned} of {badges.length}</small>
       </h2>
+      <button className="help-link" onClick={() => onHelp('badges')} style={{ marginTop: -8 }}>
+        <Icon name="info" size={15} stroke={2.2} /> How do badges work?
+      </button>
       <div className="badges">
         {[...badges].sort((a, b) => Number(b.earned) - Number(a.earned)).map((b) => (
           <BadgeTile key={b.id} badge={b} />
