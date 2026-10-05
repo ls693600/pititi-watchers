@@ -55,9 +55,14 @@ export interface Summary {
   rewatches: number
 }
 
+/** Distinct shows: two seasons (or a rewatch) of the same show count once. */
+export function uniqueShows(list: Watch[]): number {
+  return new Set(list.map((w) => w.showId)).size
+}
+
 export function summarize(list: Watch[]): Summary {
   return {
-    shows: list.length,
+    shows: uniqueShows(list),
     episodes: list.reduce((s, w) => s + w.episodesWatched, 0),
     hours: hoursWatched(list),
     rewatches: list.filter((w) => w.isRewatch).length,
@@ -80,6 +85,9 @@ export function addEpisode(w: Watch, now = new Date()): Watch {
 
 export interface YearStats extends Summary {
   perMonth: { month: string; count: number }[]
+  /** Average shows per month, over the months of the year that have passed */
+  avgPerMonth: number
+  busiest: { month: string; count: number } | null
   topRated: { watch: Watch; avg: number }[]
   disagreements: { watch: Watch; diff: number }[]
   personAverages: { p1: number | null; p2: number | null }
@@ -89,11 +97,11 @@ function mean(nums: number[]): number | null {
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
 }
 
-export function yearStats(all: Watch[], year: number): YearStats {
+export function yearStats(all: Watch[], year: number, now = new Date()): YearStats {
   const list = all.filter((w) => w.month.startsWith(`${year}-`))
   const perMonth = Array.from({ length: 12 }, (_, i) => {
     const month = `${year}-${String(i + 1).padStart(2, '0')}`
-    return { month, count: list.filter((w) => w.month === month).length }
+    return { month, count: uniqueShows(list.filter((w) => w.month === month)) }
   })
   const rated = list
     .map((watch) => ({ watch, avg: coupleAverage(watch) }))
@@ -104,9 +112,17 @@ export function yearStats(all: Watch[], year: number): YearStats {
     .filter((d) => d.diff >= 2)
     .sort((a, b) => b.diff - a.diff)
     .slice(0, 3)
+  const monthsElapsed = year < now.getFullYear() ? 12 : year > now.getFullYear() ? 0 : now.getMonth() + 1
+  const counted = perMonth.slice(0, monthsElapsed)
+  const busiest = counted.reduce<{ month: string; count: number } | null>(
+    (best, m) => (m.count > 0 && (!best || m.count > best.count) ? m : best),
+    null,
+  )
   return {
     ...summarize(list),
     perMonth,
+    avgPerMonth: monthsElapsed ? counted.reduce((s, m) => s + m.count, 0) / monthsElapsed : 0,
+    busiest,
     topRated,
     disagreements,
     personAverages: {

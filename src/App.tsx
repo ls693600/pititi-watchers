@@ -39,7 +39,7 @@ const TABS: { id: Tab; icon: IconName; label: string }[] = [
 
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
-function draftFrom(show: ShowResult): Watch {
+function draftFrom(show: ShowResult, month: string): Watch {
   const now = new Date().toISOString()
   return {
     id: newId(),
@@ -53,7 +53,7 @@ function draftFrom(show: ShowResult): Watch {
     season: 1,
     episodesWatched: 0,
     totalEpisodes: null,
-    month: currentMonth(),
+    month,
     status: 'watching',
     ratings: { p1: null, p2: null },
     isRewatch: false,
@@ -207,9 +207,16 @@ export default function App() {
             onAdd={() => setTab('search')}
           />
         ) : tab === 'search' ? (
-          <Search watches={watches} onPick={(show) => setDetail({ watch: draftFrom(show), isNew: true })} />
+          <Search watches={watches} month={month} onPick={(show) => setDetail({ watch: draftFrom(show, month), isNew: true })} />
         ) : tab === 'stats' ? (
-          <Stats watches={watches} onOpen={(w) => setDetail({ watch: w, isNew: false })} />
+          <Stats
+            watches={watches}
+            onOpen={(w) => setDetail({ watch: w, isNew: false })}
+            onOpenMonth={(m) => {
+              setMonth(m)
+              setTab('home')
+            }}
+          />
         ) : (
           <Settings
             mode={store.mode}

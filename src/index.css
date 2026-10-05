@@ -151,3 +151,14 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .banner.warn { background: #3a2a06; color: #f5c451; }
 .segmented.wide { width: 100%; }
 .segmented.wide button { flex: 1; padding: 10px 12px; }
+.adding-to { font-size: 13px; color: var(--red-text); }
+.summary.three { grid-template-columns: repeat(3, 1fr); }
+.year-total { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; }
+.year-total div { background: var(--surface); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.year-total div:first-child { background: var(--red-soft); }
+.year-total strong { font-size: 26px; line-height: 1.1; }
+.year-total div:first-child strong { color: var(--red-text); font-size: 30px; }
+.year-total span { font-size: 12px; color: var(--muted); }
+.chart .col:disabled { opacity: 1; }
+.months .month-count { color: var(--text); font-weight: 600; }
+.months svg { color: var(--muted); flex: none; }

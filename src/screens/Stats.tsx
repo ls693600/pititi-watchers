@@ -5,12 +5,20 @@ import { PEOPLE } from '../config'
 import { currentMonth, monthLabel, yearStats } from '../logic'
 import type { Watch } from '../types'
 
-export function Stats({ watches, onOpen }: { watches: Watch[]; onOpen: (w: Watch) => void }) {
+interface Props {
+  watches: Watch[]
+  onOpen: (w: Watch) => void
+  onOpenMonth: (month: string) => void
+}
+
+export function Stats({ watches, onOpen, onOpenMonth }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
   const [year, setYear] = useState(thisYear)
   const s = yearStats(watches, year)
   const max = Math.max(1, ...s.perMonth.map((m) => m.count))
   const nowMonth = currentMonth()
+  // Months that have happened, newest first
+  const months = s.perMonth.filter((m) => m.month <= nowMonth).reverse()
 
   return (
     <div className="screen">
@@ -24,18 +32,57 @@ export function Stats({ watches, onOpen }: { watches: Watch[]; onOpen: (w: Watch
         </button>
       </div>
 
-      <div className="chart" role="img" aria-label={`Shows per month in ${year}`}>
+      <div className="year-total">
+        <div>
+          <strong>{s.shows}</strong>
+          <span>{s.shows === 1 ? 'show' : 'shows'} in {year}</span>
+        </div>
+        <div>
+          <strong>{s.avgPerMonth.toFixed(1)}</strong>
+          <span>per month</span>
+        </div>
+        <div>
+          <strong>{s.busiest ? monthLabel(s.busiest.month, 'short') : '–'}</strong>
+          <span>busiest month</span>
+        </div>
+      </div>
+
+      <div className="chart" aria-label={`Shows per month in ${year}`}>
         {s.perMonth.map((m) => (
-          <div key={m.month} className="col">
+          <button
+            key={m.month}
+            className="col"
+            onClick={() => onOpenMonth(m.month)}
+            disabled={m.month > nowMonth}
+            aria-label={`${monthLabel(m.month)}: ${m.count} shows`}
+          >
             <span className="col-n">{m.count || ''}</span>
             <div className={`col-bar ${m.month === nowMonth ? 'now' : ''}`} style={{ height: `${(m.count / max) * 100}%` }} />
             <span className="col-l">{monthLabel(m.month, 'short')[0]}</span>
-          </div>
+          </button>
         ))}
       </div>
 
-      <div className="summary">
-        <div><strong>{s.shows}</strong><span>shows</span></div>
+      <h2 className="section">Month by month</h2>
+      {months.length === 0 ? (
+        <p className="muted">Nothing to show for {year} yet.</p>
+      ) : (
+        <ol className="rank months">
+          {months.map((m) => (
+            <li key={m.month}>
+              <button onClick={() => onOpenMonth(m.month)}>
+                <span className="row-title">{monthLabel(m.month, 'long').split(' ')[0]}</span>
+                <span className={m.count ? 'month-count' : 'muted'}>
+                  {m.count} {m.count === 1 ? 'show' : 'shows'}
+                </span>
+                <Icon name="right" size={16} />
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="summary three">
         <div><strong>{s.episodes}</strong><span>episodes</span></div>
         <div><strong>{s.hours}h</strong><span>together</span></div>
         <div><strong>{s.rewatches}</strong><span>rewatch</span></div>

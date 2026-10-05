@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Poster } from '../components/Poster'
-import { byUpdatedDesc } from '../logic'
+import { byUpdatedDesc, currentMonth, monthLabel } from '../logic'
 import { searchShows, type ShowResult } from '../tvmaze'
 import type { Watch } from '../types'
 
 interface Props {
   watches: Watch[]
+  /** Month new logs go into (the month open on Home) */
+  month: string
   onPick: (show: ShowResult) => void
 }
 
-export function Search({ watches, onPick }: Props) {
+export function Search({ watches, month, onPick }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ShowResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -48,7 +50,10 @@ export function Search({ watches, onPick }: Props) {
 
   return (
     <div className="screen">
-      <h1 className="screen-title">Log a show</h1>
+      <div>
+        <h1 className="screen-title">Log a show</h1>
+        <p className={month === currentMonth() ? 'muted' : 'adding-to'}>Adding to {monthLabel(month)}</p>
+      </div>
       <input
         className="search-input"
         type="search"
