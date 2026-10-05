@@ -7,6 +7,7 @@ import {
   byUpdatedDesc,
   currentMonth,
   monthLabel,
+  pendingRaters,
   shiftMonth,
   summarize,
   watchedByPerson,
@@ -18,6 +19,8 @@ interface Props {
   watches: Watch[]
   people: Person[]
   me: string | null
+  /** Signed-in person (null in single-phone mode) */
+  viewer: string | null
   month: string
   filter: string | null
   onFilter: (id: string | null) => void
@@ -39,7 +42,7 @@ function progressText(w: Watch): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onAdd, onProfile } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onAdd, onProfile } = props
   const mine = watchedByPerson(watches, filter)
   const list = watchesInMonth(mine, month)
   const sum = summarize(list)
@@ -190,12 +193,14 @@ export function Home(props: Props) {
                   <button onClick={() => onOpen(w)} style={{ textAlign: 'left' }}>
                     <span className="pcard-title">{w.showName}</span>
                   </button>
-                  <span className="pcard-sub">
+                  <span className={`pcard-sub ${viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
                     {w.status === 'watching'
                       ? `S${w.season} · ${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''} eps`
-                      : avg == null
-                        ? 'Needs rating'
-                        : `S${w.season}`}
+                      : avg != null
+                        ? `S${w.season}`
+                        : viewer && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
+                          ? 'Your turn to rate'
+                          : `Waiting for ${pendingRaters(w).map((id) => people.find((p) => p.id === id)?.name ?? 'someone').join(', ')}`}
                   </span>
                 </div>
               )

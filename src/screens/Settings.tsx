@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import type { Session } from '../store/store'
+import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Person, Watch } from '../types'
 
 interface Props {
@@ -27,6 +28,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState<string | null>(null)
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
+  const [theme, setTheme] = useState<ThemePref>(getThemePref)
 
   useEffect(() => {
     if (!isAdmin) return
@@ -190,6 +192,27 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
       <>
       <h2 className="h2">App</h2>
       <section className="card">
+        <div className="field">
+          <span>Appearance</span>
+          <div className="segmented" role="radiogroup" aria-label="Appearance">
+            {(['auto', 'light', 'dark'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="radio"
+                aria-checked={theme === t}
+                className={theme === t ? 'on' : ''}
+                onClick={() => {
+                  setTheme(t)
+                  setThemePref(t)
+                }}
+              >
+                {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {theme === 'auto' && <p className="muted small" style={{ marginTop: -6, paddingBottom: 10 }}>Dark from 7 PM to 7 AM, when you're watching.</p>}
         <div className="field">
           <span>Sync</span>
           <span className={mode === 'cloud' ? 'ok' : 'muted'}>{mode === 'cloud' ? 'On · every family phone' : 'Off · this phone only'}</span>

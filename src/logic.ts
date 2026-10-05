@@ -1,3 +1,4 @@
+import type { SeasonInfo } from './tvmaze'
 import type { Watch } from './types'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
@@ -170,4 +171,51 @@ export function newId(): string {
     const r = (Math.random() * 16) | 0
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
   })
+}
+
+/** Blind rating: you always see your own stars; everyone else's appear once all watchers have rated. */
+export function canSeeRating(w: Pick<Watch, 'watchedBy' | 'ratings'>, personId: string, viewer: string | null): boolean {
+  return viewer == null || personId === viewer || averageRating(w) != null
+}
+
+/** You rate for yourself, and for family members who don't have their own account (kids, grandparents). */
+export function canEditRating(person: { id: string; userId: string | null }, viewer: string | null): boolean {
+  return viewer == null || person.id === viewer || person.userId == null
+}
+
+/** Gap between the highest and lowest rating among the watchers. */
+export function ratingSpread(w: Pick<Watch, 'watchedBy' | 'ratings'>): number {
+  const stars = raters(w).flatMap((id) => (w.ratings[id] != null ? [w.ratings[id]] : []))
+  return stars.length ? Math.max(...stars) - Math.min(...stars) : 0
+}
+
+export function verdict(spread: number): string {
+  if (spread === 0) return 'Perfect match'
+  if (spread === 1) return 'Almost a perfect match'
+  if (spread === 2) return 'Mixed feelings'
+  return 'Big debate'
+}
+
+/** Logs that just became fully rated and are worth a reveal for this viewer (2+ watchers, viewer among them, not seen yet). */
+export function pendingReveals(list: Watch[], viewer: string | null, seen: Set<string>): Watch[] {
+  if (!viewer) return []
+  return list
+    .filter((w) => w.watchedBy.length > 1 && w.watchedBy.includes(viewer) && averageRating(w) != null && !seen.has(w.id))
+    .sort(byUpdatedDesc)
+}
+
+/** Switch a log to another season: picks up its episode count and whether it's a rewatch. */
+export function withSeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
+  return {
+    ...cur,
+    season: s.number,
+    totalEpisodes: s.episodes,
+    episodesWatched: cur.status === 'done' && s.episodes ? s.episodes : Math.min(cur.episodesWatched, s.episodes ?? Infinity),
+    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id),
+  }
+}
+
+/** The season a new log should start on: the latest one that has aired. */
+export function defaultSeason(seasons: SeasonInfo[]): SeasonInfo | undefined {
+  return seasons.filter((x) => x.aired).at(-1) ?? seasons[0]
 }

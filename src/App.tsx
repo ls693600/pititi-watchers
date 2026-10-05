@@ -1,7 +1,9 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId } from './logic'
+import { addEpisode, averageRating, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { QuickLog } from './components/QuickLog'
+import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
 import { Home } from './screens/Home'
 import { Login } from './screens/Login'
@@ -27,6 +29,29 @@ const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
     { id: 'settings', icon: 'settings', label: 'Settings' },
   ],
 ]
+
+/** Dev previews only: ?as=<personId> acts as that person in single-phone mode. Stripped from production builds. */
+const DEV_VIEWER = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('as') : null
+
+const SEEN_KEY = 'pititi.reveals.v1'
+
+/** Logs whose reveal this phone has already shown. Null on first run. */
+function readSeen(): Set<string> | null {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY)
+    return raw ? new Set(JSON.parse(raw) as string[]) : null
+  } catch {
+    return null
+  }
+}
+
+function writeSeen(seen: Set<string>) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]))
+  } catch {
+    // Not fatal: worst case a reveal shows again
+  }
+}
 
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
@@ -76,6 +101,32 @@ export default function App() {
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [reveals, setReveals] = useState<string[]>([])
+  const [quick, setQuick] = useState<Watch | null>(null)
+  const viewerRef = useRef<string | null>(null)
+  useEffect(() => {
+    viewerRef.current = auth.state === 'ready' ? (auth.session?.personId ?? DEV_VIEWER) : null
+  }, [auth])
+
+  const queueReveals = useCallback((list: Watch[]) => {
+    const seen = readSeen()
+    if (!seen) {
+      // First run on this phone: don't replay history, only future reveals
+      writeSeen(new Set(list.filter((w) => averageRating(w) != null).map((w) => w.id)))
+      return
+    }
+    const ids = pendingReveals(list, viewerRef.current, seen).map((w) => w.id)
+    if (ids.length) setReveals((q) => [...q, ...ids.filter((id) => !q.includes(id))])
+  }, [])
+
+  function closeReveal() {
+    setReveals(([done, ...rest]) => {
+      const seen = readSeen() ?? new Set<string>()
+      if (done) seen.add(done)
+      writeSeen(seen)
+      return rest
+    })
+  }
 
   const flash = useCallback((msg: string) => {
     setToast(msg)
@@ -96,6 +147,7 @@ export default function App() {
       setWatches(snap.watches)
       setPeople(snap.people)
       setOffline(false)
+      queueReveals(snap.watches)
     } catch {
       // Cloud unreachable: fall back to the last synced copy
       const snap = cache.read()
@@ -103,7 +155,7 @@ export default function App() {
       setPeople(snap.people)
       setOffline(true)
     }
-  }, [])
+  }, [queueReveals])
 
   useEffect(() => {
     if (auth.state !== 'ready') return
@@ -128,6 +180,7 @@ export default function App() {
     try {
       await store.save(next)
       flash(okMsg)
+      queueReveals([...prev.filter((x) => x.id !== next.id), next])
       return true
     } catch {
       setWatches(prev)
@@ -136,12 +189,13 @@ export default function App() {
     }
   }
 
-  async function handleSave(w: Watch) {
+  async function handleSave(w: Watch, isNew = detail?.isNew ?? false) {
     setSaving(true)
-    const ok = await persist(w, detail?.isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved')
+    const ok = await persist(w, isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved')
     setSaving(false)
     if (ok) {
       setDetail(null)
+      setQuick(null)
       setMonth(w.month)
       setTab('home')
     }
@@ -192,7 +246,8 @@ export default function App() {
   }
 
   // Single-phone mode has no login: the phone belongs to the admin
-  const me = auth.session?.personId ?? people.find((p) => p.isAdmin)?.id ?? null
+  const viewer = auth.session?.personId ?? DEV_VIEWER
+  const me = viewer ?? people.find((p) => p.isAdmin)?.id ?? null
   const isAdmin = auth.session ? auth.session.isAdmin : true
   const who = auth.session ? { personId: auth.session.personId, isAdmin: auth.session.isAdmin } : null
 
@@ -209,6 +264,7 @@ export default function App() {
             watches={watches}
             people={people}
             me={me}
+            viewer={viewer}
             saving={saving}
             canDelete={canDelete(detail.watch, who)}
             onSave={handleSave}
@@ -220,6 +276,7 @@ export default function App() {
             watches={watches}
             people={people}
             me={me}
+            viewer={viewer}
             onProfile={() => setTab('settings')}
             filter={filter}
             onFilter={setFilter}
@@ -235,7 +292,7 @@ export default function App() {
           />
         ) : tab === 'search' ? (
           <Search watches={watches} month={month} onPick={(show) =>
-              setDetail({ watch: draftFrom(show, month, defaultWatchers(watches, people, me), me), isNew: true })
+              setQuick(draftFrom(show, month, defaultWatchers(watches, people, me), me))
             } />
         ) : tab === 'stats' ? (
           <Stats
@@ -274,6 +331,27 @@ export default function App() {
           />
         )}
       </main>
+
+      {quick && (
+        <QuickLog
+          key={quick.id}
+          draft={quick}
+          watches={watches}
+          people={people}
+          me={me}
+          saving={saving}
+          onLog={(w) => handleSave(w, true)}
+          onMore={(w) => {
+            setQuick(null)
+            setDetail({ watch: w, isNew: true })
+          }}
+          onClose={() => setQuick(null)}
+        />
+      )}
+
+      {reveals[0] && watches.find((w) => w.id === reveals[0]) && (
+        <Reveal watch={watches.find((w) => w.id === reveals[0])!} people={people} onClose={closeReveal} />
+      )}
 
       {toast && (
         <div className="toast" role="status">

@@ -3,6 +3,11 @@ import {
   addEpisode,
   averageRating,
   canDelete,
+  canEditRating,
+  canSeeRating,
+  pendingReveals,
+  ratingSpread,
+  verdict,
   pendingRaters,
   personAverages,
   watchedByPerson,
@@ -13,6 +18,7 @@ import {
   watchesInMonth,
   yearStats,
 } from './logic'
+import { resolveTheme } from './theme'
 import type { Watch } from './types'
 
 function watch(over: Partial<Watch> = {}): Watch {
@@ -182,5 +188,57 @@ describe('stats', () => {
     expect(y.avgPerMonth).toBe(0)
     expect(y.busiest).toBeNull()
     expect(y.topRated).toEqual([])
+  })
+})
+
+describe('blind rating', () => {
+  const half = watch({ watchedBy: ['L', 'A'], ratings: { L: 4 } })
+  const full = watch({ watchedBy: ['L', 'A'], ratings: { L: 4, A: 5 } })
+  it('shows only your own stars until everyone has rated', () => {
+    expect(canSeeRating(half, 'L', 'L')).toBe(true)
+    expect(canSeeRating(half, 'A', 'L')).toBe(false)
+    expect(canSeeRating(half, 'L', 'A')).toBe(false)
+    expect(canSeeRating(full, 'A', 'L')).toBe(true)
+    expect(canSeeRating(half, 'L', 'M')).toBe(false)
+  })
+  it('shows everything in single-phone mode', () => {
+    expect(canSeeRating(half, 'A', null)).toBe(true)
+  })
+  it('lets you rate for yourself and for people without an account', () => {
+    expect(canEditRating({ id: 'L', userId: 'u1' }, 'L')).toBe(true)
+    expect(canEditRating({ id: 'A', userId: 'u2' }, 'L')).toBe(false)
+    expect(canEditRating({ id: 'M', userId: null }, 'L')).toBe(true)
+    expect(canEditRating({ id: 'A', userId: 'u2' }, null)).toBe(true)
+  })
+})
+
+describe('reveal', () => {
+  it('measures spread and names the verdict', () => {
+    expect(ratingSpread(watch({ ratings: { L: 4, A: 4 } }))).toBe(0)
+    expect(ratingSpread(watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 2, M: 4 } }))).toBe(3)
+    expect(ratingSpread(watch({ ratings: {} }))).toBe(0)
+    expect([0, 1, 2, 3, 4].map(verdict)).toEqual(['Perfect match', 'Almost a perfect match', 'Mixed feelings', 'Big debate', 'Big debate'])
+  })
+  it('queues only complete group logs the viewer watched and has not seen', () => {
+    const a = watch({ id: 'a', ratings: { L: 4, A: 5 } })
+    const b = watch({ id: 'b', ratings: { L: 4 } })
+    const solo = watch({ id: 'c', watchedBy: ['L'], ratings: { L: 3 } })
+    const notMine = watch({ id: 'd', watchedBy: ['A', 'M'], ratings: { A: 3, M: 3 } })
+    const seen = watch({ id: 'e', ratings: { L: 2, A: 2 } })
+    expect(pendingReveals([a, b, solo, notMine, seen], 'L', new Set(['e'])).map((w) => w.id)).toEqual(['a'])
+    expect(pendingReveals([a], null, new Set())).toEqual([])
+  })
+})
+
+describe('evening theme', () => {
+  it('goes dark from 7 PM to 7 AM in auto', () => {
+    expect(resolveTheme('auto', new Date(2026, 9, 5, 18, 59))).toBe('light')
+    expect(resolveTheme('auto', new Date(2026, 9, 5, 19, 0))).toBe('dark')
+    expect(resolveTheme('auto', new Date(2026, 9, 6, 6, 59))).toBe('dark')
+    expect(resolveTheme('auto', new Date(2026, 9, 6, 7, 0))).toBe('light')
+  })
+  it('respects a fixed choice', () => {
+    expect(resolveTheme('light', new Date(2026, 9, 5, 23, 0))).toBe('light')
+    expect(resolveTheme('dark', new Date(2026, 9, 5, 12, 0))).toBe('dark')
   })
 })

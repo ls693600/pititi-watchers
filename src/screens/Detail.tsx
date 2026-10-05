@@ -3,7 +3,7 @@ import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
-import { averageRating, isPriorWatch, monthLabel, pendingRaters, timesWatched } from '../logic'
+import { averageRating, canEditRating, canSeeRating, defaultSeason, monthLabel, pendingRaters, timesWatched, withSeason } from '../logic'
 import { bigPoster, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 
@@ -13,6 +13,8 @@ interface Props {
   watches: Watch[]
   people: Person[]
   me: string | null
+  /** Signed-in person; null in single-phone mode (no blind rating there) */
+  viewer: string | null
   saving: boolean
   canDelete: boolean
   onSave: (w: Watch) => void
@@ -20,7 +22,7 @@ interface Props {
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, saving, canDelete, onSave, onDelete, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -36,20 +38,23 @@ export function Detail({ initial, isNew, watches, people, me, saving, canDelete,
       .then((s) => {
         if (!alive) return
         setSeasons(s)
-        // New logs default to the latest season that has aired
-        if (isNew && s.length) {
-          const latest = s.filter((x) => x.aired).at(-1) ?? s[0]
-          setW((cur) => applySeason(cur, latest, watchesRef.current))
+        // New logs default to the latest aired season, unless Quick log already picked one
+        if (isNew && s.length && initial.totalEpisodes == null) {
+          const latest = defaultSeason(s)!
+          setW((cur) => withSeason(cur, latest, watchesRef.current))
         }
       })
       .catch(() => alive && setSeasons([]))
     return () => {
       alive = false
     }
-  }, [initial.showId, isNew])
+  }, [initial.showId, initial.totalEpisodes, isNew])
 
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
   const avg = averageRating(w)
+  // Blind rating follows what's saved, so tapping your stars never spoils the reveal
+  const savedComplete = averageRating(initial) != null
+  const blind = viewer != null && !savedComplete && w.watchedBy.length > 1
   const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
   const watchers = people.filter((p) => w.watchedBy.includes(p.id))
 
@@ -116,26 +121,48 @@ export function Detail({ initial, isNew, watches, people, me, saving, canDelete,
             </button>
           ))}
         </div>
-        {watchers.map((p) => (
-          <div key={p.id} className="field">
-            <span className="who">
-              <Avatar people={people} id={p.id} />
-              {p.name}
-              {me === p.id && <span className="you">you</span>}
-            </span>
-            <Stars label={p.name} value={w.ratings[p.id] ?? null} onChange={(v) => rate(p.id, v)} />
-          </div>
-        ))}
+        {watchers.map((p) => {
+          const stars = w.ratings[p.id] ?? null
+          const editable = canEditRating(p, viewer)
+          const visible = editable || (savedComplete ? true : canSeeRating(w, p.id, viewer) && !blind)
+          return (
+            <div key={p.id} className="field">
+              <span className="who">
+                <Avatar people={people} id={p.id} />
+                {p.name}
+                {me === p.id && <span className="you">you</span>}
+              </span>
+              {editable ? (
+                <Stars label={p.name} value={stars} onChange={(v) => rate(p.id, v)} />
+              ) : visible && stars != null ? (
+                <AvgStars value={stars} size={22} />
+              ) : (
+                <span className={`hidden-rating ${stars != null ? 'done' : ''}`}>
+                  <Icon name={stars != null ? 'lock' : 'clock'} size={15} stroke={2.2} />
+                  {stars != null ? 'Rated · hidden' : 'Not rated yet'}
+                </span>
+              )}
+            </div>
+          )
+        })}
         {watchers.length > 0 && (
           <div className="avg-row">
             <span className="label">
               Average
-              {avg != null && <span className="big grad-text">{avg.toFixed(1)}</span>}
+              {avg != null && !blind && <span className="big grad-text">{avg.toFixed(1)}</span>}
             </span>
-            {avg != null ? (
+            {avg != null && !blind ? (
               <AvgStars value={avg} size={24} />
+            ) : avg != null ? (
+              <span className="save-to-reveal">
+                <Icon name="sparkle" size={16} stroke={2.2} /> Save to reveal
+              </span>
             ) : (
-              <span className="muted" style={{ textAlign: 'right' }}>Waiting for {pendingRaters(w).map(nameOf).join(', ')}</span>
+              <span className="muted" style={{ textAlign: 'right' }}>
+                {viewer && watchers.length > 1 ? 'Revealed when everyone rates' : 'Waiting for'}
+                <br />
+                <b style={{ color: 'var(--text-2)' }}>{pendingRaters(w).map(nameOf).join(', ')}</b>
+              </span>
             )}
           </div>
         )}
@@ -149,7 +176,7 @@ export function Detail({ initial, isNew, watches, people, me, saving, canDelete,
               value={w.season}
               onChange={(e) => {
                 const s = seasons.find((x) => x.number === Number(e.target.value))
-                if (s) setW((cur) => applySeason(cur, s, watches))
+                if (s) setW((cur) => withSeason(cur, s, watches))
               }}
             >
               {seasons.map((s) => (
@@ -263,14 +290,4 @@ export function Detail({ initial, isNew, watches, people, me, saving, canDelete,
       </div>
     </div>
   )
-}
-
-function applySeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
-  return {
-    ...cur,
-    season: s.number,
-    totalEpisodes: s.episodes,
-    episodesWatched: cur.status === 'done' && s.episodes ? s.episodes : Math.min(cur.episodesWatched, s.episodes ?? Infinity),
-    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id),
-  }
 }
