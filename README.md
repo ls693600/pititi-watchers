@@ -42,7 +42,7 @@ npm test
 
 ## Put it on your phones
 
-The phones need a public HTTPS address. Free options: Vercel, Netlify, or Cloudflare Pages. Build command `npm run build`, output folder `dist`, and add the two `VITE_SUPABASE_*` values as environment variables in the host.
+Live at **https://ls693600.github.io/pititi-watchers/** (GitHub Pages, `gh-pages` branch). Redeploy with `npm run deploy` (needs `.env.local`).
 
 Then on each iPhone: open the link in Safari → Share → **Add to Home Screen**.
 
