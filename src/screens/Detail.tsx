@@ -24,7 +24,9 @@ export function Detail({ initial, isNew, watches, me, saving, onSave, onDelete, 
   const [error, setError] = useState<string | null>(null)
   // Read the latest list without re-running the season fetch on every live sync
   const watchesRef = useRef(watches)
-  watchesRef.current = watches
+  useEffect(() => {
+    watchesRef.current = watches
+  }, [watches])
 
   useEffect(() => {
     let alive = true

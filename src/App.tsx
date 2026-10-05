@@ -8,13 +8,26 @@ import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Stats } from './screens/Stats'
-import { cloudStore, currentSession, signIn, signOut } from './store/cloud'
+import { cloudStore, currentSession, signIn, signOut, signUp, takenSeats } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { ShowResult } from './tvmaze'
 import type { Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
+
+const MIGRATED_KEY = 'pititi.migrated.v1'
+
+/** First sign-in on a phone: send anything logged before sync was on up to the shared log, once. */
+async function uploadLocalLog() {
+  try {
+    if (localStorage.getItem(MIGRATED_KEY)) return
+    for (const w of cache.read()) await cloudStore.save(w)
+    localStorage.setItem(MIGRATED_KEY, new Date().toISOString())
+  } catch {
+    // Not fatal: the local copy stays and the upload is retried on the next sign-in
+  }
+}
 
 type Tab = 'home' | 'search' | 'stats' | 'settings'
 const TABS: { id: Tab; icon: IconName; label: string }[] = [
@@ -143,9 +156,18 @@ export default function App() {
       <div className="app">
         {auth.error && <p className="error banner" role="alert">{auth.error}</p>}
         <Login
+          loadTaken={takenSeats}
           onSignIn={async (email, password) => {
             const session = await signIn(email, password)
+            await uploadLocalLog()
             setAuth({ state: 'ready', session })
+          }}
+          onSignUp={async (email, password, person) => {
+            const session = await signUp(email, password, person)
+            if (!session) return false
+            await uploadLocalLog()
+            setAuth({ state: 'ready', session })
+            return true
           }}
         />
       </div>

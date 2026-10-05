@@ -1,4 +1,4 @@
--- CouchLog schema. Paste into Supabase > SQL Editor and run once.
+-- Pititi Watchers schema. Paste into Supabase > SQL Editor and run once.
 
 -- Who belongs to the household. p1 = Leandro, p2 = Ana.
 create table if not exists public.members (
@@ -51,5 +51,50 @@ create policy "household writes watches" on public.watches
   using (exists (select 1 from public.members m where m.user_id = auth.uid()))
   with check (exists (select 1 from public.members m where m.user_id = auth.uid()));
 
+-- Sign-up claims a seat: the app sends person = p1 (Leandro) or p2 (Ana).
+-- A third account, or a second account for the same person, is rejected and never created.
+create or replace function public.claim_household_seat()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  wanted text := new.raw_user_meta_data ->> 'person';
+begin
+  if wanted is null or wanted not in ('p1', 'p2') then
+    raise exception 'seat_invalid';
+  end if;
+  if exists (select 1 from public.members where person = wanted) then
+    raise exception 'seat_taken';
+  end if;
+  insert into public.members (user_id, person) values (new.id, wanted);
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.claim_household_seat();
+
+-- Lets the sign-up screen show which names are still free (returns only 'p1'/'p2').
+create or replace function public.taken_seats()
+returns setof text
+language sql
+security definer
+set search_path = public
+as $$ select person from public.members $$;
+
+grant execute on function public.taken_seats() to anon, authenticated;
+
 -- Live sync between the two phones.
-alter publication supabase_realtime add table public.watches;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'watches'
+  ) then
+    alter publication supabase_realtime add table public.watches;
+  end if;
+end $$;

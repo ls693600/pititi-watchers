@@ -97,6 +97,29 @@ export async function signIn(email: string, password: string): Promise<Session> 
   return s
 }
 
+/** Which people already have an account, so sign-up only offers the free name. */
+export async function takenSeats(): Promise<PersonId[]> {
+  const { data, error } = await supabase().rpc('taken_seats')
+  if (error) throw error
+  return (data as string[]).filter((p): p is PersonId => p === 'p1' || p === 'p2')
+}
+
+/** Creates the account for one person. Returns null when Supabase requires email confirmation first. */
+export async function signUp(email: string, password: string, person: PersonId): Promise<Session | null> {
+  const { data, error } = await supabase().auth.signUp({
+    email,
+    password,
+    options: { data: { person }, emailRedirectTo: window.location.href.split('#')[0] },
+  })
+  if (error) {
+    // The seat trigger's message is swallowed by Supabase Auth; this is what comes back
+    if (/database error/i.test(error.message)) throw new Error('That name already has an account. Sign in instead.')
+    throw error
+  }
+  if (!data.session) return null
+  return currentSession()
+}
+
 export async function signOut() {
   await supabase().auth.signOut()
 }

@@ -27,11 +27,7 @@ export function Search({ watches, onPick }: Props) {
   }, [watches])
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
-      setError(null)
-      return
-    }
+    if (!query.trim()) return
     const ctrl = new AbortController()
     const t = setTimeout(async () => {
       setLoading(true)
@@ -63,8 +59,8 @@ export function Search({ watches, onPick }: Props) {
         autoFocus
       />
 
-      {error && <p className="error" role="alert">{error}</p>}
-      {loading && <p className="muted center">Searching…</p>}
+      {query.trim() && error && <p className="error" role="alert">{error}</p>}
+      {query.trim() && loading && <p className="muted center">Searching…</p>}
 
       {query.trim() && !loading && !error && results.length === 0 && (
         <p className="muted center">No shows match "{query.trim()}". Check the spelling or try the original title.</p>

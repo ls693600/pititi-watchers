@@ -14,7 +14,7 @@ export function Settings({ mode, session, watches, onSignOut }: Props) {
     const blob = new Blob([JSON.stringify(watches, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `couchlog-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `pititi-watchers-backup-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }

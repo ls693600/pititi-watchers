@@ -1,7 +1,7 @@
 import type { Watch } from '../types'
 import type { Store } from './store'
 
-const KEY = 'couchlog.watches.v1'
+const KEY = 'pititi.watches.v1'
 
 function read(): Watch[] {
   try {
