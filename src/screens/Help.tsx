@@ -61,7 +61,8 @@ const SECTIONS: Section[] = [
         q: 'What\'s the difference between Currently watching and Watched this month?',
         a: [
           'Currently watching is the swipeable banner at the top: one card per show you\'re in the middle of, no matter when you started it. Swipe or tap the dots to move between shows, and tap Watched next after each episode.',
-          'Each card says what\'s waiting: "2 new episodes" means they\'re out and you haven\'t seen them; "Next ep · Fri, Oct 9" means you\'re caught up until then. Shows with episodes ready come first.',
+          'Each card says what\'s waiting, using real air dates from TVmaze: "2 new episodes" means they aired in the last 30 days and you haven\'t seen them; "2 episodes to go" means older episodes you haven\'t watched yet; "Next ep · Fri, Oct 9" means you\'re caught up until then; "Up to date" means you\'ve seen everything that\'s out.',
+          'Shows with new episodes come first, then the ones airing soonest.',
           'Coming up shows the next new episode of each show for the next 30 days, like a TV guide.',
           'Watched this month shows what you finished this month.',
           'Episodes from shows you\'re still watching count in this month\'s numbers too.',

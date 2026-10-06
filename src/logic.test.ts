@@ -444,24 +444,37 @@ describe('episodes counted in the month they were watched', () => {
 })
 
 describe('release outlook for the home banner', () => {
+  const today = '2026-10-05'
   const w = (season: number, watched: number, total: number | null) => ({ season, episodesWatched: watched, totalEpisodes: total })
   const ep = (season: number, number: number, airdate = '2026-10-09') => ({ season, number, airdate, name: 'Ep' })
-  it('counts aired episodes you have not watched in the current season', () => {
-    // MobLand: watched 1, episode 4 is next → 3 aired → 2 ready
-    expect(episodeOutlook(w(2, 1, 10), ep(2, 4))).toMatchObject({ ready: 2, next: { date: '2026-10-09', number: 4 } })
-    expect(episodeOutlook(w(2, 3, 10), ep(2, 4)).ready).toBe(0)
+  const eps = (dates: (string | null)[]) => dates.map((airdate, i) => ({ number: i + 1, airdate }))
+  it('does not call years-old episodes new (The Tunnel bug)', () => {
+    // The Tunnel S1 (2013), watched 8 of 10, show ended: 2 to go, nothing new, nothing next
+    const tunnel = eps(['2013-10-16', '2013-10-23', '2013-10-30', '2013-11-06', '2013-11-13', '2013-11-20', '2013-11-27', '2013-12-04', '2013-12-11', '2013-12-18'])
+    expect(episodeOutlook(w(1, 8, 10), null, tunnel, today)).toEqual({ fresh: 0, toGo: 2, next: null })
   })
-  it('treats the whole season as out when the next episode is a later season or nothing is scheduled', () => {
-    expect(episodeOutlook(w(1, 6, 10), ep(2, 1, '2027-01-01')).ready).toBe(4)
-    expect(episodeOutlook(w(3, 7, 10), null)).toEqual({ ready: 3, next: null })
-    expect(episodeOutlook(w(3, 7, null), null).ready).toBe(0)
+  it('calls recently aired unwatched episodes new', () => {
+    // MobLand S2: E1-3 aired Sep 21/28 and Oct 5, E4 Fri; watched 1
+    const mob = eps(['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-09', '2026-10-16'])
+    const o = episodeOutlook(w(2, 1, 10), ep(2, 4), mob, today)
+    expect([o.fresh, o.toGo, o.next?.number]).toEqual([2, 2, 4])
+    expect(episodeOutlook(w(2, 3, 10), ep(2, 4), mob, today)).toMatchObject({ fresh: 0, toGo: 0 })
   })
-  it('orders ready-to-watch first, then the soonest air date', () => {
-    const ready = { ready: 2, next: null }
-    const fri = { ready: 0, next: { date: '2026-10-09', season: 1, number: 1, name: '' } }
-    const sun = { ready: 0, next: { date: '2026-10-11', season: 1, number: 1, name: '' } }
-    const none = { ready: 0, next: null }
-    expect([none, sun, ready, fri].sort(outlookOrder)).toEqual([ready, fri, sun, none])
-    expect(outlookOrder(undefined, fri)).toBeGreaterThan(0)
+  it('splits a season with both old and recent unwatched episodes', () => {
+    const mixed = eps(['2026-06-01', '2026-06-08', '2026-09-28', '2026-10-04', null])
+    expect(episodeOutlook(w(1, 1, 5), null, mixed, today)).toMatchObject({ fresh: 2, toGo: 3 })
+  })
+  it('without episode dates, estimates what is left but never says new', () => {
+    expect(episodeOutlook(w(2, 1, 10), ep(2, 4), null, today)).toMatchObject({ fresh: 0, toGo: 2 })
+    expect(episodeOutlook(w(3, 7, 10), null, null, today)).toMatchObject({ fresh: 0, toGo: 3, next: null })
+    expect(episodeOutlook(w(3, 7, null), null, null, today).toGo).toBe(0)
+  })
+  it('orders new first, then caught-up shows by air date, then older episodes to go', () => {
+    const fresh = { fresh: 2, toGo: 2, next: null }
+    const fri = { fresh: 0, toGo: 0, next: { date: '2026-10-09', season: 1, number: 1, name: '' } }
+    const sun = { fresh: 0, toGo: 0, next: { date: '2026-10-11', season: 1, number: 1, name: '' } }
+    const old = { fresh: 0, toGo: 2, next: null }
+    const done = { fresh: 0, toGo: 0, next: null }
+    expect([done, old, sun, fresh, fri].sort(outlookOrder)).toEqual([fresh, fri, sun, old, done])
   })
 })

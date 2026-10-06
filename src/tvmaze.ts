@@ -179,3 +179,45 @@ export async function getEpisodes(seasonId: number): Promise<EpisodeInfo[]> {
   const rows = await get<{ number: number | null; name: string; airdate: string | null }[]>(`/seasons/${seasonId}/episodes`)
   return rows.filter((e) => e.number != null).map((e) => ({ number: e.number!, name: e.name, airdate: e.airdate || null }))
 }
+
+const CACHE_KEY = 'pititi.tvcache.v1'
+const CACHE_TTL = 6 * 60 * 60 * 1000
+const memo = new Map<string, Promise<unknown>>()
+
+/** Runs a TVmaze lookup at most every 6 hours per key (memory + phone storage). */
+function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = memo.get(key)
+  if (hit) return hit as Promise<T>
+  try {
+    const stored = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')[key]
+    if (stored && Date.now() - stored.at < CACHE_TTL) {
+      const p = Promise.resolve(stored.value as T)
+      memo.set(key, p)
+      return p
+    }
+  } catch {
+    // Unreadable cache: just fetch
+  }
+  const p = load().then((value) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
+      all[key] = { at: Date.now(), value }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(all))
+    } catch {
+      // Cache is a nice-to-have
+    }
+    return value
+  })
+  p.catch(() => memo.delete(key))
+  memo.set(key, p)
+  return p
+}
+
+/** Air dates of a show-season's episodes, for telling new episodes from old ones. */
+export function getSeasonEpisodesCached(showId: number, season: number): Promise<EpisodeInfo[] | null> {
+  return cached(`eps:${showId}:${season}`, async () => {
+    const seasons = await getSeasons(showId)
+    const s = seasons.find((x) => x.number === season)
+    return s?.id ? getEpisodes(s.id) : null
+  })
+}

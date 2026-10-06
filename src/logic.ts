@@ -446,33 +446,48 @@ export function newlyEarned(badges: Badge[], seen: Set<string>): Badge[] {
 }
 
 export interface Outlook {
-  /** Aired episodes of this season you haven't watched yet */
-  ready: number
+  /** Unwatched episodes that aired in the last few weeks: genuinely new */
+  fresh: number
+  /** All unwatched episodes that are already out (new or old) */
+  toGo: number
   /** Next new episode, if one is scheduled */
   next: { date: string; season: number; number: number; name: string } | null
 }
 
+/** "New" means it aired within this many days. */
+export const FRESH_DAYS = 30
+
+function daysBefore(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d) - days * 86_400_000)
+  return t.toISOString().slice(0, 10)
+}
+
 /**
- * What's waiting for a show you're watching: episodes already out that you haven't seen,
- * and when the next new one airs. Uses TVmaze's next-episode info for the show.
+ * What's waiting for a show you're watching, judged by real air dates:
+ * episodes out that you haven't seen (and which of them are recent enough to call new),
+ * and when the next new one airs. Without episode dates nothing is ever called "new".
  */
 export function episodeOutlook(
   w: Pick<Watch, 'season' | 'episodesWatched' | 'totalEpisodes'>,
   nextEpisode: { season: number; number: number; airdate: string; name: string } | null,
+  seasonEpisodes: { number: number; airdate: string | null }[] | null,
+  today: string,
 ): Outlook {
-  let aired: number | null
-  if (nextEpisode && nextEpisode.season === w.season) aired = nextEpisode.number - 1
-  else aired = w.totalEpisodes // this season has fully aired (or next is a later season)
-  const ready = aired != null ? Math.max(0, aired - w.episodesWatched) : 0
-  return {
-    ready,
-    next: nextEpisode ? { date: nextEpisode.airdate, season: nextEpisode.season, number: nextEpisode.number, name: nextEpisode.name } : null,
+  const next = nextEpisode ? { date: nextEpisode.airdate, season: nextEpisode.season, number: nextEpisode.number, name: nextEpisode.name } : null
+  if (seasonEpisodes) {
+    const unwatched = seasonEpisodes.filter((e) => e.number > w.episodesWatched && e.airdate != null && e.airdate <= today)
+    const since = daysBefore(today, FRESH_DAYS)
+    return { fresh: unwatched.filter((e) => e.airdate! >= since).length, toGo: unwatched.length, next }
   }
+  // No episode list: estimate what's out, but don't claim any of it is new
+  const aired = nextEpisode && nextEpisode.season === w.season ? nextEpisode.number - 1 : w.totalEpisodes
+  return { fresh: 0, toGo: aired != null ? Math.max(0, aired - w.episodesWatched) : 0, next }
 }
 
-/** Order for the banner: shows with episodes ready first, then by the soonest new episode, then the rest. */
+/** Banner order: new episodes first, then caught-up shows by next air date, then older episodes to go, then the rest. */
 export function outlookOrder(a: Outlook | undefined, b: Outlook | undefined): number {
-  const rank = (o?: Outlook) => (o?.ready ? 0 : o?.next ? 1 : 2)
+  const rank = (o?: Outlook) => (o?.fresh ? 0 : o?.next && !o.toGo ? 1 : o?.toGo ? 2 : o?.next ? 1 : 3)
   const r = rank(a) - rank(b)
   if (r) return r
   if (a?.next && b?.next) return a.next.date.localeCompare(b.next.date)

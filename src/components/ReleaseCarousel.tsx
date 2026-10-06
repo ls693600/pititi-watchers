@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { airLabel, episodeOutlook, outlookOrder, type Outlook } from '../logic'
-import { bigPoster, getShowInfoCached } from '../tvmaze'
+import { bigPoster, getSeasonEpisodesCached, getShowInfoCached } from '../tvmaze'
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
@@ -19,10 +19,11 @@ function useOutlooks(watching: Watch[]): Record<string, Outlook> {
   const key = watching.map((w) => `${w.id}:${w.season}:${w.episodesWatched}`).join('|')
   useEffect(() => {
     let alive = true
+    const today = new Date().toISOString().slice(0, 10)
     watching.forEach((w) => {
-      getShowInfoCached(w.showId)
-        .then((info) => {
-          if (alive) setMap((m) => ({ ...m, [w.id]: episodeOutlook(w, info.nextEpisode) }))
+      Promise.all([getShowInfoCached(w.showId), getSeasonEpisodesCached(w.showId, w.season).catch(() => null)])
+        .then(([info, episodes]) => {
+          if (alive) setMap((m) => ({ ...m, [w.id]: episodeOutlook(w, info.nextEpisode, episodes, today) }))
         })
         .catch(() => undefined)
     })
@@ -35,8 +36,10 @@ function useOutlooks(watching: Watch[]): Record<string, Outlook> {
 }
 
 function kicker(o: Outlook | undefined): { text: string; tone: 'ready' | 'soon' | 'plain' } {
-  if (o?.ready) return { text: o.ready === 1 ? '1 new episode' : `${o.ready} new episodes`, tone: 'ready' }
+  if (o?.fresh) return { text: o.fresh === 1 ? '1 new episode' : `${o.fresh} new episodes`, tone: 'ready' }
+  if (o?.toGo) return { text: o.toGo === 1 ? '1 episode to go' : `${o.toGo} episodes to go`, tone: 'plain' }
   if (o?.next) return { text: `Next ep · ${airLabel(o.next.date)}`, tone: 'soon' }
+  if (o) return { text: 'Up to date', tone: 'plain' }
   return { text: 'Continue watching', tone: 'plain' }
 }
 
