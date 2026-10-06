@@ -8,6 +8,8 @@ import {
   airLabel,
   tapEpisode,
   pendingReveals,
+  episodeOutlook,
+  outlookOrder,
   activeIn,
   currentlyWatching,
   reconcileMonths,
@@ -438,5 +440,28 @@ describe('episodes counted in the month they were watched', () => {
   it('lists shows in progress regardless of month', () => {
     const list = [show({ id: 'a', month: '2026-07' }), show({ id: 'b', status: 'done' }), show({ id: 'c', updatedAt: '2026-10-09' })]
     expect(currentlyWatching(list).map((w) => w.id)).toEqual(['c', 'a'])
+  })
+})
+
+describe('release outlook for the home banner', () => {
+  const w = (season: number, watched: number, total: number | null) => ({ season, episodesWatched: watched, totalEpisodes: total })
+  const ep = (season: number, number: number, airdate = '2026-10-09') => ({ season, number, airdate, name: 'Ep' })
+  it('counts aired episodes you have not watched in the current season', () => {
+    // MobLand: watched 1, episode 4 is next → 3 aired → 2 ready
+    expect(episodeOutlook(w(2, 1, 10), ep(2, 4))).toMatchObject({ ready: 2, next: { date: '2026-10-09', number: 4 } })
+    expect(episodeOutlook(w(2, 3, 10), ep(2, 4)).ready).toBe(0)
+  })
+  it('treats the whole season as out when the next episode is a later season or nothing is scheduled', () => {
+    expect(episodeOutlook(w(1, 6, 10), ep(2, 1, '2027-01-01')).ready).toBe(4)
+    expect(episodeOutlook(w(3, 7, 10), null)).toEqual({ ready: 3, next: null })
+    expect(episodeOutlook(w(3, 7, null), null).ready).toBe(0)
+  })
+  it('orders ready-to-watch first, then the soonest air date', () => {
+    const ready = { ready: 2, next: null }
+    const fri = { ready: 0, next: { date: '2026-10-09', season: 1, number: 1, name: '' } }
+    const sun = { ready: 0, next: { date: '2026-10-11', season: 1, number: 1, name: '' } }
+    const none = { ready: 0, next: null }
+    expect([none, sun, ready, fri].sort(outlookOrder)).toEqual([ready, fri, sun, none])
+    expect(outlookOrder(undefined, fri)).toBeGreaterThan(0)
   })
 })

@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { Avatar, PersonFilter } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
+import { ReleaseCarousel } from '../components/ReleaseCarousel'
 import {
   averageRating,
   currentMonth,
@@ -47,8 +47,6 @@ export function Home(props: Props) {
   const watching = currentlyWatching(mine)
   // This month: in-progress shows live on the shelf above, so the grid shows what was finished
   const grid = isCurrent ? list.filter((w) => w.status === 'done') : list
-  const [showAll, setShowAll] = useState(false)
-  const shelf = showAll ? watching : watching.slice(0, 4)
   const monthName = monthLabel(month, 'long').split(' ')[0]
   const who = people.find((p) => p.id === filter)
   const meName = people.find((p) => p.id === me)?.name
@@ -68,53 +66,7 @@ export function Home(props: Props) {
       </header>
 
       {isCurrent && watching.length > 0 && (
-        <section aria-label="Currently watching">
-          <h2 className="h2" style={{ marginBottom: 10 }}>
-            Currently watching
-            <small>{watching.length} {watching.length === 1 ? 'show' : 'shows'}</small>
-          </h2>
-          <ul className="card shelf">
-            {shelf.map((w) => {
-              const thisMonth = episodesIn(w, month)
-              return (
-                <li key={w.id} className="shelf-row">
-                  <button className="shelf-main" onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`}>
-                    <span className="shelf-poster">
-                      <PosterFill src={w.poster} name={w.showName} />
-                    </span>
-                    <span className="lrow-text">
-                      <span className="lrow-title">{w.showName}</span>
-                      <span className="muted">
-                        S{w.season} · {w.totalEpisodes ? `${w.episodesWatched} of ${w.totalEpisodes}` : `${w.episodesWatched} eps`}
-                        {thisMonth > 0 ? ` · ${thisMonth} this month` : ''}
-                      </span>
-                      {w.totalEpisodes ? (
-                        <span className="bar" style={{ marginTop: 4 }}>
-                          <i style={{ width: `${(w.episodesWatched / w.totalEpisodes) * 100}%` }} />
-                        </span>
-                      ) : null}
-                      {w.watchedBy.length > 0 && (
-                        <span className="stack" style={{ marginTop: 4 }}>
-                          {w.watchedBy.map((id) => (
-                            <Avatar key={id} people={people} id={id} size={18} />
-                          ))}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                  <button className="ep-plus" onClick={() => onAddEpisode(w)} aria-label={`Mark next episode of ${w.showName} watched`}>
-                    <Icon name="plus" size={14} stroke={2.8} /> 1 ep
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-          {watching.length > 4 && (
-            <button className="help-link" style={{ marginTop: 10 }} onClick={() => setShowAll(!showAll)}>
-              {showAll ? 'Show fewer' : `Show all ${watching.length}`}
-            </button>
-          )}
-        </section>
+        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} />
       )}
 
       <div className="monthbar">

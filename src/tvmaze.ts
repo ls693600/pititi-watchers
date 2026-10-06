@@ -120,6 +120,41 @@ export function plainText(html: string | null | undefined): string | null {
   return text || null
 }
 
+const INFO_KEY = 'pititi.showinfo.v1'
+const INFO_TTL = 6 * 60 * 60 * 1000
+const infoMemo = new Map<number, Promise<ShowInfo>>()
+
+/** Show info with a 6-hour cache (memory + phone storage), so Home doesn't refetch on every open. */
+export function getShowInfoCached(showId: number): Promise<ShowInfo> {
+  const memo = infoMemo.get(showId)
+  if (memo) return memo
+  let stored: Record<string, { at: number; info: ShowInfo }> = {}
+  try {
+    stored = JSON.parse(localStorage.getItem(INFO_KEY) || '{}')
+  } catch {
+    stored = {}
+  }
+  const hit = stored[showId]
+  if (hit && Date.now() - hit.at < INFO_TTL) {
+    const p = Promise.resolve(hit.info)
+    infoMemo.set(showId, p)
+    return p
+  }
+  const p = getShowInfo(showId).then((info) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(INFO_KEY) || '{}')
+      all[showId] = { at: Date.now(), info }
+      localStorage.setItem(INFO_KEY, JSON.stringify(all))
+    } catch {
+      // Cache is a nice-to-have
+    }
+    return info
+  })
+  p.catch(() => infoMemo.delete(showId))
+  infoMemo.set(showId, p)
+  return p
+}
+
 export async function getShowInfo(showId: number): Promise<ShowInfo> {
   const s = await get<{
     summary: string | null

@@ -444,3 +444,37 @@ export function familyBadges(list: Watch[]): Badge[] {
 export function newlyEarned(badges: Badge[], seen: Set<string>): Badge[] {
   return badges.filter((b) => b.earned && !seen.has(b.id))
 }
+
+export interface Outlook {
+  /** Aired episodes of this season you haven't watched yet */
+  ready: number
+  /** Next new episode, if one is scheduled */
+  next: { date: string; season: number; number: number; name: string } | null
+}
+
+/**
+ * What's waiting for a show you're watching: episodes already out that you haven't seen,
+ * and when the next new one airs. Uses TVmaze's next-episode info for the show.
+ */
+export function episodeOutlook(
+  w: Pick<Watch, 'season' | 'episodesWatched' | 'totalEpisodes'>,
+  nextEpisode: { season: number; number: number; airdate: string; name: string } | null,
+): Outlook {
+  let aired: number | null
+  if (nextEpisode && nextEpisode.season === w.season) aired = nextEpisode.number - 1
+  else aired = w.totalEpisodes // this season has fully aired (or next is a later season)
+  const ready = aired != null ? Math.max(0, aired - w.episodesWatched) : 0
+  return {
+    ready,
+    next: nextEpisode ? { date: nextEpisode.airdate, season: nextEpisode.season, number: nextEpisode.number, name: nextEpisode.name } : null,
+  }
+}
+
+/** Order for the banner: shows with episodes ready first, then by the soonest new episode, then the rest. */
+export function outlookOrder(a: Outlook | undefined, b: Outlook | undefined): number {
+  const rank = (o?: Outlook) => (o?.ready ? 0 : o?.next ? 1 : 2)
+  const r = rank(a) - rank(b)
+  if (r) return r
+  if (a?.next && b?.next) return a.next.date.localeCompare(b.next.date)
+  return 0
+}

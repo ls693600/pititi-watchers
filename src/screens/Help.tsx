@@ -60,7 +60,9 @@ const SECTIONS: Section[] = [
         id: 'shelf',
         q: 'What\'s the difference between Currently watching and Watched this month?',
         a: [
-          'Currently watching lists every show you\'re in the middle of, no matter when you started it. Tap + 1 ep after each episode.',
+          'Currently watching is the swipeable banner at the top: one card per show you\'re in the middle of, no matter when you started it. Swipe or tap the dots to move between shows, and tap Watched next after each episode.',
+          'Each card says what\'s waiting: "2 new episodes" means they\'re out and you haven\'t seen them; "Next ep · Fri, Oct 9" means you\'re caught up until then. Shows with episodes ready come first.',
+          'Coming up shows the next new episode of each show for the next 30 days, like a TV guide.',
           'Watched this month shows what you finished this month.',
           'Episodes from shows you\'re still watching count in this month\'s numbers too.',
         ],

@@ -469,3 +469,28 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .shelf-poster img, .shelf-poster .poster-fallback { width: 100%; height: 100%; object-fit: cover; display: block; font-size: 14px; }
 .ep-plus { flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: 38px; padding: 0 12px; border-radius: 999px; background: var(--grad); color: #fff; font-size: 13.5px; font-weight: 750; box-shadow: 0 6px 14px rgba(255, 77, 109, 0.28); transition: transform .12s; }
 .ep-plus:active { transform: scale(0.94); }
+
+/* Release carousel + coming up */
+.carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -20px; padding: 0 0 6px; -webkit-overflow-scrolling: touch; }
+.carousel::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; scroll-snap-align: center; padding: 0 20px; box-sizing: border-box; }
+.slide .hero { min-height: 200px; }
+.kicker-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 750; letter-spacing: 0.03em; white-space: nowrap; text-transform: uppercase; background: rgba(255, 255, 255, 0.18); color: #fff; }
+.kicker-pill.ready { background: #16a34a; }
+.kicker-pill.soon { background: rgba(255, 255, 255, 0.92); color: #1a1720; }
+.dots { display: flex; justify-content: center; gap: 7px; margin-top: 10px; }
+.dots button { width: 7px; height: 7px; border-radius: 99px; background: var(--surface-3); transition: width .25s, background .25s; padding: 0; }
+.dots button.on { width: 22px; background: var(--brand); }
+.guide { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px 6px; }
+.guide::-webkit-scrollbar { display: none; }
+.guide-tile { flex: none; width: 104px; display: flex; flex-direction: column; align-items: flex-start; padding: 12px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); text-align: left; }
+.guide-tile.soon { background: var(--grad); color: #fff; }
+.guide-dow { font-size: 11.5px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand-ink); }
+.guide-tile.soon .guide-dow { color: #fff; }
+.guide-day { font-family: var(--display); font-size: 30px; font-weight: 900; line-height: 1.05; }
+.guide-mon { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.guide-tile.soon .guide-mon { color: rgba(255, 255, 255, 0.85); }
+.guide-show { font-size: 13px; font-weight: 700; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guide-ep { font-size: 11.5px; color: var(--muted); }
+.guide-tile.soon .guide-ep { color: rgba(255, 255, 255, 0.85); }
+.hero-poster img, .hero-poster .poster-fallback { width: 100%; height: 100%; object-fit: cover; display: block; }
