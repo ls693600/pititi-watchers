@@ -108,6 +108,10 @@ export interface ShowInfo {
   status: string | null
   runtime: number | null
   nextEpisode: { season: number; number: number; name: string; airdate: string } | null
+  /** Where it lives: a streaming service (Netflix) or a TV network (HBO) */
+  home: { name: string; kind: 'stream' | 'tv' } | null
+  /** The show's official page, usually on that service */
+  officialSite: string | null
 }
 
 export interface EpisodeInfo {
@@ -123,7 +127,7 @@ export function plainText(html: string | null | undefined): string | null {
   return text || null
 }
 
-const INFO_KEY = 'pititi.showinfo.v1'
+const INFO_KEY = 'pititi.showinfo.v2'
 const INFO_TTL = 6 * 60 * 60 * 1000
 const infoMemo = new Map<number, Promise<ShowInfo>>()
 
@@ -165,6 +169,9 @@ export async function getShowInfo(showId: number): Promise<ShowInfo> {
     status?: string
     averageRuntime?: number | null
     runtime?: number | null
+    network?: { name: string } | null
+    webChannel?: { name: string } | null
+    officialSite?: string | null
     _embedded?: { nextepisode?: { season: number; number: number; name: string; airdate: string } }
   }>(`/shows/${showId}?embed=nextepisode`)
   const n = s._embedded?.nextepisode
@@ -174,6 +181,8 @@ export async function getShowInfo(showId: number): Promise<ShowInfo> {
     status: s.status ?? null,
     runtime: s.averageRuntime ?? s.runtime ?? null,
     nextEpisode: n ? { season: n.season, number: n.number, name: n.name, airdate: n.airdate } : null,
+    home: s.webChannel?.name ? { name: s.webChannel.name, kind: 'stream' } : s.network?.name ? { name: s.network.name, kind: 'tv' } : null,
+    officialSite: s.officialSite?.startsWith('https://') ? s.officialSite : (s.officialSite?.replace(/^http:\/\//, 'https://') ?? null),
   }
 }
 

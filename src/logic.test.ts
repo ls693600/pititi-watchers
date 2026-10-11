@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  mentionsIn,
+  mentionParts,
+  togetherWatchers,
+  scoreLabel,
+  yearReview,
   rewatchPair,
   canReact,
   toggleReaction,
@@ -646,5 +651,64 @@ describe('rewatch that was really one viewing', () => {
     // Same 6 episodes logged in two months: counted once, filed where they count
     expect(Object.values(m.episodesByMonth ?? {}).reduce((a, b) => a + b, 0)).toBe(6)
     expect(m.month).toBe(Object.keys(m.episodesByMonth ?? {}).sort().pop())
+  })
+})
+
+describe('watching together', () => {
+  const people = [{ id: 'l' }, { id: 'a' }, { id: 'k' }]
+  it('just me or everyone', () => {
+    expect(togetherWatchers('l', people, false)).toEqual(['l'])
+    expect(togetherWatchers('l', people, true)).toEqual(['l', 'a', 'k'])
+  })
+  it('labels the score by who watched', () => {
+    const nameOf = (id: string) => ({ l: 'Leandro', a: 'Ana' })[id] ?? '?'
+    expect(scoreLabel({ watchedBy: ['l'] }, nameOf)).toBe("Leandro's rating")
+    expect(scoreLabel({ watchedBy: ['l', 'a'] }, nameOf)).toBe('Our average')
+  })
+})
+
+describe('year in review', () => {
+  const now = new Date('2026-10-11T12:00:00')
+  const list = [
+    watch({ id: '1', showId: 1, month: '2026-03', status: 'done', watchedBy: ['l', 'a'], ratings: { l: 5, a: 5 }, episodesWatched: 10, runtime: 60, genres: ['Drama', 'Comedy'], episodesByMonth: { '2026-03': 10 } }),
+    watch({ id: '2', showId: 2, month: '2026-05', status: 'done', watchedBy: ['l'], ratings: { l: 4 }, episodesWatched: 30, runtime: 60, genres: ['Drama'], episodesByMonth: { '2026-05': 30 } }),
+    watch({ id: '3', showId: 3, month: '2026-05', status: 'done', watchedBy: ['l', 'a'], ratings: { l: 1, a: 5 }, episodesWatched: 8, runtime: 30, genres: ['Crime'], episodesByMonth: { '2026-05': 8 } }),
+    watch({ id: '4', showId: 4, month: '2025-12', status: 'done', watchedBy: ['a'], ratings: { a: 3 }, episodesWatched: 5, runtime: 60, genres: ['Drama'], episodesByMonth: { '2025-12': 5 } }),
+  ]
+  const r = yearReview(list, ['l', 'a', 'k'], 2026, now)
+  it('totals only the year', () => {
+    expect(r.shows).toBe(3)
+    expect(r.episodes).toBe(48)
+    expect(r.hours).toBe(44)
+    expect(r.days).toBe(1)
+  })
+  it('top show, busiest month, genres, disagreement', () => {
+    expect(r.top?.watch.id).toBe('1')
+    expect(r.busiest?.month).toBe('2026-05')
+    expect(r.genres[0]).toEqual({ name: 'Drama', count: 2 })
+    expect(r.disagreement?.watch.id).toBe('3')
+  })
+  it('people ranked by hours, nobody with zero', () => {
+    expect(r.people.map((p) => p.id)).toEqual(['l', 'a'])
+    expect(r.people[0].hours).toBe(44)
+  })
+  it('together vs solo', () => {
+    expect(r.together).toBe(2)
+    expect(r.solo).toBe(1)
+  })
+})
+
+describe('mentions', () => {
+  const people = [{ id: 'l', name: 'Leandro' }, { id: 'a', name: 'Ana' }, { id: 'ab', name: 'Ana Beatriz' }]
+  it('finds who is mentioned, any case, with punctuation', () => {
+    expect(mentionsIn('@Ana did you see it?', people)).toEqual(['a'])
+    expect(mentionsIn('hey @ana, finale!', people)).toEqual(['a'])
+    expect(mentionsIn('email me at x@Ana.com', people)).toEqual([])
+    expect(mentionsIn('@Anabelle', people)).toEqual([])
+    expect(mentionsIn('@Leandro and @Ana Beatriz', people)).toEqual(['l', 'a', 'ab'])
+  })
+  it('splits text for highlighting, longest name first', () => {
+    expect(mentionParts('hi @ana beatriz!', people)).toEqual([{ text: 'hi ' }, { text: '@Ana Beatriz', personId: 'ab' }, { text: '!' }])
+    expect(mentionParts('no tags', people)).toEqual([{ text: 'no tags' }])
   })
 })

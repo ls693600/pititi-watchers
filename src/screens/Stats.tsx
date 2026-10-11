@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { BadgeTile, TasteCard } from '../components/Taste'
 import { MonthSheet } from '../components/MonthSheet'
+import { YearReview } from '../components/YearReview'
 import { currentMonth, familyBadges, personalTop, monthLabel, personAverages, raters, tasteMatches, watchedByPerson, yearStats } from '../logic'
 import type { Person, Watch } from '../types'
 
@@ -24,6 +25,7 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFla
   const mine = watchedByPerson(watches, filter)
   const s = yearStats(mine, year)
   const [openMonth, setOpenMonth] = useState<string | null>(null)
+  const [review, setReview] = useState(false)
   const yearLogs = watches.filter((w) => w.month.startsWith(`${year}-`))
   const averages = personAverages(yearLogs, people.map((p) => p.id))
   const who = people.find((p) => p.id === filter)
@@ -77,7 +79,13 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFla
             <span>{s.episodes} episodes</span>
           </div>
         </div>
+        {s.shows > 0 && (
+          <button className="wrapped-play" onClick={() => setReview(true)}>
+            <Icon name="play" size={16} stroke={2.6} /> {year === thisYear ? `Play our ${year} so far` : `Play our ${year}`}
+          </button>
+        )}
       </section>
+      {review && <YearReview year={year} watches={watches} people={people} onClose={() => setReview(false)} onFlash={onFlash} />}
 
       <section className="card" style={{ padding: 0 }}>
         <div className="chart" aria-label={`Shows per month in ${year}`}>

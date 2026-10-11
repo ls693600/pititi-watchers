@@ -174,7 +174,8 @@ const SECTIONS: Section[] = [
         q: 'How do reactions and the family chat work?',
         a: [
           'Once everyone\'s stars are revealed, tap + under someone\'s stars to react (😂 🔥 😱 👏 🙄 ❤️). Tap your emoji again to take it back.',
-          'Each show has a Family chat under the ratings, open while you\'re watching. When a show is finished, watchers read and write after they rate, so nobody\'s stars get nudged.',
+          'Each show has a Family chat under the ratings. When a show is finished and you haven\'t rated it yet, the chat waits so your stars aren\'t nudged. Tap Read anyway if you can\'t wait.',
+          'Tap @Name under the message box to mention someone. They see "Leandro mentioned you…" the next time they open the app, and the message is highlighted for them.',
           'New messages and reactions pop up at the bottom the next time you open the app.',
         ],
       },

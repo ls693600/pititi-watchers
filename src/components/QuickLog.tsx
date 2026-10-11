@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { defaultSeason, monthLabel, premiereMonthFix, withSeason } from '../logic'
+import { defaultSeason, monthLabel, premiereMonthFix, togetherWatchers, withSeason } from '../logic'
 import { getAiredCount, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
@@ -100,6 +100,17 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
       // "Still watching" starts with nothing marked; tick episodes off as you watch them
       episodesWatched: done ? (cur.totalEpisodes ?? cur.episodesWatched) : 0,
     }))
+  }
+
+  const together = w.watchedBy.length > 1
+  function setTogether(on: boolean) {
+    const ids = togetherWatchers(me, people, on)
+    setW((cur) => ({
+      ...cur,
+      watchedBy: ids,
+      ratings: Object.fromEntries(Object.entries(cur.ratings).filter(([id]) => ids.includes(id))),
+    }))
+    setError(null)
   }
 
   function toggleWatcher(id: string) {
@@ -211,22 +222,39 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
           </div>
         )}
 
-        <div>
-          <p className="label-sm" style={{ marginBottom: 8 }}>Who watched?</p>
-          <div className="chips" style={{ padding: 0 }} role="group" aria-label="Who watched">
-            {people.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={w.watchedBy.includes(p.id)}
-                className={w.watchedBy.includes(p.id) ? 'on' : ''}
-                onClick={() => toggleWatcher(p.id)}
-              >
-                <Avatar people={people} id={p.id} size={24} /> {p.name}
+        {people.length > 1 && (
+          <div>
+            <p className="label-sm" style={{ marginBottom: 8 }}>Watching together?</p>
+            <div className="big-choice together" role="radiogroup" aria-label="Watching together?">
+              <button type="button" role="radio" aria-checked={!together} className={!together ? 'on' : ''} onClick={() => setTogether(false)}>
+                <Icon name="tv" size={16} stroke={2.2} />
+                <b>Just me</b>
+                <small>Only your stars count</small>
               </button>
-            ))}
+              <button type="button" role="radio" aria-checked={together} className={together ? 'on' : ''} onClick={() => setTogether(true)}>
+                <Icon name="users" size={16} stroke={2.2} />
+                <b>Together</b>
+                <small>{people.length === 2 ? `Average with ${people.find((p) => p.id !== me)?.name ?? 'the family'}` : 'Average of everyone watching'}</small>
+              </button>
+            </div>
+            {/* Bigger families pick exactly who was on the couch */}
+            {together && people.length > 2 && (
+              <div className="chips" style={{ padding: '10px 0 0' }} role="group" aria-label="Who watched">
+                {people.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={w.watchedBy.includes(p.id)}
+                    className={w.watchedBy.includes(p.id) ? 'on' : ''}
+                    onClick={() => toggleWatcher(p.id)}
+                  >
+                    <Avatar people={people} id={p.id} size={24} /> {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {(w.status === 'done' || airing) && finished && iWatched && (
           <div className="quick-rate">

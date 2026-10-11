@@ -185,6 +185,8 @@ export async function drawShowCard(opts: {
   poster: string | null
   ratings: { name: string; stars: number | null; color: string }[]
   average: number | null
+  /** "family average", or "Leandro's rating" for a solo watch */
+  averageLabel?: string
   names: string
 }): Promise<Blob> {
   const canvas = document.createElement('canvas')
@@ -219,7 +221,7 @@ export async function drawShowCard(opts: {
     ctx.fillText(opts.average.toFixed(1), x - 6, y + 110)
     ctx.fillStyle = MUTED
     ctx.font = '600 30px -apple-system, system-ui, sans-serif'
-    ctx.fillText('family average', x, y + 160)
+    ctx.fillText(opts.averageLabel ?? 'family average', x, y + 160)
     y += 260
   }
   opts.ratings.forEach((r) => {

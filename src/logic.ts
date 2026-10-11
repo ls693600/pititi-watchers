@@ -651,3 +651,105 @@ export function setOwnRating(w: Watch, personId: string, stars: number | null): 
   else ratings[personId] = stars
   return { ...w, ratings, updatedAt: new Date().toISOString() }
 }
+
+// ---- Watching together ----
+
+/** "Just me" or everyone in the family. With more than two people, Together starts with everyone and chips fine-tune it. */
+export function togetherWatchers(me: string | null, people: { id: string }[], together: boolean): string[] {
+  if (!together) return me ? [me] : people.slice(0, 1).map((p) => p.id)
+  return people.map((p) => p.id)
+}
+
+/** How the score reads: one watcher's own stars, or an average of several. */
+export function scoreLabel(w: Pick<Watch, 'watchedBy'>, nameOf: (id: string) => string): string {
+  return w.watchedBy.length === 1 ? `${nameOf(w.watchedBy[0])}'s rating` : 'Our average'
+}
+
+// ---- Year in Review ----
+
+export interface PersonYear {
+  id: string
+  shows: number
+  hours: number
+}
+
+export interface YearReview {
+  year: number
+  shows: number
+  episodes: number
+  hours: number
+  /** Whole days of TV, for "that's N days" */
+  days: number
+  top: { watch: Watch; avg: number } | null
+  busiest: { month: string; count: number } | null
+  /** Hours per person, most first (only people who watched something) */
+  people: PersonYear[]
+  genres: { name: string; count: number }[]
+  disagreement: { watch: Watch; diff: number } | null
+  /** Logged as watched together by 2+ people */
+  together: number
+  solo: number
+}
+
+export function yearReview(all: Watch[], personIds: string[], year: number, now = new Date()): YearReview {
+  const s = yearStats(all, year, now)
+  const inYear = (m: string) => m.startsWith(`${year}-`)
+  const list = all.filter((w) => inYear(w.month) || Object.keys(monthBuckets(w)).some(inYear))
+  const people = personIds
+    .map((id) => {
+      const mine = list.filter((w) => w.watchedBy.includes(id))
+      return { id, shows: uniqueShows(mine), hours: hoursWatched(mine, inYear) }
+    })
+    .filter((p) => p.shows > 0)
+    .sort((a, b) => b.hours - a.hours || b.shows - a.shows)
+  const genreCount = new Map<string, Set<number>>()
+  for (const w of list) for (const g of w.genres) genreCount.set(g, (genreCount.get(g) ?? new Set()).add(w.showId))
+  const genres = [...genreCount.entries()]
+    .map(([name, ids]) => ({ name, count: ids.size }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 3)
+  return {
+    year,
+    shows: s.shows,
+    episodes: s.episodes,
+    hours: s.hours,
+    days: Math.floor(s.hours / 24),
+    top: s.topRated[0] ?? null,
+    busiest: s.busiest,
+    people,
+    genres,
+    disagreement: s.disagreements[0] ?? null,
+    together: list.filter((w) => w.watchedBy.length > 1).length,
+    solo: list.filter((w) => w.watchedBy.length === 1).length,
+  }
+}
+
+// ---- Mentions ----
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** People @mentioned in a chat line (by name, any case; "@Ana," and "@ana!" both count). */
+export function mentionsIn(text: string, people: { id: string; name: string }[]): string[] {
+  return people.filter((p) => new RegExp(`(^|\\s)@${escapeRe(p.name)}(?![\\p{L}\\p{N}])`, 'iu').test(text)).map((p) => p.id)
+}
+
+/** Splits a chat line into plain text and @mention parts, for highlighting. */
+export function mentionParts(text: string, people: { id: string; name: string }[]): { text: string; personId?: string }[] {
+  if (!people.length) return [{ text }]
+  const names = [...people].sort((a, b) => b.name.length - a.name.length).map((p) => escapeRe(p.name))
+  const re = new RegExp(`@(${names.join('|')})(?![\\p{L}\\p{N}])`, 'giu')
+  const out: { text: string; personId?: string }[] = []
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    const at = m.index ?? 0
+    if (at > 0 && !/\s/.test(text[at - 1])) continue
+    if (at > last) out.push({ text: text.slice(last, at) })
+    const person = people.find((p) => p.name.toLowerCase() === m[1].toLowerCase())
+    out.push({ text: `@${person?.name ?? m[1]}`, personId: person?.id })
+    last = at + m[0].length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}

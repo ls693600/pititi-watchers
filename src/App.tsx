@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, chatLocked, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
+import { addEpisode, averageRating, chatLocked, mentionsIn, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -141,7 +141,7 @@ export default function App() {
   const [addMonth, setAddMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<{ id: number; msg: string; undo?: () => void } | null>(null)
+  const [toast, setToast] = useState<{ id: number; msg: string; undo?: () => void; label?: string } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Undo runs later than the render that created it, so read the latest list from here
   const watchesRef = useRef<Watch[]>([])
@@ -176,10 +176,10 @@ export default function App() {
   }
 
   /** Short message at the bottom; with `undo` it gets an Undo button and stays a little longer. */
-  const flash = useCallback((msg: string, undo?: () => void) => {
+  const flash = useCallback((msg: string, undo?: () => void, label = 'Undo') => {
     clearTimeout(toastTimer.current)
-    setToast({ id: Date.now(), msg, undo })
-    toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 3500)
+    setToast({ id: Date.now(), msg, undo, label })
+    toastTimer.current = setTimeout(() => setToast(null), undo || msg.length > 60 ? 6000 : 3500)
   }, [])
 
   // Restore an existing session on launch
@@ -214,6 +214,14 @@ export default function App() {
     [flash],
   )
 
+  /** Opens a show page from a message, scrolled to its family chat. */
+  const openShow = useCallback((w: Watch) => {
+    setActionsFor(null)
+    setDetail({ watch: w, isNew: false })
+    // After the page's own scroll-to-top on open
+    setTimeout(() => document.querySelector('.chat')?.scrollIntoView({ block: 'center' }), 600)
+  }, [])
+
   /** "Ana on Severance: …" for chat lines and reactions that arrived since this phone last looked. */
   const announce = useCallback(
     (snap: { watches: Watch[]; people: Person[]; reactions: Reaction[]; comments: Comment[] }) => {
@@ -229,12 +237,19 @@ export default function App() {
       writeSet(CHAT_KEY, seen)
       const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? 'Someone'
       const show = (id: string) => snap.watches.find((w) => w.id === id)
+      // Someone @mentioned you: that's meant for you, so it comes first and shows the words
+      const toMe = me ? fresh.filter((c) => mentionsIn(c.text, snap.people).includes(me)) : []
+      if (toMe.length) {
+        const c = toMe[toMe.length - 1]
+        const w = show(c.watchId)
+        if (w) return flash(`${nameOf(c.personId)} mentioned you on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`, () => openShow(w), 'Open')
+      }
       const count = fresh.length + freshR.length
       if (count > 1) {
         const shows = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
         const from = [...new Set([...fresh.map((c) => c.personId), ...freshR.map((r) => r.personId)])].map(nameOf).join(' & ')
         const one = shows.size === 1 ? show([...shows][0]) : undefined
-        return flash(one ? `${from}: ${count} new on ${one.showName}` : `${from}: ${count} new messages and reactions`)
+        return one ? flash(`${from}: ${count} new on ${one.showName}`, () => openShow(one), 'Open') : flash(`${from}: ${count} new messages and reactions`)
       }
       if (fresh.length) {
         const c = fresh[0]
@@ -242,16 +257,16 @@ export default function App() {
         if (!w) return
         // Haven't rated yet: say who wrote, not what (no nudging your stars)
         return chatLocked(w, me)
-          ? flash(`${nameOf(c.personId)} wrote about ${w.showName}. Rate it to read.`)
-          : flash(`${nameOf(c.personId)} on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`)
+          ? flash(`${nameOf(c.personId)} wrote about ${w.showName}`, () => openShow(w), 'Open')
+          : flash(`${nameOf(c.personId)} on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`, () => openShow(w), 'Open')
       }
       if (freshR.length) {
         const r = freshR[0]
         const w = show(r.watchId)
-        if (w) flash(`${nameOf(r.personId)} reacted ${r.emoji} to your stars on ${w.showName}`)
+        if (w) flash(`${nameOf(r.personId)} reacted ${r.emoji} to your stars on ${w.showName}`, () => openShow(w), 'Open')
       }
     },
-    [flash],
+    [flash, openShow],
   )
 
   const reload = useCallback(async () => {
@@ -264,9 +279,10 @@ export default function App() {
       setComments(snap.comments)
       setSocial(snap.social)
       setOffline(false)
-      announce(snap)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
+      // Last, so a message meant for you isn't covered by a badge toast
+      announce(snap)
     } catch {
       // Cloud unreachable: fall back to the last synced copy
       const snap = cache.read()
@@ -752,7 +768,7 @@ export default function App() {
                 undo()
               }}
             >
-              Undo
+              {toast.label ?? 'Undo'}
             </button>
           )}
         </div>

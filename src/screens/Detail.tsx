@@ -5,7 +5,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, isPriorWatch, rewatchPair, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, Person, Reaction, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -112,6 +112,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         name: saved.showName,
         meta: [`Season ${saved.season}`, saved.network, saved.status === 'done' ? 'finished' : 'watching now'].filter(Boolean).join(' · '),
         poster: saved.poster,
+        averageLabel: saved.watchedBy.length === 1 ? scoreLabel(saved, nameOf).replace(/'s rating$/, "'s stars") : 'family average',
         // Blind rating holds for shares too: only stars this phone is allowed to see
         ratings: watchersList.map((p) => ({
           name: p.name,
@@ -267,6 +268,30 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
               return <span>{n} {n === 1 ? 'season' : 'seasons'}</span>
             })()}
           </div>
+          {info.home && (
+            <a
+              className={`where ${info.officialSite ? '' : 'static'}`}
+              href={info.officialSite ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => !info.officialSite && e.preventDefault()}
+            >
+              <span className="where-icon" aria-hidden="true">
+                <Icon name={info.home.kind === 'stream' ? 'play' : 'tv'} size={18} stroke={2.2} />
+              </span>
+              <span className="where-text">
+                <small>Where to watch</small>
+                <b>
+                  {info.home.kind === 'stream' ? 'Streams on' : 'Airs on'} {info.home.name}
+                </b>
+              </span>
+              {info.officialSite && (
+                <span className="where-go">
+                  Open <Icon name="right" size={14} stroke={2.6} />
+                </span>
+              )}
+            </a>
+          )}
           {info.summary && (
             <button className={`synopsis ${moreSynopsis ? 'open' : ''}`} onClick={() => setMoreSynopsis(!moreSynopsis)} aria-expanded={moreSynopsis}>
               {info.summary}
@@ -288,6 +313,35 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       )}
 
       <section className="card">
+        {people.length > 1 && (
+          <div className="together-row">
+            <span className="field-label" style={{ padding: 0 }}>Watching together?</span>
+            <div className="segmented" role="radiogroup" aria-label="Watching together?">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={w.watchedBy.length <= 1}
+                className={w.watchedBy.length <= 1 ? 'on' : ''}
+                onClick={() => {
+                  // Solo keeps you if you watched it, otherwise whoever watched it first
+                  const solo = me && w.watchedBy.includes(me) ? me : (w.watchedBy[0] ?? me)
+                  setW((cur) => ({ ...cur, watchedBy: solo ? [solo] : [], ratings: solo && cur.ratings[solo] != null ? { [solo]: cur.ratings[solo] } : {} }))
+                }}
+              >
+                Solo
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={w.watchedBy.length > 1}
+                className={w.watchedBy.length > 1 ? 'on' : ''}
+                onClick={() => setW((cur) => ({ ...cur, watchedBy: togetherWatchers(me, people, true) }))}
+              >
+                Together
+              </button>
+            </div>
+          </div>
+        )}
         <p className="field-label">Who watched?</p>
         <div className="chips" role="group" aria-label="Watched by">
           {people.map((p) => (
@@ -344,7 +398,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         {watchers.length > 0 && (
           <div className="avg-row">
             <span className="label">
-              Average
+              {scoreLabel(w, nameOf)}
               {avg != null && !blind && <span className="big grad-text">{avg.toFixed(1)}</span>}
             </span>
             {avg != null && !blind ? (
