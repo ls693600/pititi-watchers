@@ -4,6 +4,7 @@ import { bigPoster, getSeasonEpisodesCached, getShowInfoCached } from '../tvmaze
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
+import { LongPress } from './LongPress'
 import { PosterFill } from './Poster'
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   people: Person[]
   onOpen: (w: Watch) => void
   onAddEpisode: (w: Watch) => void
+  onActions: (w: Watch) => void
 }
 
 /** Next-episode info for the shows being watched (cached, refreshed every few hours). */
@@ -44,7 +46,7 @@ function kicker(o: Outlook | undefined): { text: string; tone: 'ready' | 'soon' 
 }
 
 /** Swipeable banner of every show in progress (dots show where you are), then a "Coming up" TV guide. */
-export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode }: Props) {
+export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActions }: Props) {
   const outlooks = useOutlooks(watching)
   const cards = [...watching].sort((a, b) => outlookOrder(outlooks[a.id], outlooks[b.id]))
   const track = useRef<HTMLDivElement>(null)
@@ -83,7 +85,10 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode }: Prop
           const k = kicker(outlooks[w.id])
           return (
             <div key={w.id} className="slide" role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${cards.length}: ${w.showName}`}>
-              <div className="hero">
+              <LongPress className="hero" onLong={() => onActions(w)}>
+                <button className="hero-more" aria-label={`Quick actions for ${w.showName}`} onClick={() => onActions(w)}>
+                  <span aria-hidden="true">•••</span>
+                </button>
                 {w.poster && <img src={bigPoster(w.poster)!} alt="" className="hero-bg" />}
                 <button onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`} style={{ flex: 'none' }}>
                   <span className="hero-poster" style={{ display: 'block', overflow: 'hidden' }}>
@@ -118,7 +123,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode }: Prop
                     </span>
                   </div>
                 </div>
-              </div>
+              </LongPress>
             </div>
           )
         })}

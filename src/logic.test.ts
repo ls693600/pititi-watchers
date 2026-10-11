@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  canReact,
+  toggleReaction,
+  reactionGroups,
+  chatLocked,
+  cleanComment,
+  unseenComments,
+  timeAgo,
+  finishSeason,
+  joinWatchers,
+  setOwnRating,
   averageRating,
   canDelete,
   canEditRating,
@@ -534,5 +544,85 @@ describe('personal stats', () => {
     expect(personalTop(list, 'L').map((t) => [t.watch.showName, t.avg])).toEqual([['Stranger Things', 5], ['The Office', 3]])
     expect(personalTop(list, 'A').map((t) => t.watch.showName)).toEqual(['Bluey', 'The Office'])
     expect(personalTop(list, 'M')).toEqual([])
+  })
+})
+
+describe('reactions and family chat', () => {
+  const base = { watchedBy: ['a', 'b'], ratings: { a: 4, b: 2 } as Record<string, number> }
+  it('reacting waits for the reveal and never targets yourself', () => {
+    expect(canReact(base, 'b', 'a')).toBe(true)
+    expect(canReact(base, 'a', 'a')).toBe(false)
+    expect(canReact({ ...base, ratings: { a: 4 } }, 'a', 'b')).toBe(false)
+    expect(canReact(base, 'b', null)).toBe(false)
+  })
+  it('one reaction per person per rating: same emoji removes, another replaces', () => {
+    const r = { watchId: 'w', personId: 'a', targetId: 'b', emoji: '🔥' }
+    let all = toggleReaction([], r)
+    expect(all).toHaveLength(1)
+    all = toggleReaction(all, { ...r, emoji: '😂' })
+    expect(all).toEqual([{ ...r, emoji: '😂' }])
+    expect(toggleReaction(all, { ...r, emoji: '😂' })).toEqual([])
+  })
+  it('groups reactions by emoji in a fixed order', () => {
+    const all = [
+      { watchId: 'w', personId: 'a', targetId: 'c', emoji: '😱' },
+      { watchId: 'w', personId: 'b', targetId: 'c', emoji: '😂' },
+      { watchId: 'w', personId: 'd', targetId: 'c', emoji: '😂' },
+      { watchId: 'x', personId: 'a', targetId: 'c', emoji: '😂' },
+    ]
+    expect(reactionGroups(all, 'w', 'c')).toEqual([
+      { emoji: '😂', people: ['b', 'd'] },
+      { emoji: '😱', people: ['a'] },
+    ])
+  })
+  it('chat is open while watching, and locked for unrated watchers once finished', () => {
+    expect(chatLocked({ watchedBy: ['a'], ratings: {}, status: 'watching' }, 'a')).toBe(false)
+    expect(chatLocked({ watchedBy: ['a'], ratings: {}, status: 'done' }, 'a')).toBe(true)
+    expect(chatLocked({ watchedBy: ['a'], ratings: { a: 3 }, status: 'done' }, 'a')).toBe(false)
+    expect(chatLocked({ watchedBy: ['b'], ratings: {}, status: 'done' }, 'a')).toBe(false)
+  })
+  it('cleans chat lines', () => {
+    expect(cleanComment('   ')).toBeNull()
+    expect(cleanComment('  that   finale\n!! ')).toBe('that finale !!')
+    expect(cleanComment('x'.repeat(400))).toHaveLength(280)
+  })
+  it('only new comments from others are announced', () => {
+    const c = (id: string, personId: string) => ({ id, watchId: 'w', personId, text: 'hi', createdAt: '2026-10-11T10:00:00Z' })
+    const all = [c('1', 'a'), c('2', 'b'), c('3', 'b')]
+    expect(unseenComments(all, null, 'a')).toEqual([])
+    expect(unseenComments(all, new Set(['2']), 'a').map((x) => x.id)).toEqual(['3'])
+  })
+  it('time ago', () => {
+    const now = new Date('2026-10-11T12:00:00Z')
+    expect(timeAgo('2026-10-11T11:59:30Z', now)).toBe('now')
+    expect(timeAgo('2026-10-11T11:15:00Z', now)).toBe('45m')
+    expect(timeAgo('2026-10-11T07:00:00Z', now)).toBe('5h')
+    expect(timeAgo('2026-10-09T12:00:00Z', now)).toBe('2d')
+  })
+})
+
+describe('quick actions', () => {
+  const w = { ...watch({ episodesWatched: 3, totalEpisodes: 8, status: 'watching' as const }) }
+  const now = new Date('2026-10-11T12:00:00Z')
+  it('finishing a complete season marks every episode and finishes it', () => {
+    const f = finishSeason(w, 8, now)
+    expect(f.episodesWatched).toBe(8)
+    expect(f.status).toBe('done')
+    expect(f.month).toBe('2026-10')
+  })
+  it('a season still airing is caught up, not finished', () => {
+    const f = finishSeason(w, 5, now)
+    expect(f.episodesWatched).toBe(5)
+    expect(f.status).toBe('watching')
+  })
+  it('never goes backwards', () => {
+    expect(finishSeason({ ...w, episodesWatched: 6 }, 5, now).episodesWatched).toBe(6)
+  })
+  it('joining and rating from the menu', () => {
+    const j = joinWatchers({ ...w, watchedBy: ['a'] }, 'b')
+    expect(j.watchedBy).toEqual(['a', 'b'])
+    expect(joinWatchers(j, 'b').watchedBy).toEqual(['a', 'b'])
+    expect(setOwnRating(j, 'b', 4).ratings.b).toBe(4)
+    expect(setOwnRating({ ...j, ratings: { b: 4 } }, 'b', null).ratings).toEqual({})
   })
 })

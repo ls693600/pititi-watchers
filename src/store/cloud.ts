@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Person, UpNextItem, Watch } from '../types'
+import type { Comment, Person, Reaction, UpNextItem, Watch } from '../types'
 import { cache } from './local'
 import type { Session, Store } from './store'
 
@@ -56,6 +56,8 @@ const toRow = (w: Watch): WatchRow => ({
   status: w.status,
   watched_by: w.watchedBy,
   episodes_by_month: w.episodesByMonth ?? {},
+  // Restoring a removed log (undo) keeps who added it; updates can't change it (trigger in 003)
+  ...(w.createdBy ? { created_by: w.createdBy } : {}),
   is_rewatch: w.isRewatch,
   notes: w.notes,
   created_at: w.createdAt,
@@ -113,6 +115,24 @@ const toUpNext = (r: UpNextRow): UpNextItem => ({
   wantedBy: r.wanted_by ?? [],
   createdAt: r.created_at,
 })
+
+interface ReactionRow {
+  watch_id: string
+  person_id: string
+  target_id: string
+  emoji: string
+}
+
+interface CommentRow {
+  id: string
+  watch_id: string
+  person_id: string
+  body: string
+  created_at: string
+}
+
+const toReaction = (r: ReactionRow): Reaction => ({ watchId: r.watch_id, personId: r.person_id, targetId: r.target_id, emoji: r.emoji })
+const toComment = (r: CommentRow): Comment => ({ id: r.id, watchId: r.watch_id, personId: r.person_id, text: r.body, createdAt: r.created_at })
 
 const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id, isAdmin: Boolean(r.is_admin) })
 
@@ -206,15 +226,20 @@ export async function renewInviteCode(): Promise<string> {
 export const cloudStore: Store = {
   mode: 'cloud',
   async load() {
-    const [w, r, p, u] = await Promise.all([
+    const [w, r, p, u, rx, cm] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase().from('ratings').select('watch_id, person_id, stars'),
       supabase().from('people').select('id, name, user_id, is_admin').order('created_at'),
       supabase().from('up_next').select('*'),
+      supabase().from('reactions').select('watch_id, person_id, target_id, emoji'),
+      supabase().from('comments').select('id, watch_id, person_id, body, created_at').order('created_at'),
     ])
     if (w.error) throw w.error
     // Up Next is optional: a missing table (migration not run yet) must not take the whole app offline
     if (u.error) console.warn('Up Next unavailable:', u.error.message)
+    // Reactions and chat are optional too (migration 006): the app just hides them
+    const social = !rx.error && !cm.error
+    if (!social) console.warn('Reactions/chat unavailable:', (rx.error ?? cm.error)?.message)
     if (r.error) throw r.error
     if (p.error) throw p.error
     const byWatch = new Map<string, Record<string, number>>()
@@ -225,6 +250,9 @@ export const cloudStore: Store = {
       watches: (w.data as WatchRow[]).map((row) => fromRow(row, byWatch.get(row.id) ?? {})),
       people: (p.data as PersonRow[]).map(toPerson),
       upNext: u.error ? [] : (u.data as UpNextRow[]).map(toUpNext),
+      reactions: social ? (rx.data as ReactionRow[]).map(toReaction) : [],
+      comments: social ? (cm.data as CommentRow[]).map(toComment) : [],
+      social,
     }
     cache.write(snap)
     return snap
@@ -283,6 +311,24 @@ export const cloudStore: Store = {
     if (error) throw error
     if (!data?.length) throw new Error('Only Leandro or the person who added it can remove this.')
   },
+  async setReaction(r) {
+    const key = { watch_id: r.watchId, person_id: r.personId, target_id: r.targetId }
+    const { error } = r.emoji
+      ? await supabase().from('reactions').upsert({ ...key, emoji: r.emoji })
+      : await supabase().from('reactions').delete().match(key)
+    if (error) throw error
+  },
+  async addComment(c) {
+    const { error } = await supabase()
+      .from('comments')
+      .insert({ id: c.id, watch_id: c.watchId, person_id: c.personId, body: c.text, created_at: c.createdAt })
+    if (error) throw error
+  },
+  async removeComment(id) {
+    const { data, error } = await supabase().from('comments').delete().eq('id', id).select('id')
+    if (error) throw error
+    if (!data?.length) throw new Error('You can only remove your own messages.')
+  },
   async addPerson(name) {
     const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id, is_admin').single()
     if (error) throw error
@@ -306,9 +352,16 @@ export const cloudStore: Store = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, ping)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'up_next' }, ping)
       .subscribe()
+    // Separate channel: if migration 006 hasn't been run, a failure here can't stop the main sync
+    const social = supabase()
+      .channel('family-chat')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, ping)
+      .subscribe()
     return () => {
       clearTimeout(t)
       supabase().removeChannel(channel)
+      supabase().removeChannel(social)
     }
   },
 }

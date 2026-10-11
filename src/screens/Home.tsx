@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Avatar, PersonFilter } from '../components/Avatar'
+import { LongPress } from '../components/LongPress'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { ReleaseCarousel } from '../components/ReleaseCarousel'
@@ -28,8 +30,20 @@ interface Props {
   onMonth: (m: string) => void
   onOpen: (w: Watch) => void
   onAddEpisode: (w: Watch) => void
+  /** Press and hold a show: quick actions */
+  onActions: (w: Watch) => void
   onAdd: () => void
   onProfile: () => void
+}
+
+const TIP_KEY = 'pititi.tip.hold.v1'
+
+function tipSeen(): boolean {
+  try {
+    return localStorage.getItem(TIP_KEY) === '1'
+  } catch {
+    return true
+  }
 }
 
 function greeting(now = new Date()): string {
@@ -38,7 +52,20 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onAdd, onProfile } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile } = props
+  const [showTip, setShowTip] = useState(() => !tipSeen())
+  const hideTip = () => {
+    setShowTip(false)
+    try {
+      localStorage.setItem(TIP_KEY, '1')
+    } catch {
+      // Fine: the tip shows again next time
+    }
+  }
+  const actions = (w: Watch) => {
+    hideTip()
+    onActions(w)
+  }
   const mine = watchedByPerson(watches, filter)
   const list = watchesInMonth(mine, month)
   // Only episodes watched this month count toward this month's numbers
@@ -66,7 +93,7 @@ export function Home(props: Props) {
       </header>
 
       {isCurrent && watching.length > 0 && (
-        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} />
+        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} />
       )}
 
       <div className="monthbar">
@@ -123,6 +150,19 @@ export function Home(props: Props) {
         </div>
       ) : (
         <>
+          {showTip && (watching.length > 0 || grid.length > 0) && (
+            <div className="tip" role="note">
+              <span className="tip-icon" aria-hidden="true">
+                <Icon name="sparkle" size={16} stroke={2.2} />
+              </span>
+              <p>
+                <b>Tip:</b> press and hold any show to mark episodes, finish it or rate it, without opening it.
+              </p>
+              <button className="icon-btn" aria-label="Got it" onClick={hideTip}>
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
           <h2 className="h2">
             {isCurrent ? 'Watched this month' : `Watched in ${monthName}`}
             <small>{isCurrent ? `${grid.length} finished` : `${grid.length} ${grid.length === 1 ? 'show' : 'shows'}`}</small>
@@ -136,7 +176,7 @@ export function Home(props: Props) {
             {grid.map((w, i) => {
               const avg = averageRating(w)
               return (
-                <div key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
+                <LongPress key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} onLong={() => actions(w)}>
                   <div className="pcard-img">
                     <button className="pcard-hit" onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`}>
                       <PosterFill src={w.poster} name={w.showName} />
@@ -175,7 +215,7 @@ export function Home(props: Props) {
                           ? 'Your turn to rate'
                           : `Waiting for ${pendingRaters(w).map((id) => people.find((p) => p.id === id)?.name ?? 'someone').join(', ')}`}
                   </span>
-                </div>
+                </LongPress>
               )
             })}
           </div>

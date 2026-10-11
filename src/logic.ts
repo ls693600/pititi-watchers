@@ -1,5 +1,5 @@
 import type { SeasonInfo } from './tvmaze'
-import type { Watch } from './types'
+import type { Comment, Reaction, Watch } from './types'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
 export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
@@ -556,4 +556,87 @@ export function personalTop(list: Watch[], personId: string, n = 5): { watch: Wa
     .sort((a, b) => b.ratings[personId] - a.ratings[personId] || b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, n)
     .map((watch) => ({ watch, avg: watch.ratings[personId] }))
+}
+
+// ---- Reactions and family chat ----
+
+export const REACTIONS = ['😂', '🔥', '😱', '👏', '🙄', '❤️'] as const
+export const COMMENT_MAX = 280
+
+/** React to someone else's stars, once everyone's ratings are out (never during the blind phase). */
+export function canReact(w: Pick<Watch, 'watchedBy' | 'ratings'>, targetId: string, viewer: string | null): boolean {
+  return viewer != null && targetId !== viewer && w.ratings[targetId] != null && averageRating(w) != null
+}
+
+/** Reactions on one person's rating, grouped by emoji in the fixed order. */
+export function reactionGroups(all: Reaction[], watchId: string, targetId: string): { emoji: string; people: string[] }[] {
+  const mine = all.filter((r) => r.watchId === watchId && r.targetId === targetId)
+  return REACTIONS.map((emoji) => ({ emoji: emoji as string, people: mine.filter((r) => r.emoji === emoji).map((r) => r.personId) })).filter(
+    (g) => g.people.length,
+  )
+}
+
+/** Tapping your current emoji removes it; another emoji replaces it. Returns the new list. */
+export function toggleReaction(all: Reaction[], r: Reaction): Reaction[] {
+  const same = (x: Reaction) => x.watchId === r.watchId && x.personId === r.personId && x.targetId === r.targetId
+  const current = all.find(same)
+  const rest = all.filter((x) => !same(x))
+  return current?.emoji === r.emoji ? rest : [...rest, r]
+}
+
+/**
+ * Open while you're watching (that's when you want to talk). Once the season is finished, watchers
+ * who haven't rated read it after rating, so nobody's stars get nudged.
+ */
+export function chatLocked(w: Pick<Watch, 'watchedBy' | 'ratings' | 'status'>, viewer: string | null): boolean {
+  return viewer != null && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
+}
+
+export function commentsFor(all: Comment[], watchId: string): Comment[] {
+  return all.filter((c) => c.watchId === watchId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
+/** Trims and validates a chat line; null when there's nothing to send. */
+export function cleanComment(text: string): string | null {
+  const t = text.replace(/\s+/g, ' ').trim()
+  return t ? t.slice(0, COMMENT_MAX) : null
+}
+
+/** "now", "5m", "3h", "2d", then a date. */
+export function timeAgo(iso: string, now = new Date()): string {
+  const s = Math.max(0, (now.getTime() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'now'
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  if (s < 86400) return `${Math.floor(s / 3600)}h`
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** Comments from others that this phone hasn't seen yet (first run: none, just remember). */
+export function unseenComments(all: Comment[], seen: Set<string> | null, viewer: string | null): Comment[] {
+  if (!seen) return []
+  return all.filter((c) => !seen.has(c.id) && c.personId !== viewer)
+}
+
+// ---- Quick actions ----
+
+/** Everything that has aired is watched. Done when the season is complete; still airing stays "watching" (caught up). */
+export function finishSeason(w: Watch, aired: number | null, now = new Date()): Watch {
+  const out = aired ?? w.totalEpisodes ?? w.episodesWatched
+  const target = Math.max(w.episodesWatched, out)
+  const complete = w.totalEpisodes == null || target >= w.totalEpisodes
+  return { ...w, episodesWatched: target, status: complete ? 'done' : 'watching', month: currentMonth(now), updatedAt: now.toISOString() }
+}
+
+/** Add someone to "Who watched?" (their rating starts empty). */
+export function joinWatchers(w: Watch, personId: string): Watch {
+  return w.watchedBy.includes(personId) ? w : { ...w, watchedBy: [...w.watchedBy, personId], updatedAt: new Date().toISOString() }
+}
+
+/** Your own stars, set or cleared, straight from the quick menu. */
+export function setOwnRating(w: Watch, personId: string, stars: number | null): Watch {
+  const ratings = { ...w.ratings }
+  if (stars == null) delete ratings[personId]
+  else ratings[personId] = stars
+  return { ...w, ratings, updatedAt: new Date().toISOString() }
 }

@@ -1,10 +1,12 @@
 import { newId, toggleWant } from '../logic'
-import type { Person, UpNextItem, Watch } from '../types'
+import type { Comment, Person, Reaction, UpNextItem, Watch } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
 const PEOPLE = 'pititi.people.v2'
 const UP_NEXT = 'pititi.upnext.v1'
+const REACTIONS = 'pititi.reactions.v1'
+const COMMENTS = 'pititi.comments.v1'
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -25,6 +27,9 @@ function read(): Snapshot {
     watches: readJson<Watch[]>(WATCHES, []),
     people: readJson<Person[]>(PEOPLE, DEFAULT_PEOPLE),
     upNext: readJson<UpNextItem[]>(UP_NEXT, []),
+    reactions: readJson<Reaction[]>(REACTIONS, []),
+    comments: readJson<Comment[]>(COMMENTS, []),
+    social: true,
   }
 }
 
@@ -32,6 +37,8 @@ function write(snap: Snapshot) {
   localStorage.setItem(WATCHES, JSON.stringify(snap.watches))
   localStorage.setItem(PEOPLE, JSON.stringify(snap.people))
   localStorage.setItem(UP_NEXT, JSON.stringify(snap.upNext))
+  localStorage.setItem(REACTIONS, JSON.stringify(snap.reactions ?? []))
+  localStorage.setItem(COMMENTS, JSON.stringify(snap.comments ?? []))
 }
 
 /** Single-device mode, used when Supabase isn't configured. */
@@ -46,7 +53,12 @@ export const localStore: Store = {
   },
   async remove(id) {
     const snap = read()
-    write({ ...snap, watches: snap.watches.filter((x) => x.id !== id) })
+    write({
+      ...snap,
+      watches: snap.watches.filter((x) => x.id !== id),
+      reactions: snap.reactions.filter((r) => r.watchId !== id),
+      comments: snap.comments.filter((c) => c.watchId !== id),
+    })
   },
   async addPerson(name) {
     const snap = read()
@@ -78,8 +90,21 @@ export const localStore: Store = {
     const snap = read()
     write({ ...snap, upNext: snap.upNext.filter((x) => x.id !== id) })
   },
+  async setReaction(r) {
+    const snap = read()
+    const rest = snap.reactions.filter((x) => !(x.watchId === r.watchId && x.personId === r.personId && x.targetId === r.targetId))
+    write({ ...snap, reactions: r.emoji ? [...rest, { ...r, emoji: r.emoji }] : rest })
+  },
+  async addComment(c) {
+    const snap = read()
+    write({ ...snap, comments: [...snap.comments.filter((x) => x.id !== c.id), c] })
+  },
+  async removeComment(id) {
+    const snap = read()
+    write({ ...snap, comments: snap.comments.filter((x) => x.id !== id) })
+  },
   subscribe(onChange) {
-    const handler = (e: StorageEvent) => (e.key === WATCHES || e.key === PEOPLE || e.key === UP_NEXT) && onChange()
+    const handler = (e: StorageEvent) => [WATCHES, PEOPLE, UP_NEXT, REACTIONS, COMMENTS].includes(e.key ?? '') && onChange()
     window.addEventListener('storage', handler)
     return () => window.removeEventListener('storage', handler)
   },

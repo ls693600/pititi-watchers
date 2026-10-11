@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { averageRating, raters, ratingSpread, verdict } from '../logic'
+import { averageRating, canReact, raters, ratingSpread, verdict } from '../logic'
 import { bigPoster } from '../tvmaze'
-import type { Person, Watch } from '../types'
+import type { Person, Reaction, Watch } from '../types'
+import { Reactions } from './Reactions'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
@@ -9,7 +10,17 @@ import { PosterFill } from './Poster'
 const CONFETTI = ['#ffc371', '#ff4d6d', '#7ee2a1', '#9b5de5', '#5b6cff', '#ff8a3d', '#ff4d8d']
 
 /** Full-screen moment when the last watcher rates: everyone's stars flip in, then the family average. */
-export function Reveal({ watch, people, onClose }: { watch: Watch; people: Person[]; onClose: () => void }) {
+interface Props {
+  watch: Watch
+  people: Person[]
+  /** Who's looking; null hides reactions (single-phone mode or chat not set up) */
+  viewer: string | null
+  reactions: Reaction[]
+  onReact: (targetId: string, emoji: string) => void
+  onClose: () => void
+}
+
+export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: Props) {
   const avg = averageRating(watch) ?? 0
   const spread = ratingSpread(watch)
   const ids = raters(watch)
@@ -51,6 +62,18 @@ export function Reveal({ watch, people, onClose }: { watch: Watch; people: Perso
               {'★'.repeat(watch.ratings[id])}
               <span>{'★'.repeat(5 - watch.ratings[id])}</span>
             </span>
+            {viewer && (
+              <Reactions
+                watchId={watch.id}
+                targetId={id}
+                reactions={reactions}
+                people={people}
+                me={viewer}
+                canReact={canReact(watch, id, viewer)}
+                onReact={onReact}
+                tone="dark"
+              />
+            )}
           </div>
         ))}
       </div>

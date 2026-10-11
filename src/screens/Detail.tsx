@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
-import { airLabel, averageRating, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { FamilyChat } from '../components/FamilyChat'
+import { Reactions } from '../components/Reactions'
+import { airLabel, averageRating, canReact, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
-import type { Person, Watch } from '../types'
+import type { Comment, Person, Reaction, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
 
 interface Props {
@@ -23,10 +25,17 @@ interface Props {
   /** Combine this log with a duplicate of the same season (keeps this one) */
   onMerge: (keep: Watch, drop: Watch) => void
   onFlash: (msg: string) => void
+  /** Reactions and chat are available (migration 006 run, and the log is saved) */
+  social: boolean
+  reactions: Reaction[]
+  comments: Comment[]
+  onReact: (targetId: string, emoji: string) => void
+  onComment: (text: string) => Promise<boolean>
+  onRemoveComment: (c: Comment) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [info, setInfo] = useState<ShowInfo | null>(null)
@@ -262,8 +271,11 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           const stars = w.ratings[p.id] ?? null
           const editable = canEditRating(p, viewer)
           const visible = editable || (savedComplete ? true : canSeeRating(w, p.id, viewer) && !blind)
+          // Reactions go on what's saved and revealed, never on stars still being edited
+          const reactable = social && savedComplete && initial.ratings[p.id] != null
           return (
-            <div key={p.id} className="field">
+            <Fragment key={p.id}>
+            <div className="field">
               <span className="who">
                 <Avatar people={people} id={p.id} />
                 {p.name}
@@ -280,6 +292,18 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                 </span>
               )}
             </div>
+            {reactable && (
+              <Reactions
+                watchId={initial.id}
+                targetId={p.id}
+                reactions={reactions}
+                people={people}
+                me={me}
+                canReact={canReact(initial, p.id, me)}
+                onReact={onReact}
+              />
+            )}
+            </Fragment>
           )
         })}
         {watchers.length > 0 && (
@@ -304,6 +328,17 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           </div>
         )}
       </section>
+
+      {social && (
+        <FamilyChat
+          watch={initial}
+          comments={comments}
+          people={people}
+          me={me}
+          onSend={onComment}
+          onRemove={onRemoveComment}
+        />
+      )}
 
       {episodes && episodes.length > 0 && (
         <section className="card pad">
@@ -462,9 +497,8 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         {!isNew && canDelete && (
           <button
             className="btn danger block"
-            onClick={() => {
-              if (confirm(`Remove ${w.showName} season ${w.season} from ${monthLabel(w.month)}? This can't be undone.`)) onDelete(w)
-            }}
+            // No "are you sure?": the message after removing has Undo
+            onClick={() => onDelete(w)}
           >
             <Icon name="trash" size={18} /> Remove from log
           </button>

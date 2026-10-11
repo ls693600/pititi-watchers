@@ -56,3 +56,22 @@ export interface UpNextItem {
   wantedBy: string[]
   createdAt: string
 }
+
+/** One person's emoji on someone else's rating. One per person per rating; tapping another replaces it. */
+export interface Reaction {
+  watchId: string
+  /** Who reacted */
+  personId: string
+  /** Whose rating it's on */
+  targetId: string
+  emoji: string
+}
+
+/** A line in a show's family chat. */
+export interface Comment {
+  id: string
+  watchId: string
+  personId: string
+  text: string
+  createdAt: string
+}

@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, defaultWatchersFor, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, chatLocked, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
+import { QuickActions } from './components/QuickActions'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -16,7 +17,7 @@ import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { ShowResult } from './tvmaze'
-import type { Person, UpNextItem, Watch } from './types'
+import type { Comment, Person, Reaction, UpNextItem, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
@@ -38,6 +39,8 @@ const DEV_VIEWER = import.meta.env.DEV ? new URLSearchParams(window.location.sea
 
 const SEEN_KEY = 'pititi.reveals.v1'
 const BADGES_KEY = 'pititi.badges.v1'
+/** Family chat lines and reactions this phone has already announced */
+const CHAT_KEY = 'pititi.chatseen.v1'
 
 function readSet(key: string): Set<string> | null {
   try {
@@ -108,6 +111,12 @@ export default function App() {
   const [watches, setWatches] = useState<Watch[]>([])
   const [people, setPeople] = useState<Person[]>([])
   const [upNext, setUpNext] = useState<UpNextItem[]>([])
+  const [reactions, setReactions] = useState<Reaction[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  /** Reactions and chat need migration 006; hidden until it's run */
+  const [social, setSocial] = useState(false)
+  /** Show in the press-and-hold quick menu */
+  const [actionsFor, setActionsFor] = useState<string | null>(null)
   /** Up Next item being logged via Quick log; removed from the list once logged */
   const [fromUpNext, setFromUpNext] = useState<string | null>(null)
   const [filter, setFilter] = useState<string | null>(null)
@@ -131,7 +140,13 @@ export default function App() {
   const [addMonth, setAddMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ id: number; msg: string; undo?: () => void } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Undo runs later than the render that created it, so read the latest list from here
+  const watchesRef = useRef<Watch[]>([])
+  useEffect(() => {
+    watchesRef.current = watches
+  }, [watches])
   const [reveals, setReveals] = useState<string[]>([])
   const [quick, setQuick] = useState<Watch | null>(null)
   const viewerRef = useRef<string | null>(null)
@@ -159,9 +174,11 @@ export default function App() {
     })
   }
 
-  const flash = useCallback((msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
+  /** Short message at the bottom; with `undo` it gets an Undo button and stays a little longer. */
+  const flash = useCallback((msg: string, undo?: () => void) => {
+    clearTimeout(toastTimer.current)
+    setToast({ id: Date.now(), msg, undo })
+    toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 3500)
   }, [])
 
   // Restore an existing session on launch
@@ -196,13 +213,57 @@ export default function App() {
     [flash],
   )
 
+  /** "Ana on Severance: …" for chat lines and reactions that arrived since this phone last looked. */
+  const announce = useCallback(
+    (snap: { watches: Watch[]; people: Person[]; reactions: Reaction[]; comments: Comment[] }) => {
+      const me = viewerRef.current ?? snap.people.find((p) => p.isAdmin)?.id ?? null
+      const rKey = (r: Reaction) => `r:${r.watchId}:${r.personId}:${r.emoji}`
+      const forMe = snap.reactions.filter((r) => r.targetId === me && r.personId !== me)
+      const seen = readSet(CHAT_KEY)
+      const all = [...snap.comments.map((c) => c.id), ...forMe.map(rKey)]
+      if (!seen) return writeSet(CHAT_KEY, new Set(all))
+      const fresh = unseenComments(snap.comments, seen, me)
+      const freshR = forMe.filter((r) => !seen.has(rKey(r)))
+      all.forEach((id) => seen.add(id))
+      writeSet(CHAT_KEY, seen)
+      const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? 'Someone'
+      const show = (id: string) => snap.watches.find((w) => w.id === id)
+      const count = fresh.length + freshR.length
+      if (count > 1) {
+        const shows = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
+        const from = [...new Set([...fresh.map((c) => c.personId), ...freshR.map((r) => r.personId)])].map(nameOf).join(' & ')
+        const one = shows.size === 1 ? show([...shows][0]) : undefined
+        return flash(one ? `${from}: ${count} new on ${one.showName}` : `${from}: ${count} new messages and reactions`)
+      }
+      if (fresh.length) {
+        const c = fresh[0]
+        const w = show(c.watchId)
+        if (!w) return
+        // Haven't rated yet: say who wrote, not what (no nudging your stars)
+        return chatLocked(w, me)
+          ? flash(`${nameOf(c.personId)} wrote about ${w.showName}. Rate it to read.`)
+          : flash(`${nameOf(c.personId)} on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`)
+      }
+      if (freshR.length) {
+        const r = freshR[0]
+        const w = show(r.watchId)
+        if (w) flash(`${nameOf(r.personId)} reacted ${r.emoji} to your stars on ${w.showName}`)
+      }
+    },
+    [flash],
+  )
+
   const reload = useCallback(async () => {
     try {
       const snap = await store.load()
       setWatches(snap.watches)
       setPeople(snap.people)
       setUpNext(snap.upNext)
+      setReactions(snap.reactions)
+      setComments(snap.comments)
+      setSocial(snap.social)
       setOffline(false)
+      announce(snap)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
     } catch {
@@ -211,9 +272,11 @@ export default function App() {
       setWatches(snap.watches)
       setPeople(snap.people)
       setUpNext(snap.upNext ?? [])
+      setReactions(snap.reactions ?? [])
+      setComments(snap.comments ?? [])
       setOffline(true)
     }
-  }, [queueReveals, checkBadges])
+  }, [queueReveals, checkBadges, announce])
 
   useEffect(() => {
     if (auth.state !== 'ready') return
@@ -232,32 +295,126 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [tab, detail?.watch.id])
 
-  async function persist(change: Watch, okMsg: string, exactMonths = false) {
-    const prev = watches
-    // Record which month these episodes belong to (a merge already combined them, so keep those as-is)
-    const next = exactMonths ? change : reconcileMonths(prev.find((x) => x.id === change.id) ?? null, change)
-    setWatches((list) => [...list.filter((x) => x.id !== next.id), next])
+  /**
+   * Saves a log (optimistically). `undo: true` puts the previous version back on Undo
+   * (or removes the log if it was new). `exact` keeps the monthly episode counts as given.
+   */
+  async function persist(change: Watch, okMsg: string, opts: { exact?: boolean; undo?: boolean } = {}) {
+    const before = watchesRef.current.find((x) => x.id === change.id) ?? null
+    // Record which month these episodes belong to (merges and undos already have them right)
+    const next = opts.exact ? change : reconcileMonths(before, change)
+    const put = (list: Watch[], w: Watch | null) => (w ? [...list.filter((x) => x.id !== next.id), w] : list.filter((x) => x.id !== next.id))
+    setWatches((list) => put(list, next))
     try {
       await store.save(next)
-      flash(okMsg)
-      queueReveals([...prev.filter((x) => x.id !== next.id), next])
-      checkBadges([...prev.filter((x) => x.id !== next.id), next])
+      const after = put(watchesRef.current, next)
+      flash(okMsg, opts.undo ? () => (before ? persist(before, 'Undone', { exact: true }) : removeLog(next, 'Undone')) : undefined)
+      queueReveals(after)
+      checkBadges(after)
       return true
     } catch {
-      setWatches(prev)
+      setWatches((list) => put(list, before))
       flash("Couldn't save. Check your connection and try again.")
       return false
     }
   }
 
+  /** Removes a log; Undo brings it back with its chat and reactions. */
+  async function removeLog(w: Watch, okMsg = `${w.showName} removed`) {
+    const keepChat = comments.filter((c) => c.watchId === w.id)
+    const keepReacts = reactions.filter((r) => r.watchId === w.id)
+    setWatches((list) => list.filter((x) => x.id !== w.id))
+    try {
+      await store.remove(w.id)
+      flash(okMsg, okMsg === 'Undone' ? undefined : () => restoreLog(w, keepChat, keepReacts))
+      return true
+    } catch (e) {
+      setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
+      flash((e as Error).message?.startsWith('Only') ? (e as Error).message : "Couldn't remove it. Check your connection and try again.")
+      return false
+    }
+  }
+
+  async function restoreLog(w: Watch, chat: Comment[] = [], reacts: Reaction[] = []) {
+    setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
+    try {
+      await store.save(w)
+      // Best effort: the show is back even if a message can't be restored
+      await Promise.all([...chat.map((c) => store.addComment(c)), ...reacts.map((r) => store.setReaction(r))]).catch(() => undefined)
+      setComments((list) => [...list.filter((c) => c.watchId !== w.id), ...chat])
+      setReactions((list) => [...list.filter((r) => r.watchId !== w.id), ...reacts])
+      flash(`${w.showName} is back`)
+    } catch {
+      setWatches((list) => list.filter((x) => x.id !== w.id))
+      flash("Couldn't bring it back. Check your connection.")
+    }
+  }
+
+  async function react(watchId: string, targetId: string, emoji: string) {
+    if (!me) return
+    const r = { watchId, personId: me, targetId, emoji }
+    const prev = reactions
+    const next = toggleReaction(prev, r)
+    const kept = next.find((x) => x.watchId === watchId && x.personId === me && x.targetId === targetId)
+    setReactions(next)
+    try {
+      await store.setReaction({ ...r, emoji: kept ? emoji : null })
+    } catch {
+      setReactions(prev)
+      flash("Couldn't send your reaction. Check your connection.")
+    }
+  }
+
+  async function sendComment(watchId: string, text: string) {
+    if (!me) return false
+    const c: Comment = { id: newId(), watchId, personId: me, text, createdAt: new Date().toISOString() }
+    setComments((list) => [...list, c])
+    // Your own line never gets announced back to you
+    const seen = readSet(CHAT_KEY)
+    if (seen) writeSet(CHAT_KEY, seen.add(c.id))
+    try {
+      await store.addComment(c)
+      return true
+    } catch {
+      setComments((list) => list.filter((x) => x.id !== c.id))
+      flash("Couldn't send it. Check your connection.")
+      return false
+    }
+  }
+
+  async function deleteComment(c: Comment) {
+    setComments((list) => list.filter((x) => x.id !== c.id))
+    try {
+      await store.removeComment(c.id)
+      flash('Message removed', async () => {
+        setComments((list) => [...list.filter((x) => x.id !== c.id), c])
+        await store.addComment(c).catch(() => {
+          setComments((list) => list.filter((x) => x.id !== c.id))
+          flash("Couldn't bring it back. Check your connection.")
+        })
+      })
+    } catch (e) {
+      setComments((list) => [...list, c])
+      flash((e as Error).message || "Couldn't remove it. Check your connection.")
+    }
+  }
+
   async function handleSave(w: Watch, isNew = detail?.isNew ?? false) {
     setSaving(true)
+    const queued = isNew ? upNext.find((i) => i.id === fromUpNext || i.showId === w.showId) : undefined
+    const before = watchesRef.current.find((x) => x.id === w.id) ?? null
     const ok = await persist(w, isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved')
     setSaving(false)
     if (ok) {
+      // Undo: a new log goes away (and back into Up Next if it came from there); an edit goes back
+      flash(isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved', async () => {
+        if (!before) {
+          await removeLog(w, 'Undone')
+          if (queued) restoreQueued(queued)
+        } else persist(before, 'Undone', { exact: true })
+      })
       // Logged from Up Next: it's being watched now, so it leaves the queue
-      const queued = upNext.find((i) => i.id === fromUpNext || i.showId === w.showId)
-      if (queued && isNew) removeQueued(queued, true)
+      if (queued) removeQueued(queued, true)
       setFromUpNext(null)
       setDetail(null)
       setQuick(null)
@@ -310,24 +467,33 @@ export default function App() {
     setUpNext((list) => list.filter((x) => x.id !== item.id))
     try {
       await store.removeUpNext(item.id)
-      if (!quiet) flash(`${item.showName} removed from Up Next`)
+      if (!quiet) flash(`${item.showName} removed from Up Next`, () => restoreQueued(item))
     } catch (e) {
       setUpNext(prev)
       if (!quiet) flash((e as Error).message || "Couldn't remove it. Check your connection.")
     }
   }
 
-  async function handleDelete(w: Watch) {
-    const prev = watches
-    setWatches((list) => list.filter((x) => x.id !== w.id))
-    setDetail(null)
+  async function restoreQueued(item: UpNextItem) {
+    setUpNext((list) => [...list.filter((x) => x.showId !== item.showId), item])
     try {
-      await store.remove(w.id)
-      flash(`${w.showName} removed`)
+      await store.addUpNext(item)
     } catch {
-      setWatches(prev)
-      flash("Couldn't remove it. Check your connection and try again.")
+      setUpNext((list) => list.filter((x) => x.id !== item.id))
+      flash("Couldn't put it back in Up Next. Check your connection.")
     }
+  }
+
+  async function handleDelete(w: Watch) {
+    setDetail(null)
+    // Use the saved version: unsaved edits on the page shouldn't come back with Undo
+    await removeLog(watchesRef.current.find((x) => x.id === w.id) ?? w)
+  }
+
+  /** Quick menu and +1: save with Undo, and keep Home on the month the log moved to. */
+  function quickSave(next: Watch, msg: string) {
+    persist(next, msg, { undo: true })
+    setMonth(next.month)
   }
 
   if (auth.state === 'checking') {
@@ -386,17 +552,30 @@ export default function App() {
             onSave={handleSave}
             onDelete={handleDelete}
             onFlash={flash}
+            social={social && !detail.isNew}
+            reactions={reactions}
+            comments={comments}
+            onReact={(targetId, emoji) => react(detail.watch.id, targetId, emoji)}
+            onComment={(text) => sendComment(detail.watch.id, text)}
+            onRemoveComment={deleteComment}
             onMerge={async (keep, drop) => {
               if (!canDelete(drop, who)) {
                 flash(`Ask ${people.find((p) => p.isAdmin)?.name ?? 'the admin'} to merge these: you can only remove logs you added.`)
                 return
               }
+              const keepBefore = watchesRef.current.find((x) => x.id === keep.id) ?? keep
               const merged = mergeLogs(keep, drop)
-              const ok = await persist(merged, 'Merged into one log', true)
+              const ok = await persist(merged, 'Merged into one log', { exact: true })
               if (!ok) return
               setWatches((list) => list.filter((x) => x.id !== drop.id))
+              const dropChat = comments.filter((c) => c.watchId === drop.id)
+              const dropReacts = reactions.filter((r) => r.watchId === drop.id)
               try {
                 await store.remove(drop.id)
+                flash('Merged into one log', async () => {
+                  await persist(keepBefore, 'Undone', { exact: true })
+                  await restoreLog(drop, dropChat, dropReacts)
+                })
               } catch {
                 flash("Merged, but couldn't remove the old copy. Try again from it.")
               }
@@ -418,9 +597,9 @@ export default function App() {
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
             onAddEpisode={(w) => {
               const next = addEpisode(w)
-              persist(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
-              setMonth(next.month)
+              quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
             }}
+            onActions={(w) => setActionsFor(w.id)}
             onAdd={() => {
               setAddMonth(month)
               setTab('search')
@@ -525,12 +704,55 @@ export default function App() {
       )}
 
       {reveals[0] && watches.find((w) => w.id === reveals[0]) && (
-        <Reveal watch={watches.find((w) => w.id === reveals[0])!} people={people} onClose={closeReveal} />
+        <Reveal
+          watch={watches.find((w) => w.id === reveals[0])!}
+          people={people}
+          viewer={social ? me : null}
+          reactions={reactions}
+          onReact={(targetId, emoji) => react(reveals[0], targetId, emoji)}
+          onClose={closeReveal}
+        />
+      )}
+
+      {actionsFor && watches.find((w) => w.id === actionsFor) && (
+        <QuickActions
+          watch={watches.find((w) => w.id === actionsFor)!}
+          people={people}
+          me={me}
+          onEpisode={(w) => {
+            const next = addEpisode(w)
+            quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
+          }}
+          onFinish={(w, aired) => {
+            const next = finishSeason(w, aired)
+            quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Caught up on ${w.showName}`)
+          }}
+          onJoin={(w) => me && persist(joinWatchers(w, me), `You're on ${w.showName} now`, { undo: true })}
+          onRate={(w, stars) => me && persist(setOwnRating(w, me, stars), stars ? `${stars}★ for ${w.showName}` : 'Rating cleared', { undo: true })}
+          onOpen={(w) => {
+            setActionsFor(null)
+            setDetail({ watch: w, isNew: false })
+          }}
+          onClose={() => setActionsFor(null)}
+        />
       )}
 
       {toast && (
-        <div className="toast" role="status">
-          <Icon name="check" size={18} stroke={2.6} /> {toast}
+        <div className={`toast ${toast.undo ? 'has-undo' : ''}`} role="status" key={toast.id}>
+          <Icon name="check" size={18} stroke={2.6} /> <span className="toast-msg">{toast.msg}</span>
+          {toast.undo && (
+            <button
+              className="toast-undo"
+              onClick={() => {
+                const undo = toast.undo!
+                clearTimeout(toastTimer.current)
+                setToast(null)
+                undo()
+              }}
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
 

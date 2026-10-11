@@ -69,6 +69,23 @@ const SECTIONS: Section[] = [
         ],
       },
       {
+        id: 'hold',
+        q: 'What happens when I press and hold a show?',
+        a: [
+          'Press and hold any show on Home (or tap ••• on the Currently watching banner) for quick actions.',
+          'Watched episode N marks the next one. Finished the season marks every episode; if it\'s still airing it says Caught up and marks what\'s out.',
+          'Give your stars right there, or tap I watched this too if you were on the couch but not listed.',
+        ],
+      },
+      {
+        id: 'undo',
+        q: 'I tapped the wrong thing. Can I undo it?',
+        a: [
+          'Yes. After marking an episode, rating, saving, removing a show, merging or removing from Up Next, the message at the bottom has Undo for a few seconds.',
+          'Removing a show brings it back with its chat and reactions.',
+        ],
+      },
+      {
         id: 'new-show',
         q: 'I added a show. Why are no episodes marked?',
         a: [
@@ -147,6 +164,15 @@ const SECTIONS: Section[] = [
           'Ratings are blind: you only see your own until everyone who watched has rated.',
           'Then the reveal plays with everyone\'s stars, the family average and a verdict.',
           '"Rated · hidden" means they rated; "Not rated yet" means they haven\'t.',
+        ],
+      },
+      {
+        id: 'react',
+        q: 'How do reactions and the family chat work?',
+        a: [
+          'Once everyone\'s stars are revealed, tap + under someone\'s stars to react (😂 🔥 😱 👏 🙄 ❤️). Tap your emoji again to take it back.',
+          'Each show has a Family chat under the ratings, open while you\'re watching. When a show is finished, watchers read and write after they rate, so nobody\'s stars get nudged.',
+          'New messages and reactions pop up at the bottom the next time you open the app.',
         ],
       },
       {
