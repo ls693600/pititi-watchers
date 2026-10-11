@@ -118,8 +118,9 @@ export function timesWatched(all: Watch[], showId: number, season: number): numb
 }
 
 /** True when this show-season was already logged before, so a new log is a rewatch. */
+/** True when this show-season was already finished in another log, so a new log is a rewatch. */
 export function isPriorWatch(all: Watch[], showId: number, season: number, excludeId?: string): boolean {
-  return all.some((w) => w.showId === showId && w.season === season && w.id !== excludeId)
+  return all.some((w) => w.showId === showId && w.season === season && w.id !== excludeId && w.status === 'done')
 }
 
 /** Episodes of a log in a period: one month, a set of months, or all time. */
@@ -289,7 +290,61 @@ export function capToAired(w: Watch, aired: number | null): Watch {
 
 /** Times this show-season has been logged, counting the log being edited once even if its season just changed. */
 export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season'>): number {
-  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season).length + 1
+  // Only finished watches of this season count; an unfinished duplicate isn't a second viewing
+  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && x.status === 'done').length + 1
+}
+
+/** Another log of the same show-season that's still open: a duplicate, not a rewatch. */
+export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'status'>): Watch | null {
+  return (
+    all.find((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && (x.status === 'watching' || w.status === 'watching')) ?? null
+  )
+}
+
+/** The show you're already in the middle of (any season), so re-adding it opens that log instead of a copy. */
+export function inProgressFor(all: Watch[], showId: number): Watch | null {
+  return all.filter((w) => w.showId === showId && w.status === 'watching').sort(byUpdatedDesc)[0] ?? null
+}
+
+/** Combine two logs of the same show-season into one: furthest progress, everyone who watched, all ratings and months. */
+export function mergeLogs(keep: Watch, drop: Watch): Watch {
+  const a = monthBuckets(keep)
+  const b = monthBuckets(drop)
+  const combined: Record<string, number> = { ...a }
+  for (const [m, n] of Object.entries(b)) combined[m] = Math.max(combined[m] ?? 0, n)
+  const episodesWatched = Math.max(keep.episodesWatched, drop.episodesWatched)
+  // The copies overlap (the same episodes were logged twice): count each episode once, earliest month first
+  const months: Record<string, number> = {}
+  let left = episodesWatched
+  for (const m of Object.keys(combined).sort()) {
+    const take = Math.min(combined[m], left)
+    if (take > 0) months[m] = take
+    left -= take
+  }
+  return {
+    ...keep,
+    episodesWatched,
+    status: keep.status === 'done' || drop.status === 'done' ? 'done' : 'watching',
+    totalEpisodes: keep.totalEpisodes ?? drop.totalEpisodes,
+    watchedBy: [...new Set([...keep.watchedBy, ...drop.watchedBy])],
+    ratings: { ...drop.ratings, ...keep.ratings },
+    notes: [keep.notes, drop.notes].filter(Boolean).join('\n'),
+    episodesByMonth: months,
+    month: keep.month > drop.month ? keep.month : drop.month,
+    isRewatch: keep.isRewatch && drop.isRewatch,
+  }
+}
+
+/** New logs: only the person logging, unless they pick others. Nobody gets added to shows they didn't watch. */
+export function defaultWatchersFor(me: string | null, people: { id: string }[]): string[] {
+  return me ? [me] : people.slice(0, 1).map((p) => p.id)
+}
+
+/** A season can't be watched before it premiered: the month to use instead, or null if fine. */
+export function premiereMonthFix(month: string, premiereDate: string | null | undefined): string | null {
+  if (!premiereDate) return null
+  const premiere = premiereDate.slice(0, 7)
+  return month < premiere ? premiere : null
 }
 
 /** The season a new log should start on: the latest one that has aired. */
@@ -492,4 +547,13 @@ export function outlookOrder(a: Outlook | undefined, b: Outlook | undefined): nu
   if (r) return r
   if (a?.next && b?.next) return a.next.date.localeCompare(b.next.date)
   return 0
+}
+
+/** A person's own top shows by their stars (ties: most recent first). */
+export function personalTop(list: Watch[], personId: string, n = 5): { watch: Watch; avg: number }[] {
+  return list
+    .filter((w) => w.ratings[personId] != null)
+    .sort((a, b) => b.ratings[personId] - a.ratings[personId] || b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, n)
+    .map((watch) => ({ watch, avg: watch.ratings[personId] }))
 }

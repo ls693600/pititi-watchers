@@ -69,9 +69,38 @@ const SECTIONS: Section[] = [
         ],
       },
       {
+        id: 'new-show',
+        q: 'I added a show. Why are no episodes marked?',
+        a: [
+          'New shows start as "Still watching" with nothing marked, so only what you really watched counts.',
+          'Mark episodes as you watch them: tap Watched next on Home, or tap the last episode you saw on the show page.',
+          'Already finished the whole season? Pick Finished it when you add it.',
+        ],
+      },
+      {
+        id: 'duplicate',
+        q: 'A show says "logged twice". What do I do?',
+        a: [
+          'That happens when the same season was added twice. Open it and tap Merge into one: it keeps the furthest progress, everyone who watched and all ratings.',
+          'Adding a show you\'re already watching now opens your existing log instead of making a copy.',
+        ],
+      },
+      {
+        id: 'watchers',
+        q: 'Why does a show say "Waiting for Ana" when she didn\'t watch it?',
+        a: [
+          'Only people marked under "Who watched?" rate a show and count in its stats. New shows only list you, so add the others if they watched with you.',
+          'To fix an older show, open it and tap the person\'s name under "Who watched?" to remove them.',
+        ],
+      },
+      {
         id: 'month',
         q: 'How do I log something we watched in an earlier month?',
-        a: ['On Home, use the arrows to go to that month, then tap +. The screen says "Adding to <month>".', 'You can also change "Watched in" on any show.'],
+        a: [
+          'Tap +, then tap Change next to "Adding to <month>" and pick the month.',
+          'A show can\'t be filed before its season premiered; the app moves it to the right month and tells you.',
+          'You can also change "Watched in" on any show.',
+        ],
       },
       {
         id: 'airing',
@@ -181,6 +210,21 @@ const SECTIONS: Section[] = [
           'Explorer: shows from 6 genres.',
           'Night owl: log a show between 1 and 5 AM.',
           'Centurion: 100 different shows.',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Sharing',
+    items: [
+      {
+        id: 'share',
+        q: 'How do I show the family what we\'re watching?',
+        a: [
+          'Stats → tap any month → Share: a picture of that month\'s shows, your stars and totals.',
+          'On a show\'s page, tap the share icon at the top for that show with everyone\'s stars.',
+          'It opens your phone\'s share sheet, so you can send it on WhatsApp, Messages or anywhere. Stars that are still hidden (blind rating) stay hidden in the picture.',
+          'To have them join and log their own shows, Leandro shares the invite code from the Family tab.',
         ],
       },
     ],

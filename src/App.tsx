@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, familyBadges, newlyEarned, reconcileMonths, toggleWant, byUpdatedDesc, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, defaultWatchersFor, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -76,14 +76,6 @@ function writeSeen(seen: Set<string>) {
 
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
-/** New logs start with the same group as your latest log (usually the people you watch with). */
-function defaultWatchers(watches: Watch[], people: Person[], me: string | null): string[] {
-  const last = [...watches].sort(byUpdatedDesc).find((w) => !me || w.watchedBy.includes(me))
-  const known = new Set(people.map((p) => p.id))
-  const group = last?.watchedBy.filter((id) => known.has(id)) ?? []
-  if (group.length) return group
-  return me ? [me] : people.slice(0, 1).map((p) => p.id)
-}
 
 function draftFrom(show: ShowResult, month: string, watchedBy: string[], createdBy: string | null): Watch {
   const now = new Date().toISOString()
@@ -135,6 +127,8 @@ export default function App() {
     setTab('help')
   }
   const [month, setMonth] = useState(currentMonth())
+  /** Month new shows are logged into: this month by default, or the past month you chose to fill in */
+  const [addMonth, setAddMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -238,10 +232,10 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [tab, detail?.watch.id])
 
-  async function persist(change: Watch, okMsg: string) {
+  async function persist(change: Watch, okMsg: string, exactMonths = false) {
     const prev = watches
-    // Record which month these episodes belong to
-    const next = reconcileMonths(prev.find((x) => x.id === change.id) ?? null, change)
+    // Record which month these episodes belong to (a merge already combined them, so keep those as-is)
+    const next = exactMonths ? change : reconcileMonths(prev.find((x) => x.id === change.id) ?? null, change)
     setWatches((list) => [...list.filter((x) => x.id !== next.id), next])
     try {
       await store.save(next)
@@ -391,6 +385,23 @@ export default function App() {
             canDelete={canDelete(detail.watch, who)}
             onSave={handleSave}
             onDelete={handleDelete}
+            onFlash={flash}
+            onMerge={async (keep, drop) => {
+              if (!canDelete(drop, who)) {
+                flash(`Ask ${people.find((p) => p.isAdmin)?.name ?? 'the admin'} to merge these: you can only remove logs you added.`)
+                return
+              }
+              const merged = mergeLogs(keep, drop)
+              const ok = await persist(merged, 'Merged into one log', true)
+              if (!ok) return
+              setWatches((list) => list.filter((x) => x.id !== drop.id))
+              try {
+                await store.remove(drop.id)
+              } catch {
+                flash("Merged, but couldn't remove the old copy. Try again from it.")
+              }
+              setDetail(null)
+            }}
             onClose={() => setDetail(null)}
           />
         ) : tab === 'home' ? (
@@ -410,15 +421,28 @@ export default function App() {
               persist(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
               setMonth(next.month)
             }}
-            onAdd={() => setTab('search')}
+            onAdd={() => {
+              setAddMonth(month)
+              setTab('search')
+            }}
           />
         ) : tab === 'search' ? (
           <Search
             watches={watches}
-            month={month}
+            month={addMonth}
+            onMonth={setAddMonth}
             queued={new Set(upNext.map((i) => i.showId))}
             onQueue={queueShow}
-            onPick={(show) => setQuick(draftFrom(show, month, defaultWatchers(watches, people, me), me))}
+            onPick={(show) => {
+              // Already watching it: open that log instead of starting a duplicate
+              const open = inProgressFor(watches, show.showId)
+              if (open) {
+                setDetail({ watch: open, isNew: false })
+                flash(`You're already watching ${open.showName}. Mark episodes here.`)
+                return
+              }
+              setQuick(draftFrom(show, addMonth, defaultWatchersFor(me, people), me))
+            }}
           />
         ) : tab === 'help' ? (
           <Help key={helpTopic ?? 'all'} topic={helpTopic} onBack={() => setTab(prevTab.current)} />
@@ -430,26 +454,26 @@ export default function App() {
             canRemove={(item) => isAdmin || item.addedBy === me}
             onToggle={toggleHeart}
             onRemove={(item) => removeQueued(item)}
-            onFind={() => setTab('search')}
+            onFind={() => {
+              setAddMonth(currentMonth())
+              setTab('search')
+            }}
             onLog={(item) => {
               setFromUpNext(item.id)
               // Everyone who hearted it is probably watching together
-              const watchers = item.wantedBy.length ? item.wantedBy : defaultWatchers(watches, people, me)
+              const watchers = item.wantedBy.length ? item.wantedBy : defaultWatchersFor(me, people)
               setQuick(draftFrom(item, currentMonth(), watchers, me))
             }}
           />
         ) : tab === 'stats' ? (
           <Stats
             onHelp={openHelp}
+            onFlash={flash}
             watches={watches}
             people={people}
             filter={filter}
             onFilter={setFilter}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
-            onOpenMonth={(m) => {
-              setMonth(m)
-              setTab('home')
-            }}
           />
         ) : (
           <Settings
@@ -515,7 +539,14 @@ export default function App() {
           {SIDE_TABS.map((group, gi) => (
             <Fragment key={gi}>
               {gi === 1 && (
-                <button className={`fab ${tab === 'search' ? 'on' : ''}`} aria-label="Add a show" onClick={() => setTab('search')}>
+                <button
+                  className={`fab ${tab === 'search' ? 'on' : ''}`}
+                  aria-label="Add a show"
+                  onClick={() => {
+                    setAddMonth(currentMonth())
+                    setTab('search')
+                  }}
+                >
                   <Icon name="plus" size={28} stroke={2.6} />
                 </button>
               )}

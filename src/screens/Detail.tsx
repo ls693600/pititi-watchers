@@ -3,9 +3,10 @@ import { AvgStars, Stars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
-import { airLabel, averageRating, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
+import { drawShowCard, shareImage } from '../share'
 
 interface Props {
   initial: Watch
@@ -19,15 +20,19 @@ interface Props {
   canDelete: boolean
   onSave: (w: Watch) => void
   onDelete: (w: Watch) => void
+  /** Combine this log with a duplicate of the same season (keeps this one) */
+  onMerge: (keep: Watch, drop: Watch) => void
+  onFlash: (msg: string) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [info, setInfo] = useState<ShowInfo | null>(null)
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
   const [moreSynopsis, setMoreSynopsis] = useState(false)
+  const [sharing, setSharing] = useState(false)
   // Fixed for the life of the page; used to fade episodes that haven't aired
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
@@ -82,6 +87,38 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
   // Episodes out so far; anything later is announced but can't have been watched
   const airedCount = episodes ? episodes.filter((e) => e.airdate != null && e.airdate <= today).length : null
   const overCounted = airedCount != null && w.episodesWatched > airedCount
+  // Data health: a second open log of this season, or a log filed before the season premiered
+  const duplicate = isNew ? null : findDuplicate(watches, w)
+  const seasonInfo = seasons?.find((x) => x.number === w.season)
+  const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
+
+  async function shareShow() {
+    setSharing(true)
+    try {
+      const saved = initial
+      const watchersList = people.filter((p) => saved.watchedBy.includes(p.id))
+      const colors = ['#5b6cff', '#ff4d8d', '#12b886', '#f59f00', '#9b5de5', '#ff6b3d', '#0ea5e9', '#e64980']
+      const blob = await drawShowCard({
+        name: saved.showName,
+        meta: [`Season ${saved.season}`, saved.network, saved.status === 'done' ? 'finished' : 'watching now'].filter(Boolean).join(' · '),
+        poster: saved.poster,
+        // Blind rating holds for shares too: only stars this phone is allowed to see
+        ratings: watchersList.map((p) => ({
+          name: p.name,
+          color: colors[people.findIndex((x) => x.id === p.id) % colors.length],
+          stars: canSeeRating(saved, p.id, viewer) ? (saved.ratings[p.id] ?? null) : null,
+        })),
+        average: averageRating(saved),
+        names: watchersList.map((p) => p.name).join(' & ') || 'Our family',
+      })
+      const result = await shareImage(blob, `pititi-${saved.showName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, `${saved.showName} on Pititi Watchers`)
+      if (result === 'saved') onFlash('Picture saved. Send it from your photos or files.')
+    } catch {
+      onFlash("Couldn't make the picture. Check your connection and try again.")
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
   const avg = averageRating(w)
@@ -129,6 +166,11 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         <button className="icon-btn glass close" aria-label="Close" onClick={onClose}>
           <Icon name="close" size={20} />
         </button>
+        {!isNew && (
+          <button className="icon-btn glass share" aria-label={`Share ${w.showName}`} onClick={shareShow} disabled={sharing}>
+            <Icon name="share" size={19} />
+          </button>
+        )}
         <div className="dhead-id">
           <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
           <div style={{ minWidth: 0, paddingBottom: 4 }}>
@@ -138,6 +180,36 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           </div>
         </div>
       </div>
+
+      {duplicate && (
+        <div className="health-card" role="alert">
+          <Icon name="info" size={20} stroke={2.2} />
+          <div>
+            <b>This season is logged twice</b>
+            <p>
+              Another log of Season {w.season} ({duplicate.episodesWatched} {duplicate.episodesWatched === 1 ? 'episode' : 'episodes'},{' '}
+              {monthLabel(duplicate.month)}) makes it look watched twice. Merge keeps the furthest progress, everyone who watched and all
+              ratings.
+            </p>
+            <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>Merge into one</button>
+          </div>
+        </div>
+      )}
+
+      {earlyMonth && !isNew && (
+        <div className="health-card" role="alert">
+          <Icon name="calendar" size={20} stroke={2.2} />
+          <div>
+            <b>Filed before it aired</b>
+            <p>
+              This log is in {monthLabel(w.month)}, but Season {w.season} premiered in {monthLabel(earlyMonth)}.
+            </p>
+            <button className="btn sm dark" onClick={() => setW((cur) => ({ ...cur, month: earlyMonth }))}>
+              Move to {monthLabel(earlyMonth)}
+            </button>
+          </div>
+        </div>
+      )}
 
       {info && (
         <section className="show-info">

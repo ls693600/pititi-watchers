@@ -8,6 +8,12 @@ import {
   airLabel,
   tapEpisode,
   pendingReveals,
+  personalTop,
+  defaultWatchersFor,
+  findDuplicate,
+  inProgressFor,
+  mergeLogs,
+  premiereMonthFix,
   episodeOutlook,
   outlookOrder,
   activeIn,
@@ -476,5 +482,57 @@ describe('release outlook for the home banner', () => {
     const old = { fresh: 0, toGo: 2, next: null }
     const done = { fresh: 0, toGo: 0, next: null }
     expect([done, old, sun, fresh, fri].sort(outlookOrder)).toEqual([fresh, fri, sun, old, done])
+  })
+})
+
+describe('family feedback fixes (Oct 11)', () => {
+  it('does not count an unfinished duplicate as a second viewing', () => {
+    const a = watch({ id: 'a', status: 'watching' })
+    const b = watch({ id: 'b', status: 'watching' })
+    expect(timesWatchedFor([a, b], a)).toBe(1)
+    expect(isPriorWatch([a, b], 1, 1, 'b')).toBe(false)
+    const done = watch({ id: 'c', status: 'done' })
+    expect(timesWatchedFor([done, b], b)).toBe(2)
+    expect(isPriorWatch([done], 1, 1, 'b')).toBe(true)
+  })
+  it('finds duplicates and the show already in progress', () => {
+    const a = watch({ id: 'a', status: 'watching' })
+    const finished = watch({ id: 'f', status: 'done', season: 2 })
+    expect(findDuplicate([a, watch({ id: 'b', status: 'done' })], a)?.id).toBe('b')
+    expect(findDuplicate([a], a)).toBeNull()
+    expect(findDuplicate([finished, watch({ id: 'g', status: 'done', season: 2 })], finished)).toBeNull()
+    expect(inProgressFor([a, finished], 1)?.id).toBe('a')
+    expect(inProgressFor([finished], 1)).toBeNull()
+  })
+  it('merges duplicates without losing progress, people, ratings or months', () => {
+    const keep = watch({ id: 'k', episodesWatched: 3, status: 'watching', watchedBy: ['L'], ratings: {}, episodesByMonth: { '2026-09': 3 }, month: '2026-09' })
+    const drop = watch({ id: 'd', episodesWatched: 5, status: 'watching', watchedBy: ['A'], ratings: { A: 4 }, episodesByMonth: { '2026-10': 5 }, month: '2026-10' })
+    const m = mergeLogs(keep, drop)
+    expect(m).toMatchObject({ id: 'k', episodesWatched: 5, watchedBy: ['L', 'A'], ratings: { A: 4 }, month: '2026-10', status: 'watching' })
+    // 5 episodes in total: the 3 from September plus 2 more in October, never 8
+    expect(m.episodesByMonth).toEqual({ '2026-09': 3, '2026-10': 2 })
+  })
+  it('only marks the person logging as a watcher by default', () => {
+    expect(defaultWatchersFor('L', [{ id: 'L' }, { id: 'A' }])).toEqual(['L'])
+    expect(defaultWatchersFor(null, [{ id: 'L' }, { id: 'A' }])).toEqual(['L'])
+  })
+  it('will not file a season before it premiered', () => {
+    expect(premiereMonthFix('2026-09', '2026-10-03')).toBe('2026-10')
+    expect(premiereMonthFix('2026-10', '2026-10-03')).toBeNull()
+    expect(premiereMonthFix('2026-11', '2026-10-03')).toBeNull()
+    expect(premiereMonthFix('2026-09', null)).toBeNull()
+  })
+})
+
+describe('personal stats', () => {
+  it("ranks a person's own stars, not the family average", () => {
+    const list = [
+      watch({ id: 'st', showName: 'Stranger Things', watchedBy: ['L'], ratings: { L: 5 } }),
+      watch({ id: 'b', showName: 'Bluey', watchedBy: ['A'], ratings: { A: 5 } }),
+      watch({ id: 'o', showName: 'The Office', ratings: { L: 3, A: 5 } }),
+    ]
+    expect(personalTop(list, 'L').map((t) => [t.watch.showName, t.avg])).toEqual([['Stranger Things', 5], ['The Office', 3]])
+    expect(personalTop(list, 'A').map((t) => t.watch.showName)).toEqual(['Bluey', 'The Office'])
+    expect(personalTop(list, 'M')).toEqual([])
   })
 })

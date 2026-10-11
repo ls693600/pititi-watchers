@@ -9,13 +9,14 @@ interface Props {
   watches: Watch[]
   /** Month new logs go into (the month open on Home) */
   month: string
+  onMonth: (month: string) => void
   /** Shows already in Up Next */
   queued: Set<number>
   onQueue: (show: ShowResult) => void
   onPick: (show: ShowResult) => void
 }
 
-export function Search({ watches, month, queued, onQueue, onPick }: Props) {
+export function Search({ watches, month, onMonth, queued, onQueue, onPick }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ShowResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -58,9 +59,17 @@ export function Search({ watches, month, queued, onQueue, onPick }: Props) {
         <p className="eyebrow">What did you watch?</p>
         <h1 className="title-xl">Add a show</h1>
       </header>
-      <span className={`month-chip ${month === currentMonth() ? '' : 'past'}`}>
+      <label className={`month-chip ${month === currentMonth() ? '' : 'past'}`}>
         <Icon name="calendar" size={15} /> Adding to {monthLabel(month)}
-      </span>
+        <span className="month-chip-change">Change</span>
+        <input
+          type="month"
+          value={month}
+          max={currentMonth()}
+          aria-label="Month you watched it"
+          onChange={(e) => e.target.value && onMonth(e.target.value > currentMonth() ? currentMonth() : e.target.value)}
+        />
+      </label>
       <p className="muted" style={{ marginTop: -8 }}>
         Tap a show to log it, or <Icon name="bookmark" size={13} stroke={2.4} /> to save it for later.
       </p>

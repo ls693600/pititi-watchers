@@ -22,6 +22,8 @@ export interface SeasonInfo {
   inProgress?: boolean
   /** Episodes released so far, when the season is in progress (filled in by getAiredCount) */
   airedEpisodes?: number | null
+  /** YYYY-MM-DD the season started airing */
+  premiereDate?: string | null
 }
 
 interface RawShow {
@@ -74,6 +76,7 @@ export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
       episodes: s.episodeOrder,
       aired: Boolean(s.premiereDate && s.premiereDate <= today),
       inProgress: Boolean(s.premiereDate && s.premiereDate <= today && (!s.endDate || s.endDate > today)),
+      premiereDate: s.premiereDate,
     }))
 }
 

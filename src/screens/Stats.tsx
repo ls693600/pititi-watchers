@@ -4,7 +4,8 @@ import { AvgStars } from '../components/Stars'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { BadgeTile, TasteCard } from '../components/Taste'
-import { currentMonth, familyBadges, monthLabel, personAverages, raters, tasteMatches, watchedByPerson, yearStats } from '../logic'
+import { MonthSheet } from '../components/MonthSheet'
+import { currentMonth, familyBadges, personalTop, monthLabel, personAverages, raters, tasteMatches, watchedByPerson, yearStats } from '../logic'
 import type { Person, Watch } from '../types'
 
 interface Props {
@@ -13,17 +14,23 @@ interface Props {
   filter: string | null
   onFilter: (id: string | null) => void
   onOpen: (w: Watch) => void
-  onOpenMonth: (month: string) => void
   onHelp: (topic: string) => void
+  onFlash: (msg: string) => void
 }
 
-export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, onHelp }: Props) {
+export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFlash }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
   const [year, setYear] = useState(thisYear)
-  const s = yearStats(watchedByPerson(watches, filter), year)
+  const mine = watchedByPerson(watches, filter)
+  const s = yearStats(mine, year)
+  const [openMonth, setOpenMonth] = useState<string | null>(null)
   const yearLogs = watches.filter((w) => w.month.startsWith(`${year}-`))
   const averages = personAverages(yearLogs, people.map((p) => p.id))
   const who = people.find((p) => p.id === filter)
+  // With a person picked, rank by their own stars; otherwise by the family average
+  const top = filter
+    ? personalTop(mine.filter((w) => w.month.startsWith(`${year}-`) || Object.keys(w.episodesByMonth ?? {}).some((m) => m.startsWith(`${year}-`))), filter)
+    : s.topRated
   const nowMonth = currentMonth()
   const max = Math.max(1, ...s.perMonth.map((m) => m.count))
   // Months that have happened, newest first
@@ -78,7 +85,7 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, 
             <button
               key={m.month}
               className="col"
-              onClick={() => onOpenMonth(m.month)}
+              onClick={() => setOpenMonth(m.month)}
               disabled={m.month > nowMonth}
               aria-label={`${monthLabel(m.month)}: ${m.count} shows`}
             >
@@ -110,11 +117,14 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, 
         </>
       )}
 
-      {s.topRated.length > 0 && (
+      {top.length > 0 && (
         <>
-          <h2 className="h2">{who ? `${who.name}'s top ${s.topRated.length}` : `Top ${s.topRated.length} of ${year}`}</h2>
+          <h2 className="h2">
+            {who ? `${who.name}'s top ${top.length}` : `Top ${top.length} of ${year}`}
+            {who && <small>{who.name}'s own stars</small>}
+          </h2>
           <div className="top5">
-            {s.topRated.map(({ watch, avg }, i) => (
+            {top.map(({ watch, avg }, i) => (
               <button key={watch.id} onClick={() => onOpen(watch)} aria-label={`Number ${i + 1}: ${watch.showName}, ${avg.toFixed(1)} stars`}>
                 <span className="rank" aria-hidden="true">{i + 1}</span>
                 <span className="pcard-img">
@@ -137,7 +147,7 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, 
         <ul className="card">
           {months.map((m) => (
             <li key={m.month}>
-              <button className="mrow" onClick={() => onOpenMonth(m.month)}>
+              <button className="mrow" onClick={() => setOpenMonth(m.month)}>
                 <span className="m">{monthLabel(m.month, 'long').split(' ')[0]}</span>
                 <span className="track"><i style={{ width: `${(m.count / max) * 100}%` }} /></span>
                 <span className={`n ${m.count ? '' : 'zero'}`}>{m.count} {m.count === 1 ? 'show' : 'shows'}</span>
@@ -208,6 +218,20 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onOpenMonth, 
             ))}
           </ul>
         </>
+      )}
+      {openMonth && (
+        <MonthSheet
+          month={openMonth}
+          watches={mine}
+          people={people}
+          personId={filter}
+          onFlash={onFlash}
+          onClose={() => setOpenMonth(null)}
+          onOpen={(w) => {
+            setOpenMonth(null)
+            onOpen(w)
+          }}
+        />
       )}
     </div>
   )

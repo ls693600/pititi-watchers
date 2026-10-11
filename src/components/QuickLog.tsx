@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { defaultSeason, monthLabel, withSeason } from '../logic'
+import { defaultSeason, monthLabel, premiereMonthFix, withSeason } from '../logic'
 import { getAiredCount, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
@@ -34,6 +34,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
   const [w, setW] = useState<Watch>(draft)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [monthNote, setMonthNote] = useState<string | null>(null)
   const watchesRef = useRef(watches)
   useEffect(() => {
     watchesRef.current = watches
@@ -47,7 +48,8 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
         setSeasons(s)
         const latest = defaultSeason(s)
         if (!latest) return
-        setW((cur) => withSeason({ ...cur, status: 'done' }, latest, watchesRef.current))
+        // Start as "still watching" with nothing marked: you tick episodes off as you watch them
+        setW((cur) => fitMonth(withSeason({ ...cur, status: 'watching', episodesWatched: 0 }, latest, watchesRef.current), latest))
         // Still airing: find out how many episodes are actually out before "finished" counts them
         withAired(latest).then((full) => {
           if (!alive || full === latest) return
@@ -76,16 +78,27 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
   const iWatched = me != null && w.watchedBy.includes(me)
   const others = people.filter((p) => p.id !== me && w.watchedBy.includes(p.id) && p.userId)
 
+  /** A season can't be watched before it premiered: move the log to its premiere month and say so. */
+  function fitMonth(next: Watch, s: SeasonInfo): Watch {
+    const fix = premiereMonthFix(next.month, s.premiereDate)
+    if (!fix) {
+      setMonthNote(null)
+      return next
+    }
+    setMonthNote(`Filed under ${monthLabel(fix)}: Season ${s.number} premiered then.`)
+    return { ...next, month: fix }
+  }
+
   function setStatus(done: boolean) {
     if (airing) {
-      setW((cur) => ({ ...cur, status: 'watching', episodesWatched: done ? aired! : Math.min(1, aired!) }))
+      setW((cur) => ({ ...cur, status: 'watching', episodesWatched: done ? aired! : 0 }))
       return
     }
     setW((cur) => ({
       ...cur,
       status: done ? 'done' : 'watching',
-      // Switching to "still watching" starts at episode 1; the stepper adjusts from there
-      episodesWatched: done ? (cur.totalEpisodes ?? cur.episodesWatched) : Math.min(1, Math.max(0, (cur.totalEpisodes ?? 2) - 1)),
+      // "Still watching" starts with nothing marked; tick episodes off as you watch them
+      episodesWatched: done ? (cur.totalEpisodes ?? cur.episodesWatched) : 0,
     }))
   }
 
@@ -138,7 +151,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
                     onChange={(e) => {
                       const s = seasons.find((x) => x.number === Number(e.target.value))
                       if (!s) return
-                      setW((cur) => withSeason(cur, s, watches))
+                      setW((cur) => fitMonth(withSeason(cur, s, watches), s))
                       withAired(s).then((full) => {
                         if (full === s) return
                         setSeasons((list) => list?.map((x) => (x.number === full.number ? full : x)) ?? list)
@@ -158,6 +171,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
               )}
               {total ? <span> · {total} episodes</span> : null}
             </div>
+            {monthNote && <p className="month-note">{monthNote}</p>}
           </div>
           <button className="icon-btn" aria-label="Close" onClick={onClose} style={{ alignSelf: 'flex-start' }}>
             <Icon name="close" size={18} />
@@ -173,18 +187,18 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
           <button role="radio" aria-checked={!finished} className={!finished ? 'on' : ''} onClick={() => setStatus(false)}>
             <Icon name="play" size={16} stroke={2.2} />
             <b>Still watching</b>
-            <small>Track episodes</small>
+            <small>Mark episodes as you go</small>
           </button>
         </div>
 
         {!finished && (
           <div className="field" style={{ borderBottom: 0, minHeight: 0 }}>
-            <span>On episode</span>
+            <span>Watched so far</span>
             <div className="stepper">
               <button aria-label="One episode less" onClick={() => setW((c) => ({ ...c, episodesWatched: Math.max(0, c.episodesWatched - 1) }))}>
                 <Icon name="minus" size={18} />
               </button>
-              <span aria-live="polite">{w.episodesWatched}{total ? ` / ${total}` : ''}</span>
+              <span aria-live="polite">{w.episodesWatched === 0 ? 'None yet' : `${w.episodesWatched}${total ? ` / ${total}` : ''}`}</span>
               <button
                 aria-label="One episode more"
                 onClick={() =>
