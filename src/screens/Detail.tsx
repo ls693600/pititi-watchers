@@ -5,7 +5,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, isPriorWatch, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, isPriorWatch, rewatchPair, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, Person, Reaction, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -98,6 +98,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
   const overCounted = airedCount != null && w.episodesWatched > airedCount
   // Data health: a second open log of this season, or a log filed before the season premiered
   const duplicate = isNew ? null : findDuplicate(watches, w)
+  const pair = isNew || duplicate ? null : rewatchPair(watches, initial)
   const seasonInfo = seasons?.find((x) => x.number === w.season)
   const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
 
@@ -205,6 +206,20 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </div>
       )}
 
+      {pair && (
+        <div className="health-card" role="alert">
+          <Icon name="repeat" size={20} stroke={2.2} />
+          <div>
+            <b>Watched {timesWatchedFor(watches, w)} times?</b>
+            <p>
+              Season {w.season} is also logged in {monthLabel(pair.month)}, so it counts as a rewatch. If you only watched it once, merge them:
+              it keeps the progress, everyone who watched and all ratings.
+            </p>
+            <button className="btn sm dark" onClick={() => onMerge(w, pair)}>Only once · merge</button>
+          </div>
+        </div>
+      )}
+
       {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
       {!isNew && !duplicate && initial.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
         <div className="health-card" role="alert">
@@ -247,7 +262,10 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
             )}
             {info.status && <span>{info.status === 'Running' ? 'Still airing' : info.status === 'Ended' ? 'Ended' : info.status}</span>}
             {info.runtime != null && <span>~{info.runtime} min</span>}
-            {seasons && seasons.length > 0 && <span>{seasons.filter((x) => x.aired).length || seasons.length} seasons</span>}
+            {seasons && seasons.length > 0 && (() => {
+              const n = seasons.filter((x) => x.aired).length || seasons.length
+              return <span>{n} {n === 1 ? 'season' : 'seasons'}</span>
+            })()}
           </div>
           {info.summary && (
             <button className={`synopsis ${moreSynopsis ? 'open' : ''}`} onClick={() => setMoreSynopsis(!moreSynopsis)} aria-expanded={moreSynopsis}>

@@ -301,6 +301,15 @@ export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'se
   )
 }
 
+/**
+ * A log marked as a rewatch next to an earlier finished log of the same season. Usually a real rewatch,
+ * but the old duplicate bug produced these too, so the show page offers "Only watched once? Merge".
+ */
+export function rewatchPair(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'isRewatch'>): Watch | null {
+  if (!w.isRewatch) return null
+  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && x.status === 'done').sort(byUpdatedDesc)[0] ?? null
+}
+
 /** The show you're already in the middle of (any season), so re-adding it opens that log instead of a copy. */
 export function inProgressFor(all: Watch[], showId: number): Watch | null {
   return all.filter((w) => w.showId === showId && w.status === 'watching').sort(byUpdatedDesc)[0] ?? null
@@ -330,7 +339,9 @@ export function mergeLogs(keep: Watch, drop: Watch): Watch {
     ratings: { ...drop.ratings, ...keep.ratings },
     notes: [keep.notes, drop.notes].filter(Boolean).join('\n'),
     episodesByMonth: months,
-    month: keep.month > drop.month ? keep.month : drop.month,
+    // Filed under the last month its episodes count in, so Home and the numbers agree
+    month: Object.keys(months).sort().pop() ?? (keep.month > drop.month ? keep.month : drop.month),
+    // Merging means it was one viewing logged twice; only a log that was already a rewatch before stays one
     isRewatch: keep.isRewatch && drop.isRewatch,
   }
 }

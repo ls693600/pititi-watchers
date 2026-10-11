@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  rewatchPair,
   canReact,
   toggleReaction,
   reactionGroups,
@@ -624,5 +625,26 @@ describe('quick actions', () => {
     expect(joinWatchers(j, 'b').watchedBy).toEqual(['a', 'b'])
     expect(setOwnRating(j, 'b', 4).ratings.b).toBe(4)
     expect(setOwnRating({ ...j, ratings: { b: 4 } }, 'b', null).ratings).toEqual({})
+  })
+})
+
+describe('rewatch that was really one viewing', () => {
+  it('pairs a rewatch log with the earlier finished log', () => {
+    const first = watch({ id: 'a', showId: 9, season: 1, status: 'done', isRewatch: false })
+    const again = watch({ id: 'b', showId: 9, season: 1, status: 'done', isRewatch: true })
+    expect(rewatchPair([first, again], again)?.id).toBe('a')
+    expect(rewatchPair([first, again], first)).toBeNull()
+    expect(rewatchPair([again], again)).toBeNull()
+  })
+  it('merging the pair gives one viewing, not a rewatch', () => {
+    const first = watch({ id: 'a', showId: 9, season: 1, status: 'done', isRewatch: false, episodesWatched: 6, totalEpisodes: 6 })
+    const again = watch({ id: 'b', showId: 9, season: 1, status: 'done', isRewatch: true, episodesWatched: 6, totalEpisodes: 6 })
+    const m = mergeLogs(again, first)
+    expect(m.isRewatch).toBe(false)
+    expect(m.status).toBe('done')
+    expect(m.episodesWatched).toBe(6)
+    // Same 6 episodes logged in two months: counted once, filed where they count
+    expect(Object.values(m.episodesByMonth ?? {}).reduce((a, b) => a + b, 0)).toBe(6)
+    expect(m.month).toBe(Object.keys(m.episodesByMonth ?? {}).sort().pop())
   })
 })
