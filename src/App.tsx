@@ -16,7 +16,7 @@ import { Messages } from './screens/Messages'
 import { disablePush, enablePush, pushState, type PushState } from './push'
 import { Stats } from './screens/Stats'
 import { UpNext } from './screens/UpNext'
-import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
+import { cloudStore, currentSession, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { ShowResult } from './tvmaze'
@@ -636,6 +636,9 @@ export default function App() {
   // Single-phone mode has no login: the phone belongs to the admin
   const viewer = auth.session?.personId ?? DEV_VIEWER
   const me = viewer ?? people.find((p) => p.isAdmin)?.id ?? null
+  // Viewers see and chat, but aren't part of "Who watched?", Stats or Taste match
+  const members = people.filter((p) => !p.isViewer)
+  const readOnly = auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false
   const isAdmin = auth.session ? auth.session.isAdmin : true
   const who = auth.session ? { personId: auth.session.personId, isAdmin: auth.session.isAdmin } : null
   const unread = social ? totalUnread(comments, lastRead, me) : 0
@@ -652,7 +655,9 @@ export default function App() {
             initial={detail.watch}
             isNew={detail.isNew}
             watches={watches}
-            people={people}
+            people={members}
+            everyone={people}
+            readOnly={readOnly}
             me={me}
             viewer={viewer}
             saving={saving}
@@ -701,7 +706,7 @@ export default function App() {
         ) : tab === 'home' ? (
           <Home
             watches={watches}
-            people={people}
+            people={members}
             me={me}
             viewer={viewer}
             onProfile={() => setTab('settings')}
@@ -715,6 +720,8 @@ export default function App() {
               quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
             }}
             onActions={(w) => setActionsFor(w.id)}
+            readOnly={readOnly}
+            everyone={people}
             onAdd={() => {
               setAddMonth(month)
               setTab('search')
@@ -743,8 +750,9 @@ export default function App() {
         ) : tab === 'upnext' ? (
           <UpNext
             items={upNext}
-            people={people}
+            people={members}
             me={me}
+            readOnly={readOnly}
             canRemove={(item) => isAdmin || item.addedBy === me}
             onToggle={toggleHeart}
             onRemove={(item) => removeQueued(item)}
@@ -779,7 +787,7 @@ export default function App() {
             onHelp={openHelp}
             onFlash={flash}
             watches={watches}
-            people={people}
+            people={members}
             filter={filter}
             onFilter={setFilter}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
@@ -790,6 +798,18 @@ export default function App() {
             view={tab === 'family' ? 'family' : 'account'}
             onOpenSettings={() => setTab('settings')}
             onOpenFamily={() => setTab('family')}
+            loadViewerInvite={store.mode === 'cloud' ? getViewerCode : null}
+            onSetViewer={async (id, viewer) => {
+              const prev = people
+              setPeople((list) => list.map((p) => (p.id === id ? { ...p, isViewer: viewer } : p)))
+              try {
+                await store.setViewer(id, viewer)
+                flash(viewer ? 'Now a viewer: sees and chats only' : 'Now a full member')
+              } catch (e) {
+                setPeople(prev)
+                flash((e as Error).message || "Couldn't change that. Check your connection.")
+              }
+            }}
             notify={store.mode === 'cloud' || import.meta.env.DEV ? { state: push, onEnable: turnOnPush, onDisable: turnOffPush } : null}
             onOpenHelp={() => openHelp()}
             onBack={() => setTab(prevTab.current)}
@@ -820,7 +840,7 @@ export default function App() {
           key={quick.id}
           draft={quick}
           watches={watches}
-          people={people}
+          people={members}
           me={me}
           saving={saving}
           onLog={(w) => handleSave(w, true)}
@@ -849,7 +869,7 @@ export default function App() {
       {actionsFor && watches.find((w) => w.id === actionsFor) && (
         <QuickActions
           watch={watches.find((w) => w.id === actionsFor)!}
-          people={people}
+          people={members}
           me={me}
           onEpisode={(w) => {
             const next = addEpisode(w)
@@ -892,7 +912,7 @@ export default function App() {
         <nav className="tabbar" aria-label="Main">
           {SIDE_TABS.map((group, gi) => (
             <Fragment key={gi}>
-              {gi === 1 && (
+              {gi === 1 && !readOnly && (
                 <button
                   className={`fab ${tab === 'search' ? 'on' : ''}`}
                   aria-label="Add a show"

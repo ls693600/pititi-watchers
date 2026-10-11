@@ -38,6 +38,7 @@ interface PersonRow {
   name: string
   user_id: string | null
   is_admin: boolean
+  is_viewer?: boolean
 }
 
 const toRow = (w: Watch): WatchRow => ({
@@ -134,7 +135,7 @@ interface CommentRow {
 const toReaction = (r: ReactionRow): Reaction => ({ watchId: r.watch_id, personId: r.person_id, targetId: r.target_id, emoji: r.emoji })
 const toComment = (r: CommentRow): Comment => ({ id: r.id, watchId: r.watch_id, personId: r.person_id, text: r.body, createdAt: r.created_at })
 
-const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id, isAdmin: Boolean(r.is_admin) })
+const toPerson = (r: PersonRow): Person => ({ id: r.id, name: r.name, userId: r.user_id, isAdmin: Boolean(r.is_admin), isViewer: Boolean(r.is_viewer) })
 
 let client: SupabaseClient | null = null
 export function supabase(): SupabaseClient {
@@ -157,10 +158,11 @@ export async function currentSession(): Promise<Session | null> {
   const { data } = await supabase().auth.getSession()
   const user = data.session?.user
   if (!user) return null
-  const { data: person, error } = await supabase().from('people').select('id, is_admin').eq('user_id', user.id).maybeSingle()
+  // select * so this keeps working before and after the viewer column exists
+  const { data: person, error } = await supabase().from('people').select('*').eq('user_id', user.id).maybeSingle()
   if (error) throw error
   if (!person) throw new Error("This account isn't part of the family yet. Sign out and create an account with the invite code.")
-  return { email: user.email ?? '', personId: person.id as string, isAdmin: Boolean(person.is_admin) }
+  return { email: user.email ?? '', personId: person.id as string, isAdmin: Boolean(person.is_admin), isViewer: Boolean(person.is_viewer) }
 }
 
 export async function signIn(email: string, password: string): Promise<Session> {
@@ -214,6 +216,21 @@ export async function getInviteCode(): Promise<string> {
   return data.invite_code as string
 }
 
+/** Code for viewers (see everything, chat, but can't change shows). Null before migration 007. */
+export async function getViewerCode(): Promise<string | null> {
+  const { data, error } = await supabase().from('household').select('*').eq('id', 1).single()
+  if (error) throw error
+  return (data.viewer_code as string | undefined) ?? null
+}
+
+export async function renewViewerCode(): Promise<string> {
+  const bytes = crypto.getRandomValues(new Uint8Array(4))
+  const code = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+  const { error } = await supabase().from('household').update({ viewer_code: code }).eq('id', 1)
+  if (error) throw error
+  return code
+}
+
 /** Replaces the invite code; the old one stops working for new sign-ups. */
 export async function renewInviteCode(): Promise<string> {
   const bytes = crypto.getRandomValues(new Uint8Array(4))
@@ -229,7 +246,7 @@ export const cloudStore: Store = {
     const [w, r, p, u, rx, cm] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase().from('ratings').select('watch_id, person_id, stars'),
-      supabase().from('people').select('id, name, user_id, is_admin').order('created_at'),
+      supabase().from('people').select('*').order('created_at'),
       supabase().from('up_next').select('*'),
       supabase().from('reactions').select('watch_id, person_id, target_id, emoji'),
       supabase().from('comments').select('id, watch_id, person_id, body, created_at').order('created_at'),
@@ -343,6 +360,11 @@ export const cloudStore: Store = {
     const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id, is_admin').single()
     if (error) throw error
     return toPerson(data as PersonRow)
+  },
+  async setViewer(id, viewer) {
+    const { data, error } = await supabase().from('people').update({ is_viewer: viewer }).eq('id', id).select('id')
+    if (error) throw error
+    if (!data?.length) throw new Error('Only Leandro can change that.')
   },
   async renamePerson(id, name) {
     const { error } = await supabase().from('people').update({ name }).eq('id', id)

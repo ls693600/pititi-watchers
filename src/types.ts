@@ -6,6 +6,8 @@ export interface Person {
   name: string
   userId: string | null
   isAdmin: boolean
+  /** Sees everything and can chat, but can't add, rate or change shows (joined with the viewer invite) */
+  isViewer?: boolean
 }
 
 /** One show-season logged in a given month. A show lands in the month you last watched it. */

@@ -16,6 +16,8 @@ interface Props {
   onLog: (item: UpNextItem) => void
   onRemove: (item: UpNextItem) => void
   onFind: () => void
+  /** Viewers see the list but can't heart, log or remove */
+  readOnly?: boolean
 }
 
 function wantText(item: UpNextItem, people: Person[]): string {
@@ -26,7 +28,7 @@ function wantText(item: UpNextItem, people: Person[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names.at(-1)} want this`
 }
 
-export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove, onFind }: Props) {
+export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove, onFind, readOnly = false }: Props) {
   const [scope, setScope] = useState<'all' | 'mine'>('all')
   const [pickId, setPickId] = useState<string | null>(null)
   const [actions, setActions] = useState<UpNextItem | null>(null)
@@ -49,9 +51,11 @@ export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove
           <p className="muted" style={{ fontSize: 15 }}>
             Find a show and tap the bookmark to save it here. Everyone can heart what they want to watch.
           </p>
-          <button className="btn primary" onClick={onFind}>
-            <Icon name="search" size={18} stroke={2.4} /> Find a show
-          </button>
+          {!readOnly && (
+            <button className="btn primary" onClick={onFind}>
+              <Icon name="search" size={18} stroke={2.4} /> Find a show
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -65,9 +69,11 @@ export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove
               <span className="hero-title">{pick.showName}</span>
               <span className="hero-sub">{wantText(pick, people)}</span>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                <button className="hero-plus" onClick={() => onLog(pick)}>
-                  <Icon name="play" size={14} stroke={2.4} /> Watch it
-                </button>
+                {!readOnly && (
+                  <button className="hero-plus" onClick={() => onLog(pick)}>
+                    <Icon name="play" size={14} stroke={2.4} /> Watch it
+                  </button>
+                )}
                 {ranked.length > 1 && (
                   <button className="hero-plus ghost" onClick={() => setPickId(pickTonight(ranked, Math.random(), pick.id)?.id ?? null)}>
                     <Icon name="dice" size={15} stroke={2.2} /> Pick again
@@ -110,7 +116,7 @@ export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove
                         )}
                       </span>
                     </button>
-                    {me && (
+                    {me && !readOnly && (
                       <button
                         className={`vote-btn ${mine ? 'on' : ''}`}
                         aria-pressed={mine}
@@ -128,7 +134,7 @@ export function UpNext({ items, people, me, canRemove, onToggle, onLog, onRemove
         </>
       )}
 
-      {actions && (
+      {actions && !readOnly && (
         <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={actions.showName}>
           <button className="sheet-dim" aria-label="Close" onClick={() => setActions(null)} />
           <div className="sheet">

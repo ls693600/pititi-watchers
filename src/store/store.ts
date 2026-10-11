@@ -17,6 +17,8 @@ export interface Store {
   remove(id: string): Promise<void>
   addPerson(name: string): Promise<Person>
   renamePerson(id: string, name: string): Promise<void>
+  /** Admin: make someone a viewer (read + chat only) or a full member */
+  setViewer(id: string, viewer: boolean): Promise<void>
   addUpNext(item: UpNextItem): Promise<void>
   /** Toggles one person's heart and returns the new list of who wants it */
   toggleWant(itemId: string, personId: string): Promise<string[]>
@@ -36,4 +38,5 @@ export interface Session {
   email: string
   personId: string
   isAdmin: boolean
+  isViewer: boolean
 }

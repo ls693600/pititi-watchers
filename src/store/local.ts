@@ -70,6 +70,10 @@ export const localStore: Store = {
     const snap = read()
     write({ ...snap, people: snap.people.map((p) => (p.id === id ? { ...p, name } : p)) })
   },
+  async setViewer(id, viewer) {
+    const snap = read()
+    write({ ...snap, people: snap.people.map((p) => (p.id === id ? { ...p, isViewer: viewer } : p)) })
+  },
   async addUpNext(item) {
     const snap = read()
     write({ ...snap, upNext: [...snap.upNext.filter((x) => x.showId !== item.showId), item] })

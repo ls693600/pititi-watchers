@@ -692,3 +692,9 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .thread-show b { font-family: var(--display); font-size: 19px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-show small { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat.bare { padding-top: 14px; min-height: 50dvh; }
+
+/* Viewers */
+fieldset.card.plain { border: 0; min-width: 0; margin: 0; }
+fieldset:disabled select, fieldset:disabled input, fieldset:disabled button { opacity: .75; }
+.viewer-note { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); color: var(--text-2); font-size: 14px; }
+.badge.viewer { background: var(--surface-2); color: var(--text-2); }

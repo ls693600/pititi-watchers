@@ -15,6 +15,10 @@ interface Props {
   isNew: boolean
   watches: Watch[]
   people: Person[]
+  /** Everyone incl. viewers: for chat names and reactions */
+  everyone: Person[]
+  /** Viewer: sees everything and chats, changes nothing */
+  readOnly: boolean
   me: string | null
   /** Signed-in person; null in single-phone mode (no blind rating there) */
   viewer: string | null
@@ -39,7 +43,7 @@ interface Props {
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
@@ -209,7 +213,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </div>
       </div>
 
-      {duplicate && (
+      {!readOnly && duplicate && (
         <div className="health-card" role="alert">
           <Icon name="info" size={20} stroke={2.2} />
           <div>
@@ -224,7 +228,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </div>
       )}
 
-      {pair && (
+      {!readOnly && pair && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
@@ -239,7 +243,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       )}
 
       {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
-      {!isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
+      {!readOnly && !isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
@@ -255,7 +259,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </div>
       )}
 
-      {earlyMonth && !isNew && (
+      {!readOnly && earlyMonth && !isNew && (
         <div className="health-card" role="alert">
           <Icon name="calendar" size={20} stroke={2.2} />
           <div>
@@ -330,7 +334,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       )}
 
       <section className="card">
-        {people.length > 1 && (
+        {people.length > 1 && !readOnly && (
           <div className="together-row">
             <span className="field-label" style={{ padding: 0 }}>Watching together?</span>
             <div className="segmented" role="radiogroup" aria-label="Watching together?">
@@ -367,6 +371,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
               type="button"
               aria-pressed={w.watchedBy.includes(p.id)}
               className={w.watchedBy.includes(p.id) ? 'on' : ''}
+              disabled={readOnly}
               onClick={() => toggleWatcher(p.id)}
             >
               <Avatar people={people} id={p.id} size={22} /> {p.name}
@@ -375,7 +380,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </div>
         {watchers.map((p) => {
           const stars = w.ratings[p.id] ?? null
-          const editable = canEditRating(p, viewer)
+          const editable = !readOnly && canEditRating(p, viewer)
           const visible = editable || (savedComplete ? true : canSeeRating(w, p.id, viewer) && !blind)
           // Reactions go on what's saved and revealed, never on stars still being edited
           const reactable = social && savedComplete && stored.ratings[p.id] != null
@@ -403,7 +408,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                 watchId={initial.id}
                 targetId={p.id}
                 reactions={reactions}
-                people={people}
+                people={everyone}
                 me={me}
                 canReact={canReact(stored, p.id, me)}
                 onReact={onReact}
@@ -439,7 +444,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         <FamilyChat
           watch={stored}
           comments={comments}
-          people={people}
+          people={everyone}
           me={me}
           onSend={onComment}
           onRemove={onRemoveComment}
@@ -479,7 +484,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                   aria-pressed={watched}
                   aria-label={`Episode ${e.number}${e.name ? `: ${e.name}` : ''}${upcoming && e.airdate ? `, airs ${airLabel(e.airdate)}` : ''}`}
                   title={e.name}
-                  disabled={upcoming && !watched}
+                  disabled={readOnly || (upcoming && !watched)}
                   onClick={() => setW((cur) => tapEpisode({ ...cur, totalEpisodes: cur.totalEpisodes ?? episodes.length }, e.number, airedCount))}
                 >
                   {e.number}
@@ -490,7 +495,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
         </section>
       )}
 
-      <section className="card">
+      <fieldset className="card plain" disabled={readOnly}>
         <label className="field">
           <span>Season</span>
           {seasons && seasons.length > 0 ? (
@@ -581,7 +586,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           <span>Times watched</span>
           <strong>{times}</strong>
         </div>
-      </section>
+      </fieldset>
 
       <section className="card">
         <label className="notes">
@@ -589,7 +594,8 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           <textarea
             value={w.notes}
             maxLength={1000}
-            placeholder="That finale though…"
+            placeholder={readOnly ? 'No notes' : 'That finale though…'}
+            readOnly={readOnly}
             onChange={(e) => set({ notes: e.target.value })}
           />
         </label>
@@ -597,6 +603,11 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
 
       {error && <p className="error" role="alert">{error}</p>}
 
+      {readOnly ? (
+        <p className="viewer-note">
+          <Icon name="info" size={15} stroke={2.2} /> You're a viewer: you can see everything and chat, but not change shows.
+        </p>
+      ) : (
       <div className="actions">
         <button className="btn primary block" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : isNew ? `Add to ${monthLabel(w.month)}` : 'Save changes'}
@@ -611,6 +622,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           </button>
         )}
       </div>
+      )}
     </div>
   )
 }

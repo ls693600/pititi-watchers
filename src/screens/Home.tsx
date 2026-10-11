@@ -32,8 +32,12 @@ interface Props {
   onAddEpisode: (w: Watch) => void
   /** Press and hold a show: quick actions */
   onActions: (w: Watch) => void
+  /** Viewer: browse only (no quick actions, no adding) */
+  readOnly?: boolean
   onAdd: () => void
   onProfile: () => void
+  /** Everyone incl. viewers, for your own name and avatar in the header */
+  everyone?: Person[]
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -52,7 +56,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, everyone = props.people } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   const hideTip = () => {
     setShowTip(false)
@@ -63,6 +67,7 @@ export function Home(props: Props) {
     }
   }
   const actions = (w: Watch) => {
+    if (readOnly) return
     hideTip()
     onActions(w)
   }
@@ -76,7 +81,7 @@ export function Home(props: Props) {
   const grid = isCurrent ? list.filter((w) => w.status === 'done') : list
   const monthName = monthLabel(month, 'long').split(' ')[0]
   const who = people.find((p) => p.id === filter)
-  const meName = people.find((p) => p.id === me)?.name
+  const meName = everyone.find((p) => p.id === me)?.name
 
   return (
     <div className="screen">
@@ -87,13 +92,13 @@ export function Home(props: Props) {
         </div>
         {me && (
           <button className="who-btn" onClick={onProfile} aria-label="Your profile and settings">
-            <Avatar people={people} id={me} size={44} />
+            <Avatar people={everyone} id={me} size={44} />
           </button>
         )}
       </header>
 
       {isCurrent && watching.length > 0 && (
-        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} />
+        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} readOnly={readOnly} />
       )}
 
       <div className="monthbar">
@@ -144,13 +149,15 @@ export function Home(props: Props) {
           <p className="muted" style={{ fontSize: 15 }}>
             Add what you watched {isCurrent ? 'this month' : `in ${monthLabel(month)}`} and rate it together.
           </p>
-          <button className="btn primary" onClick={onAdd}>
-            <Icon name="plus" size={18} stroke={2.4} /> Add a show
-          </button>
+          {!readOnly && (
+            <button className="btn primary" onClick={onAdd}>
+              <Icon name="plus" size={18} stroke={2.4} /> Add a show
+            </button>
+          )}
         </div>
       ) : (
         <>
-          {showTip && (watching.length > 0 || grid.length > 0) && (
+          {showTip && !readOnly && (watching.length > 0 || grid.length > 0) && (
             <div className="tip" role="note">
               <span className="tip-icon" aria-hidden="true">
                 <Icon name="sparkle" size={16} stroke={2.2} />

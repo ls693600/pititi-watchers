@@ -22,6 +22,9 @@ interface Props {
   onOpenSettings?: () => void
   /** Settings → Family & invites */
   onOpenFamily?: () => void
+  /** Viewer invite (see + chat only) and switching someone between viewer and member */
+  loadViewerInvite?: (() => Promise<string | null>) | null
+  onSetViewer?: (id: string, viewer: boolean) => Promise<void>
   /** Push notifications switch (null when there's no sync) */
   notify?: { state: 'on' | 'off' | 'unsupported' | 'install' | 'denied'; onEnable: () => void; onDisable: () => void } | null
   /** Settings has no tab of its own; this returns to where you came from */
@@ -31,13 +34,36 @@ interface Props {
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [code, setCode] = useState<string | null>(null)
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemePref>(getThemePref)
+  const [viewerCode, setViewerCode] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin || !loadViewerInvite) return
+    loadViewerInvite()
+      .then(setViewerCode)
+      .catch(() => setViewerCode(null))
+  }, [loadViewerInvite, isAdmin])
+
+  async function shareViewerInvite() {
+    if (!viewerCode) return
+    const link = `${APP_URL}?invite=${encodeURIComponent(viewerCode)}`
+    const text = `Take a look at our Pititi Watchers (you can see our shows and chat with us). Open ${link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (code ${viewerCode}, already filled in).`
+    try {
+      if (navigator.share) await navigator.share({ title: 'Pititi Watchers', text })
+      else {
+        await navigator.clipboard.writeText(text)
+        setInviteMsg('Viewer invite copied. Paste it in a message.')
+      }
+    } catch {
+      // Share sheet dismissed
+    }
+  }
 
   useEffect(() => {
     if (!isAdmin) return
@@ -150,10 +176,22 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
                   <span className="lrow-title">
                     {p.name} {me?.id === p.id && <span className="you">you</span>}
                   </span>
-                  {p.isAdmin && <span className="muted">Admin</span>}
+                  {p.isAdmin ? <span className="muted">Admin</span> : p.isViewer ? <span className="muted">Viewer · sees and chats</span> : null}
                 </span>
-                {mode === 'cloud' && (
-                  <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? 'Joined' : 'Not joined'}</span>
+                {isAdmin && onSetViewer && !p.isAdmin && p.userId ? (
+                  <button
+                    className={`badge ${p.isViewer ? 'viewer' : 'ok'}`}
+                    onClick={() => {
+                      const next = !p.isViewer
+                      if (confirm(next ? `Make ${p.name} a viewer? They'll see everything and chat, but can't add or rate shows.` : `Make ${p.name} a full member? They'll be able to add, rate and edit shows.`))
+                        onSetViewer(p.id, next)
+                    }}
+                    aria-label={`${p.name}: ${p.isViewer ? 'viewer' : 'member'}. Change`}
+                  >
+                    {p.isViewer ? 'Viewer' : 'Member'}
+                  </button>
+                ) : (
+                  mode === 'cloud' && <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? 'Joined' : 'Not joined'}</span>
                 )}
               </div>
             </li>
@@ -204,6 +242,24 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
               Make a new code
             </button>
           </section>
+          {viewerCode && (
+            <>
+              <h2 className="h2">
+                Invite a viewer
+                <small>see + chat</small>
+              </h2>
+              <section className="card pad">
+                <p className="muted" style={{ fontSize: 14.5 }}>
+                  For someone who wants to follow along, like a friend testing the app. They see your shows, ratings and stats, and can chat and react,
+                  but can't add, rate or change anything. You can make them a full member later.
+                </p>
+                <div className="invite-code" aria-label="Viewer invite code">{viewerCode}</div>
+                <button className="btn primary block" onClick={shareViewerInvite}>
+                  <Icon name="share" size={18} /> Share viewer invite
+                </button>
+              </section>
+            </>
+          )}
         </>
       )}
 
