@@ -1,5 +1,5 @@
 // Offline shell: hashed assets are cache-first, the page itself is network-first.
-const CACHE = 'pititi-v1'
+const CACHE = 'pititi-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => {
@@ -16,7 +16,8 @@ self.addEventListener('fetch', (e) => {
 
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      // Skip the browser's HTTP cache (GitHub Pages allows 10 minutes): always the newest page when online
+      fetch(req, { cache: 'no-store' })
         .then((res) => {
           const copy = res.clone()
           caches.open(CACHE).then((c) => c.put(req, copy))

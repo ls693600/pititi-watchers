@@ -30,7 +30,7 @@ const SECTIONS: Section[] = [
         q: 'How do I get the newest version?',
         a: [
           'Updates install themselves. Swipe Pititi away completely and open it again.',
-          'If it still looks the same, do it once more: the first launch downloads the update, the next one shows it.',
+          'When a new version is out, a banner at the top says so: tap Update.',
         ],
       },
       {
@@ -150,7 +150,10 @@ const SECTIONS: Section[] = [
       {
         id: 'rewatch',
         q: 'How do rewatches work?',
-        a: ['Logging a season you already logged turns Rewatch on by itself. Times watched shows the count.'],
+        a: [
+          'Logging a season you already finished turns Rewatch on by itself. Times watched shows the count.',
+          'If a show says Rewatch but you only watched it once, open it and tap First time watching.',
+        ],
       },
     ],
   },

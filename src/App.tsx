@@ -3,6 +3,7 @@ import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
 import { addEpisode, averageRating, chatLocked, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
 import { QuickActions } from './components/QuickActions'
+import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
 import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
@@ -536,6 +537,7 @@ export default function App() {
   return (
     <div className="app">
       {offline && <p className="banner warn" role="status">Offline. Showing your last synced log.</p>}
+      <UpdateBanner />
 
       <main>
         {detail ? (

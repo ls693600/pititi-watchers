@@ -5,7 +5,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, isPriorWatch, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, Person, Reaction, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -201,6 +201,23 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
               ratings.
             </p>
             <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>Merge into one</button>
+          </div>
+        </div>
+      )}
+
+      {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
+      {!isNew && !duplicate && initial.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
+        <div className="health-card" role="alert">
+          <Icon name="repeat" size={20} stroke={2.2} />
+          <div>
+            <b>Marked as a rewatch</b>
+            <p>
+              There's no earlier viewing of Season {w.season} in your log, so it shows as watched twice. If you'd seen it before you started
+              using Pititi, keep it.
+            </p>
+            <button className="btn sm dark" onClick={() => onSave({ ...w, isRewatch: false, updatedAt: new Date().toISOString() })}>
+              First time watching
+            </button>
           </div>
         </div>
       )}
