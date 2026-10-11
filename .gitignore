@@ -25,3 +25,4 @@ dist-ssr
 
 # Secrets for Supabase setup (never commit)
 supabase/private/
+supabase/.temp/
