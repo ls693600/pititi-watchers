@@ -34,10 +34,12 @@ interface Props {
   onRemoveComment: (c: Comment) => void
   /** Stars save the moment you tap them (an existing log), with Undo */
   onRate: (personId: string, stars: number | null) => void
+  /** The show's chat was read on screen (clears the Messages badge) */
+  onChatSeen: () => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
@@ -441,6 +443,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           me={me}
           onSend={onComment}
           onRemove={onRemoveComment}
+          onSeen={onChatSeen}
         />
       )}
 

@@ -12,11 +12,14 @@ interface Props {
 
 const NEW = '__new__'
 
+/** An invite link (…/?invite=CODE) opens straight on Create account with the code filled in. */
+const INVITE = new URLSearchParams(window.location.search).get('invite')?.trim().toUpperCase().slice(0, 16) ?? ''
+
 export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup'>(INVITE ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(INVITE)
   const [options, setOptions] = useState<JoinOptions | null>(null)
   const [checking, setChecking] = useState(false)
   const [pick, setPick] = useState<string>(NEW)

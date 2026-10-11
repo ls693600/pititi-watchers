@@ -25,6 +25,9 @@ export interface Store {
   setReaction(r: Omit<Reaction, 'emoji'> & { emoji: string | null }): Promise<void>
   addComment(c: Comment): Promise<void>
   removeComment(id: string): Promise<void>
+  /** This phone's notification subscription (Web Push) */
+  savePush(sub: PushSubscriptionJSON): Promise<void>
+  removePush(endpoint: string): Promise<void>
   /** Called when data changes on another device. Returns an unsubscribe function. */
   subscribe(onChange: () => void): () => void
 }

@@ -103,6 +103,9 @@ export const localStore: Store = {
     const snap = read()
     write({ ...snap, comments: snap.comments.filter((x) => x.id !== id) })
   },
+  // Single-phone mode has no server to send notifications from
+  async savePush() {},
+  async removePush() {},
   subscribe(onChange) {
     const handler = (e: StorageEvent) => [WATCHES, PEOPLE, UP_NEXT, REACTIONS, COMMENTS].includes(e.key ?? '') && onChange()
     window.addEventListener('storage', handler)

@@ -70,7 +70,8 @@ export interface Reaction {
 /** A line in a show's family chat. */
 export interface Comment {
   id: string
-  watchId: string
+  /** The show it's about; null for the Family chat (anything, not tied to a show) */
+  watchId: string | null
   personId: string
   text: string
   createdAt: string

@@ -20,6 +20,10 @@ interface Props {
   view: 'family' | 'account'
   /** Family tab shows a gear that opens Settings */
   onOpenSettings?: () => void
+  /** Settings → Family & invites */
+  onOpenFamily?: () => void
+  /** Push notifications switch (null when there's no sync) */
+  notify?: { state: 'on' | 'off' | 'unsupported' | 'install' | 'denied'; onEnable: () => void; onDisable: () => void } | null
   /** Settings has no tab of its own; this returns to where you came from */
   onBack?: () => void
   onOpenHelp?: () => void
@@ -27,7 +31,7 @@ interface Props {
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onBack, onOpenHelp }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -64,7 +68,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
 
   async function shareInvite() {
     if (!code) return
-    const text = `Join Pititi Watchers: open ${APP_URL} in Safari, tap Share → Add to Home Screen, then Create account with invite code ${code}`
+    const link = `${APP_URL}?invite=${encodeURIComponent(code)}`
+    const text = `Join our Pititi Watchers! Open ${link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (invite code ${code}, already filled in).`
     try {
       if (navigator.share) await navigator.share({ title: 'Pititi Watchers', text })
       else {
@@ -98,7 +103,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   return (
     <div className="screen">
       <header className="topbar">
-        {view === 'account' && onBack && (
+        {onBack && (
           <button className="icon-btn" aria-label="Back" onClick={onBack} style={{ marginRight: 4 }}>
             <Icon name="left" size={20} />
           </button>
@@ -207,6 +212,47 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
 
       {view === 'account' && (
       <>
+      {onOpenFamily && (
+        <section className="card">
+          <button className="field" onClick={onOpenFamily} style={{ width: '100%' }}>
+            <span>Family and invites</span>
+            <span className="chev">
+              <span className="stack" style={{ marginRight: 6 }}>
+                {people.slice(0, 4).map((p) => (
+                  <Avatar key={p.id} people={people} id={p.id} size={22} />
+                ))}
+              </span>
+              <Icon name="right" size={20} />
+            </span>
+          </button>
+          {notify && (
+            <div className="field">
+              <span>
+                Notifications
+                <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>
+                  {notify.state === 'install'
+                    ? 'Open Pititi from your home screen icon to turn on'
+                    : notify.state === 'denied'
+                      ? 'Blocked in your phone settings'
+                      : notify.state === 'unsupported'
+                        ? 'Not available in this browser'
+                        : 'Messages, @mentions and new episodes'}
+                </small>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notify.state === 'on'}
+                aria-label="Notifications"
+                className={`toggle ${notify.state === 'on' ? 'on' : ''}`}
+                disabled={notify.state !== 'on' && notify.state !== 'off'}
+                onClick={() => (notify.state === 'on' ? notify.onDisable() : notify.onEnable())}
+              />
+            </div>
+          )}
+        </section>
+      )}
+
       <h2 className="h2">App</h2>
       <section className="card">
         <div className="field">

@@ -609,7 +609,7 @@ export function chatLocked(w: Pick<Watch, 'watchedBy' | 'ratings' | 'status'>, v
   return viewer != null && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
 }
 
-export function commentsFor(all: Comment[], watchId: string): Comment[] {
+export function commentsFor(all: Comment[], watchId: string | null): Comment[] {
   return all.filter((c) => c.watchId === watchId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
@@ -758,4 +758,41 @@ export function mentionParts(text: string, people: { id: string; name: string }[
   }
   if (last < text.length) out.push({ text: text.slice(last) })
   return out
+}
+
+// ---- Messages (all chats in one place) ----
+
+/** Key for a chat thread: a show's log id, or "family" for the Family chat. */
+export const FAMILY_THREAD = 'family'
+export const threadKey = (watchId: string | null): string => watchId ?? FAMILY_THREAD
+
+export interface Thread {
+  key: string
+  watchId: string | null
+  last: Comment | null
+  count: number
+  unread: number
+}
+
+/** Messages from others since you last opened that chat. */
+export function unreadIn(all: Comment[], watchId: string | null, lastRead: Record<string, string>, me: string | null): number {
+  const since = lastRead[threadKey(watchId)] ?? ''
+  return all.filter((c) => c.watchId === watchId && c.personId !== me && c.createdAt > since).length
+}
+
+/** Family chat first (always), then show chats with messages, newest first. */
+export function threads(all: Comment[], lastRead: Record<string, string>, me: string | null): Thread[] {
+  const keys = new Map<string, string | null>([[FAMILY_THREAD, null]])
+  for (const c of all) if (c.watchId) keys.set(c.watchId, c.watchId)
+  const list = [...keys.values()].map((watchId) => {
+    const msgs = commentsFor(all, watchId)
+    return { key: threadKey(watchId), watchId, last: msgs[msgs.length - 1] ?? null, count: msgs.length, unread: unreadIn(all, watchId, lastRead, me) }
+  })
+  const [family, ...shows] = list
+  shows.sort((a, b) => (b.last?.createdAt ?? '').localeCompare(a.last?.createdAt ?? ''))
+  return [family, ...shows]
+}
+
+export function totalUnread(all: Comment[], lastRead: Record<string, string>, me: string | null): number {
+  return threads(all, lastRead, me).reduce((s, t) => s + t.unread, 0)
 }

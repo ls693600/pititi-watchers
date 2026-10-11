@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, chatLocked, mentionsIn, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
+import { addEpisode, averageRating, chatLocked, mentionsIn, threadKey, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -12,6 +12,8 @@ import { Login } from './screens/Login'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Help } from './screens/Help'
+import { Messages } from './screens/Messages'
+import { disablePush, enablePush, pushState, type PushState } from './push'
 import { Stats } from './screens/Stats'
 import { UpNext } from './screens/UpNext'
 import { cloudStore, currentSession, getInviteCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
@@ -22,7 +24,7 @@ import type { Comment, Person, Reaction, UpNextItem, Watch } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
-type Tab = 'home' | 'upnext' | 'search' | 'stats' | 'family' | 'settings' | 'help'
+type Tab = 'home' | 'upnext' | 'search' | 'messages' | 'stats' | 'family' | 'settings' | 'help'
 // Settings lives behind your avatar (Home) and the gear on Family
 const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
   [
@@ -30,8 +32,8 @@ const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
     { id: 'upnext', icon: 'list', label: 'Up Next' },
   ],
   [
+    { id: 'messages', icon: 'chat', label: 'Messages' },
     { id: 'stats', icon: 'chart', label: 'Stats' },
-    { id: 'family', icon: 'users', label: 'Family' },
   ],
 ]
 
@@ -42,6 +44,7 @@ const SEEN_KEY = 'pititi.reveals.v1'
 const BADGES_KEY = 'pititi.badges.v1'
 /** Family chat lines and reactions this phone has already announced */
 const CHAT_KEY = 'pititi.chatseen.v1'
+const READ_KEY = 'pititi.chatread.v1'
 
 function readSet(key: string): Set<string> | null {
   try {
@@ -214,6 +217,63 @@ export default function App() {
     [flash],
   )
 
+  /** Where you last read each chat (this phone), for unread badges */
+  const [lastRead, setLastRead] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(READ_KEY) || '{}') as Record<string, string>
+    } catch {
+      return {}
+    }
+  })
+  const markRead = useCallback((watchId: string | null) => {
+    setLastRead((cur) => {
+      const next = { ...cur, [threadKey(watchId)]: new Date().toISOString() }
+      try {
+        localStorage.setItem(READ_KEY, JSON.stringify(next))
+      } catch {
+        // Badges just stay a little longer
+      }
+      return next
+    })
+  }, [])
+  /** Open chat on the Messages tab: undefined = the list, null = Family chat, id = a show's chat */
+  const [thread, setThread] = useState<string | null | undefined>(undefined)
+  const openThread = useCallback((watchId: string | null | undefined) => {
+    setActionsFor(null)
+    setDetail(null)
+    setThread(watchId)
+    setTabState('messages')
+  }, [])
+
+  const [push, setPush] = useState<PushState>('off')
+  useEffect(() => {
+    if (auth.state !== 'ready' || !CLOUD_ENABLED) return
+    pushState().then(setPush).catch(() => setPush('unsupported'))
+  }, [auth.state])
+
+  async function turnOnPush() {
+    try {
+      await store.savePush(await enablePush())
+      setPush('on')
+      flash("Notifications on. You'll hear about messages, @mentions and new episodes.")
+    } catch (e) {
+      const why = (e as Error).message
+      setPush(why === 'denied' ? 'denied' : 'off')
+      flash(why === 'denied' ? 'Notifications are blocked. Turn them on in your phone settings.' : why === 'dismissed' ? 'Maybe later, then.' : "Couldn't turn on notifications. Try again.")
+    }
+  }
+
+  async function turnOffPush() {
+    try {
+      const endpoint = await disablePush()
+      if (endpoint) await store.removePush(endpoint)
+      setPush('off')
+      flash('Notifications off on this phone')
+    } catch {
+      flash("Couldn't turn them off. Try again.")
+    }
+  }
+
   /** Opens a show page from a message, scrolled to its family chat. */
   const openShow = useCallback((w: Watch) => {
     setActionsFor(null)
@@ -236,29 +296,33 @@ export default function App() {
       all.forEach((id) => seen.add(id))
       writeSet(CHAT_KEY, seen)
       const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? 'Someone'
-      const show = (id: string) => snap.watches.find((w) => w.id === id)
+      const show = (id: string | null) => (id ? snap.watches.find((w) => w.id === id) : undefined)
+      const place = (watchId: string | null) => (watchId ? `on ${show(watchId)?.showName ?? 'a show'}` : 'in Family chat')
+      const short = (t: string) => (t.length > 60 ? t.slice(0, 58) + '…' : t)
       // Someone @mentioned you: that's meant for you, so it comes first and shows the words
       const toMe = me ? fresh.filter((c) => mentionsIn(c.text, snap.people).includes(me)) : []
       if (toMe.length) {
         const c = toMe[toMe.length - 1]
-        const w = show(c.watchId)
-        if (w) return flash(`${nameOf(c.personId)} mentioned you on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`, () => openShow(w), 'Open')
+        return flash(`${nameOf(c.personId)} mentioned you ${place(c.watchId)}: “${short(c.text)}”`, () => openThread(c.watchId), 'Open')
       }
       const count = fresh.length + freshR.length
       if (count > 1) {
-        const shows = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
         const from = [...new Set([...fresh.map((c) => c.personId), ...freshR.map((r) => r.personId)])].map(nameOf).join(' & ')
-        const one = shows.size === 1 ? show([...shows][0]) : undefined
-        return one ? flash(`${from}: ${count} new on ${one.showName}`, () => openShow(one), 'Open') : flash(`${from}: ${count} new messages and reactions`)
+        const where = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
+        if (where.size === 1 && !freshR.length) {
+          const id = [...where][0]
+          return flash(`${from}: ${count} new ${place(id)}`, () => openThread(id), 'Open')
+        }
+        return flash(`${from}: ${count} new messages and reactions`, () => openThread(undefined), 'Open')
       }
       if (fresh.length) {
         const c = fresh[0]
         const w = show(c.watchId)
-        if (!w) return
+        if (c.watchId && !w) return
         // Haven't rated yet: say who wrote, not what (no nudging your stars)
-        return chatLocked(w, me)
-          ? flash(`${nameOf(c.personId)} wrote about ${w.showName}`, () => openShow(w), 'Open')
-          : flash(`${nameOf(c.personId)} on ${w.showName}: “${c.text.length > 60 ? c.text.slice(0, 58) + '…' : c.text}”`, () => openShow(w), 'Open')
+        return w && chatLocked(w, me)
+          ? flash(`${nameOf(c.personId)} wrote ${place(c.watchId)}`, () => openThread(c.watchId), 'Open')
+          : flash(`${nameOf(c.personId)} ${place(c.watchId)}: “${short(c.text)}”`, () => openThread(c.watchId), 'Open')
       }
       if (freshR.length) {
         const r = freshR[0]
@@ -266,7 +330,7 @@ export default function App() {
         if (w) flash(`${nameOf(r.personId)} reacted ${r.emoji} to your stars on ${w.showName}`, () => openShow(w), 'Open')
       }
     },
-    [flash, openShow],
+    [flash, openShow, openThread],
   )
 
   const reload = useCallback(async () => {
@@ -306,6 +370,31 @@ export default function App() {
       document.removeEventListener('visibilitychange', onFocus)
     }
   }, [auth.state, reload])
+
+  // A tapped notification: ?open=thread:<id|family> or show:<id>
+  const pendingOpen = useRef<string | null>(new URLSearchParams(window.location.search).get('open'))
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'open' && e.data.open) {
+        pendingOpen.current = e.data.open
+        reload()
+      }
+    }
+    navigator.serviceWorker?.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker?.removeEventListener('message', onMsg)
+  }, [reload])
+  useEffect(() => {
+    const open = pendingOpen.current
+    if (!open || !watches.length) return
+    pendingOpen.current = null
+    window.history.replaceState(null, '', window.location.pathname)
+    const [kind, id] = open.split(':')
+    if (kind === 'thread') openThread(id === 'family' ? null : id)
+    else if (kind === 'show') {
+      const w = watches.find((x) => x.id === id)
+      if (w) openShow(w)
+    }
+  }, [watches, openThread, openShow])
 
   // Every screen change starts at the top (iOS keeps the old scroll position otherwise)
   useEffect(() => {
@@ -382,7 +471,7 @@ export default function App() {
     }
   }
 
-  async function sendComment(watchId: string, text: string) {
+  async function sendComment(watchId: string | null, text: string) {
     if (!me) return false
     const c: Comment = { id: newId(), watchId, personId: me, text, createdAt: new Date().toISOString() }
     setComments((list) => [...list, c])
@@ -549,6 +638,7 @@ export default function App() {
   const me = viewer ?? people.find((p) => p.isAdmin)?.id ?? null
   const isAdmin = auth.session ? auth.session.isAdmin : true
   const who = auth.session ? { personId: auth.session.personId, isAdmin: auth.session.isAdmin } : null
+  const unread = social ? totalUnread(comments, lastRead, me) : 0
 
   return (
     <div className="app">
@@ -576,6 +666,7 @@ export default function App() {
             onReact={(targetId, emoji) => react(detail.watch.id, targetId, emoji)}
             onComment={(text) => sendComment(detail.watch.id, text)}
             onRemoveComment={deleteComment}
+            onChatSeen={() => markRead(detail.watch.id)}
             onRate={(personId, stars) => {
               const saved = watchesRef.current.find((x) => x.id === detail.watch.id)
               if (!saved) return
@@ -668,6 +759,21 @@ export default function App() {
               setQuick(draftFrom(item, currentMonth(), watchers, me))
             }}
           />
+        ) : tab === 'messages' ? (
+          <Messages
+            comments={comments}
+            watches={watches}
+            people={people}
+            me={me}
+            lastRead={lastRead}
+            thread={thread}
+            onThread={setThread}
+            onSend={sendComment}
+            onRemove={deleteComment}
+            onSeen={markRead}
+            onOpenShow={openShow}
+            notify={(store.mode === 'cloud' || import.meta.env.DEV) && social ? { state: push, onEnable: turnOnPush } : null}
+          />
         ) : tab === 'stats' ? (
           <Stats
             onHelp={openHelp}
@@ -683,6 +789,8 @@ export default function App() {
             key={tab}
             view={tab === 'family' ? 'family' : 'account'}
             onOpenSettings={() => setTab('settings')}
+            onOpenFamily={() => setTab('family')}
+            notify={store.mode === 'cloud' || import.meta.env.DEV ? { state: push, onEnable: turnOnPush, onDisable: turnOffPush } : null}
             onOpenHelp={() => openHelp()}
             onBack={() => setTab(prevTab.current)}
             mode={store.mode}
@@ -801,9 +909,13 @@ export default function App() {
                   key={t.id}
                   className={`tab ${tab === t.id ? 'on' : ''}`}
                   aria-current={tab === t.id ? 'page' : undefined}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => {
+                    if (t.id === 'messages') setThread(undefined)
+                    setTab(t.id)
+                  }}
                 >
                   <Icon name={t.icon} size={23} />
+                  {t.id === 'messages' && unread > 0 && <i className="tab-badge" aria-label={`${unread} unread`}>{unread > 9 ? '9+' : unread}</i>}
                   <span>{t.label}</span>
                 </button>
               ))}

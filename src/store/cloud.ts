@@ -329,6 +329,16 @@ export const cloudStore: Store = {
     if (error) throw error
     if (!data?.length) throw new Error('You can only remove your own messages.')
   },
+  async savePush(sub) {
+    const { error } = await supabase()
+      .from('push_subscriptions')
+      .upsert({ endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth, user_agent: navigator.userAgent.slice(0, 200) }, { onConflict: 'endpoint' })
+    if (error) throw error
+  },
+  async removePush(endpoint) {
+    const { error } = await supabase().from('push_subscriptions').delete().eq('endpoint', endpoint)
+    if (error) throw error
+  },
   async addPerson(name) {
     const { data, error } = await supabase().from('people').insert({ name }).select('id, name, user_id, is_admin').single()
     if (error) throw error

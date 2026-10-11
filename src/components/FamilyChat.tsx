@@ -1,29 +1,42 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { COMMENT_MAX, chatLocked, cleanComment, commentsFor, mentionParts, mentionsIn, timeAgo } from '../logic'
 import type { Comment, Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 
 interface Props {
-  watch: Watch
+  /** The show this chat is about; null for the Family chat */
+  watch: Watch | null
   comments: Comment[]
   people: Person[]
   me: string | null
   onSend: (text: string) => Promise<boolean>
   onRemove: (c: Comment) => void
+  /** Called while the messages are on screen, to clear unread badges */
+  onSeen?: () => void
+  /** Messages screen: no card title, roomier */
+  bare?: boolean
 }
 
 /** A few lines about the show. Watchers read it after rating, so nobody's stars get nudged. */
-export function FamilyChat({ watch, comments, people, me, onSend, onRemove }: Props) {
+export function FamilyChat({ watch, comments, people, me, onSend, onRemove, onSeen, bare = false }: Props) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
-  const list = commentsFor(comments, watch.id)
+  const list = commentsFor(comments, watch?.id ?? null)
   // Locked means "rate first so your stars aren't nudged", but it's your call: Read anyway opens it
   const [peek, setPeek] = useState(false)
-  const locked = chatLocked(watch, me) && !peek
+  const locked = watch != null && chatLocked(watch, me) && !peek
   const input = useRef<HTMLInputElement>(null)
   const others = people.filter((p) => p.id !== me)
   const from = [...new Set(list.map((c) => c.personId))].filter((id) => id !== me).map((id) => people.find((p) => p.id === id)?.name ?? 'Someone')
+
+  const seen = useRef(onSeen)
+  useEffect(() => {
+    seen.current = onSeen
+  })
+  useEffect(() => {
+    if (!locked) seen.current?.()
+  }, [locked, list.length])
 
   function mention(name: string) {
     setText((t) => `${t}${t && !t.endsWith(' ') ? ' ' : ''}@${name} `)
@@ -40,10 +53,12 @@ export function FamilyChat({ watch, comments, people, me, onSend, onRemove }: Pr
   }
 
   return (
-    <section className="card chat" aria-label="Family chat">
-      <p className="field-label chat-head">
-        Family chat {list.length > 0 && <small>{list.length}</small>}
-      </p>
+    <section className={`card chat ${bare ? 'bare' : ''}`} aria-label={watch ? `Chat about ${watch.showName}` : 'Family chat'}>
+      {!bare && (
+        <p className="field-label chat-head">
+          Family chat {list.length > 0 && <small>{list.length}</small>}
+        </p>
+      )}
       {locked ? (
         <div className="chat-locked">
           <Icon name="lock" size={16} stroke={2.2} />
@@ -62,7 +77,7 @@ export function FamilyChat({ watch, comments, people, me, onSend, onRemove }: Pr
       ) : (
         <>
           {list.length === 0 ? (
-            <p className="muted chat-empty">No messages yet. What did you think of it?</p>
+            <p className="muted chat-empty">{watch ? 'No messages yet. What did you think of it?' : 'Say hi to the family. Plans for tonight? A show everyone should see?'}</p>
           ) : (
             <ul className="chat-list">
               {list.map((c) => (

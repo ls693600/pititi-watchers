@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  threads,
+  totalUnread,
+  unreadIn,
   mentionsIn,
   mentionParts,
   togetherWatchers,
@@ -722,5 +725,28 @@ describe('merging two finished copies', () => {
       expect(m.episodesByMonth).toEqual({ '2026-10': 6 })
       expect(m.isRewatch).toBe(false)
     }
+  })
+})
+
+describe('messages inbox', () => {
+  const c = (id: string, watchId: string | null, personId: string, at: string) => ({ id, watchId, personId, text: id, createdAt: at })
+  const all = [
+    c('1', null, 'a', '2026-10-11T10:00:00Z'),
+    c('2', 'bear', 'a', '2026-10-11T09:00:00Z'),
+    c('3', 'sev', 'a', '2026-10-11T11:00:00Z'),
+    c('4', 'sev', 'l', '2026-10-11T12:00:00Z'),
+  ]
+  it('family first, then shows by latest message', () => {
+    expect(threads(all, {}, 'l').map((t) => t.key)).toEqual(['family', 'sev', 'bear'])
+  })
+  it('family thread exists even with no messages', () => {
+    const t = threads([], {}, 'l')
+    expect(t).toHaveLength(1)
+    expect(t[0]).toMatchObject({ key: 'family', count: 0, unread: 0, last: null })
+  })
+  it('unread counts only others, after last read', () => {
+    expect(unreadIn(all, 'sev', {}, 'l')).toBe(1)
+    expect(unreadIn(all, 'sev', { sev: '2026-10-11T11:30:00Z' }, 'l')).toBe(0)
+    expect(totalUnread(all, { family: '2026-10-11T10:00:00Z' }, 'l')).toBe(2)
   })
 })

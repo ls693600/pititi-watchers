@@ -18,11 +18,11 @@ const SECTIONS: Section[] = [
     items: [
       {
         id: 'install',
-        q: 'How do I install the app on my iPhone?',
+        q: 'How do I install the app on my phone?',
         a: [
-          'Open the app link in Safari (it must be Safari).',
-          'Tap Share (the square with an arrow), then Add to Home Screen, then Add.',
-          'Open Pititi from your home screen from now on.',
+          'iPhone: open the app link in Safari (it must be Safari), tap Share (the square with an arrow), then Add to Home Screen.',
+          'Android: open the link in Chrome, tap ⋮ (top right), then Add to Home screen or Install app.',
+          'Open Pititi from your home screen icon from now on. Notifications only work from there.',
         ],
       },
       {
@@ -37,8 +37,9 @@ const SECTIONS: Section[] = [
         id: 'join',
         q: 'How does someone in the family join?',
         a: [
-          'Leandro (the admin) shares the invite code from the Family tab.',
-          'They install the app, tap Create account, enter the code, and pick their name (or type a new one).',
+          'Leandro (the admin) taps your avatar → Family and invites → Share invite. It sends a link with the code already filled in.',
+          'They open the link (Safari on iPhone, Chrome on Android), add it to the home screen, tap Create account and pick their name (or type a new one).',
+          'Everyone in the family sees the same log: their shows show up in your Stats too.',
           'Nobody can sign up without the code.',
         ],
       },
@@ -188,6 +189,30 @@ const SECTIONS: Section[] = [
         id: 'others',
         q: 'Can I rate for someone else?',
         a: ['Only for family members without their own account (like a grandparent or kid). Everyone with an account rates for themselves.'],
+      },
+    ],
+  },
+  {
+    title: 'Messages and notifications',
+    items: [
+      {
+        id: 'messages',
+        q: 'Where are all the messages?',
+        a: [
+          'Tap Messages at the bottom. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.',
+          'A red number means new messages. Open a chat to read them.',
+          'Tap @Name under the message box to mention someone.',
+        ],
+      },
+      {
+        id: 'notify',
+        q: 'How do I get notified on my phone?',
+        a: [
+          'Open Pititi from your home screen icon, then Messages → Turn on (or your avatar → Notifications) and allow it.',
+          'You get one for new messages, @mentions, and when a show you\'re watching has a new episode out today.',
+          'iPhone needs iOS 16.4 or newer and the home screen app (not Safari). Android works in Chrome.',
+          'Each phone turns it on separately. Turn it off any time in Settings.',
+        ],
       },
     ],
   },

@@ -1,5 +1,5 @@
 // Offline shell: hashed assets are cache-first, the page itself is network-first.
-const CACHE = 'pititi-v2'
+const CACHE = 'pititi-v3'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => {
@@ -40,5 +40,41 @@ self.addEventListener('fetch', (e) => {
           return res
         }),
     ),
+  )
+})
+
+// Notifications sent by the server (messages, @mentions, new episodes)
+self.addEventListener('push', (e) => {
+  let data = {}
+  try {
+    data = e.data ? e.data.json() : {}
+  } catch {
+    data = { title: 'Pititi Watchers', body: e.data ? e.data.text() : '' }
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Pititi Watchers', {
+      body: data.body || '',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: data.tag,
+      data: { open: data.open || '' },
+    }),
+  )
+})
+
+// Tapping a notification opens the app on that chat (or show)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const open = e.notification.data && e.notification.data.open
+  const url = new URL(open ? `./?open=${encodeURIComponent(open)}` : './', self.registration.scope).href
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const win = list.find((c) => c.url.startsWith(self.registration.scope))
+      if (win) {
+        win.postMessage({ type: 'open', open })
+        return win.focus()
+      }
+      return self.clients.openWindow(url)
+    }),
   )
 })
