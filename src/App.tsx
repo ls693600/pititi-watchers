@@ -576,6 +576,12 @@ export default function App() {
             onReact={(targetId, emoji) => react(detail.watch.id, targetId, emoji)}
             onComment={(text) => sendComment(detail.watch.id, text)}
             onRemoveComment={deleteComment}
+            onRate={(personId, stars) => {
+              const saved = watchesRef.current.find((x) => x.id === detail.watch.id)
+              if (!saved) return
+              const name = people.find((p) => p.id === personId)?.name
+              persist(setOwnRating(saved, personId, stars), stars ? `${personId === me ? 'Your' : `${name}'s`} ${stars}★ saved` : 'Rating cleared', { exact: true, undo: true })
+            }}
             onMerge={async (keep, drop) => {
               if (!canDelete(drop, who)) {
                 flash(`Ask ${people.find((p) => p.isAdmin)?.name ?? 'the admin'} to merge these: you can only remove logs you added.`)

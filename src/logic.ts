@@ -323,12 +323,18 @@ export function mergeLogs(keep: Watch, drop: Watch): Watch {
   for (const [m, n] of Object.entries(b)) combined[m] = Math.max(combined[m] ?? 0, n)
   const episodesWatched = Math.max(keep.episodesWatched, drop.episodesWatched)
   // The copies overlap (the same episodes were logged twice): count each episode once, earliest month first
-  const months: Record<string, number> = {}
-  let left = episodesWatched
-  for (const m of Object.keys(combined).sort()) {
-    const take = Math.min(combined[m], left)
-    if (take > 0) months[m] = take
-    left -= take
+  let months: Record<string, number> = {}
+  if (keep.status === 'done' && drop.status === 'done') {
+    // Two finished copies of one viewing: the later one is when you actually finished, so its months win
+    const later = keep.month >= drop.month ? keep : drop
+    months = { ...monthBuckets(later) }
+  } else {
+    let left = episodesWatched
+    for (const m of Object.keys(combined).sort()) {
+      const take = Math.min(combined[m], left)
+      if (take > 0) months[m] = take
+      left -= take
+    }
   }
   return {
     ...keep,

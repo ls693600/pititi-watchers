@@ -712,3 +712,15 @@ describe('mentions', () => {
     expect(mentionParts('no tags', people)).toEqual([{ text: 'no tags' }])
   })
 })
+
+describe('merging two finished copies', () => {
+  it('keeps the later month (when you actually finished)', () => {
+    const early = watch({ id: 'a', showId: 7, season: 1, status: 'done', month: '2026-09', episodesWatched: 6, totalEpisodes: 6, episodesByMonth: { '2026-09': 6 } })
+    const late = watch({ id: 'b', showId: 7, season: 1, status: 'done', month: '2026-10', episodesWatched: 6, totalEpisodes: 6, isRewatch: true, episodesByMonth: { '2026-10': 6 } })
+    for (const m of [mergeLogs(late, early), mergeLogs(early, late)]) {
+      expect(m.month).toBe('2026-10')
+      expect(m.episodesByMonth).toEqual({ '2026-10': 6 })
+      expect(m.isRewatch).toBe(false)
+    }
+  })
+})

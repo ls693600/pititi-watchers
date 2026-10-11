@@ -32,11 +32,15 @@ interface Props {
   onReact: (targetId: string, emoji: string) => void
   onComment: (text: string) => Promise<boolean>
   onRemoveComment: (c: Comment) => void
+  /** Stars save the moment you tap them (an existing log), with Undo */
+  onRate: (personId: string, stars: number | null) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
+  // The latest saved version: instant ratings and the other phone's changes land here
+  const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [info, setInfo] = useState<ShowInfo | null>(null)
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
@@ -98,14 +102,14 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
   const overCounted = airedCount != null && w.episodesWatched > airedCount
   // Data health: a second open log of this season, or a log filed before the season premiered
   const duplicate = isNew ? null : findDuplicate(watches, w)
-  const pair = isNew || duplicate ? null : rewatchPair(watches, initial)
+  const pair = isNew || duplicate ? null : rewatchPair(watches, stored)
   const seasonInfo = seasons?.find((x) => x.number === w.season)
   const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
 
   async function shareShow() {
     setSharing(true)
     try {
-      const saved = initial
+      const saved = stored
       const watchersList = people.filter((p) => saved.watchedBy.includes(p.id))
       const colors = ['#5b6cff', '#ff4d8d', '#12b886', '#f59f00', '#9b5de5', '#ff6b3d', '#0ea5e9', '#e64980']
       const blob = await drawShowCard({
@@ -134,7 +138,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
   const set = (patch: Partial<Watch>) => setW((cur) => ({ ...cur, ...patch }))
   const avg = averageRating(w)
   // Blind rating follows what's saved, so tapping your stars never spoils the reveal
-  const savedComplete = averageRating(initial) != null
+  const savedComplete = averageRating(stored) != null
   const blind = viewer != null && !savedComplete && w.watchedBy.length > 1
   const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
   const watchers = people.filter((p) => w.watchedBy.includes(p.id))
@@ -158,6 +162,8 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       else ratings[id] = v
       return { ...cur, ratings }
     })
+    // No "Save changes" needed for stars: closing the page can't lose them
+    if (!isNew && stored.watchedBy.includes(id)) onRate(id, v)
   }
   const times = timesWatchedFor(watches, w)
   const total = w.totalEpisodes
@@ -167,7 +173,16 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
     if (!/^\d{4}-\d{2}$/.test(w.month)) return setError('Pick the month you watched it.')
     if (total != null && w.episodesWatched > total) return setError(`Season ${w.season} only has ${total} episodes.`)
     setError(null)
-    onSave({ ...w, updatedAt: new Date().toISOString() })
+    // Stars you can't edit (other people's accounts) always come from the latest saved copy,
+    // so saving notes here never wipes a rating someone just gave on their phone
+    const ratings = Object.fromEntries(
+      w.watchedBy.flatMap((id) => {
+        const p = people.find((x) => x.id === id)
+        const v = p && canEditRating(p, viewer) ? w.ratings[id] : stored.ratings[id]
+        return v != null ? [[id, v]] : []
+      }),
+    )
+    onSave({ ...w, ratings, updatedAt: new Date().toISOString() })
   }
 
   return (
@@ -222,7 +237,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
       )}
 
       {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
-      {!isNew && !duplicate && initial.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
+      {!isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
@@ -361,7 +376,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
           const editable = canEditRating(p, viewer)
           const visible = editable || (savedComplete ? true : canSeeRating(w, p.id, viewer) && !blind)
           // Reactions go on what's saved and revealed, never on stars still being edited
-          const reactable = social && savedComplete && initial.ratings[p.id] != null
+          const reactable = social && savedComplete && stored.ratings[p.id] != null
           return (
             <Fragment key={p.id}>
             <div className="field">
@@ -388,7 +403,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
                 reactions={reactions}
                 people={people}
                 me={me}
-                canReact={canReact(initial, p.id, me)}
+                canReact={canReact(stored, p.id, me)}
                 onReact={onReact}
               />
             )}
@@ -420,7 +435,7 @@ export function Detail({ initial, isNew, watches, people, me, viewer, saving, ca
 
       {social && (
         <FamilyChat
-          watch={initial}
+          watch={stored}
           comments={comments}
           people={people}
           me={me}
