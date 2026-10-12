@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, chatLocked, mentionsIn, threadKey, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
+import { addEpisode, averageRating, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -13,7 +13,6 @@ import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Help } from './screens/Help'
 import { Messages } from './screens/Messages'
-import { disablePush, enablePush, pushState, type PushState } from './push'
 import { Stats } from './screens/Stats'
 import { Lists, ListEditor } from './screens/Lists'
 import { Family } from './screens/Family'
@@ -22,6 +21,14 @@ import { MovieLog } from './components/MovieLog'
 import { useCircle } from './circle'
 import { t, useLang } from './i18n'
 import { useFestive } from './useFestive'
+import { useToast } from './hooks/useToast'
+import { usePush } from './hooks/usePush'
+import { useReadState } from './hooks/useReadState'
+import { useChat } from './hooks/useChat'
+import { useFamilyAdmin } from './hooks/useFamilyAdmin'
+import { Toast } from './components/Toast'
+import { SEEN_KEY, readSet, writeSet } from './lib/seen'
+import { announceNew, celebrateBadges } from './lib/announce'
 import { FestiveRain } from './components/Festive'
 import { cloudStore, currentSession, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
@@ -46,49 +53,11 @@ const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
 /** Dev previews only: ?as=<personId> acts as that person in single-phone mode. Stripped from production builds. */
 const DEV_VIEWER = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('as') : null
 
-const SEEN_KEY = 'pititi.reveals.v1'
-const BADGES_KEY = 'pititi.badges.v1'
-/** Family chat lines and reactions this phone has already announced */
-const CHAT_KEY = 'pititi.chatseen.v1'
-const READ_KEY = 'pititi.chatread.v1'
-
-function readSet(key: string): Set<string> | null {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? new Set(JSON.parse(raw) as string[]) : null
-  } catch {
-    return null
-  }
-}
-
-function writeSet(key: string, set: Set<string>) {
-  try {
-    localStorage.setItem(key, JSON.stringify([...set]))
-  } catch {
-    // Not fatal: worst case a celebration shows again
-  }
-}
-
-/** Logs whose reveal this phone has already shown. Null on first run. */
-function readSeen(): Set<string> | null {
-  try {
-    const raw = localStorage.getItem(SEEN_KEY)
-    return raw ? new Set(JSON.parse(raw) as string[]) : null
-  } catch {
-    return null
-  }
-}
-
-function writeSeen(seen: Set<string>) {
-  try {
-    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]))
-  } catch {
-    // Not fatal: worst case a reveal shows again
-  }
-}
-
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
+/** Reveals this phone has already shown. Null on first run. */
+const readSeen = () => readSet(SEEN_KEY)
+const writeSeen = (seen: Set<string>) => writeSet(SEEN_KEY, seen)
 
 function draftFrom(show: Title, month: string, watchedBy: string[], createdBy: string | null, householdId: string | null): Watch {
   const now = new Date().toISOString()
@@ -124,10 +93,6 @@ export default function App() {
   const [people, setPeople] = useState<Person[]>([])
   useLang()
   const festive = useFestive()
-  const [reactions, setReactions] = useState<Reaction[]>([])
-  const [comments, setComments] = useState<Comment[]>([])
-  /** Reactions and chat need migration 006; hidden until it's run */
-  const [social, setSocial] = useState(false)
   /** Show in the press-and-hold quick menu */
   const [actionsFor, setActionsFor] = useState<string | null>(null)
   /** List item being logged; it leaves Up Next once logged */
@@ -163,8 +128,7 @@ export default function App() {
   const [addMonth, setAddMonth] = useState(currentMonth())
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<{ id: number; msg: string; undo?: () => void; label?: string } | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const { toast, flash, dismiss: dismissToast } = useToast()
   // Undo runs later than the render that created it, so read the latest list from here
   const watchesRef = useRef<Watch[]>([])
   useEffect(() => {
@@ -197,12 +161,6 @@ export default function App() {
     })
   }
 
-  /** Short message at the bottom; with `undo` it gets an Undo button and stays a little longer. */
-  const flash = useCallback((msg: string, undo?: () => void, label = 'Undo') => {
-    clearTimeout(toastTimer.current)
-    setToast({ id: Date.now(), msg, undo, label })
-    toastTimer.current = setTimeout(() => setToast(null), undo || msg.length > 60 ? 6000 : 3500)
-  }, [])
 
   // Who's using the app (single-phone mode: the admin), as early as hooks need it
   const sessionPersonId = auth.state === 'ready' ? (auth.session?.personId ?? DEV_VIEWER) : null
@@ -210,6 +168,9 @@ export default function App() {
   const myHousehold = mePerson?.householdId ?? null
   const circle = useCircle(store, mePerson, flash)
   const takeCircle = circle.take
+  const chat = useChat(store, mePerson?.id ?? null, flash)
+  const { comments, reactions, social } = chat
+  const takeChat = chat.take
 
   // Restore an existing session on launch
   useEffect(() => {
@@ -219,49 +180,9 @@ export default function App() {
       .catch((e: Error) => setAuth({ state: 'signedOut', error: e.message }))
   }, [])
 
-  /** Celebrates badges earned since this phone last looked (first run just records them). */
-  const checkBadges = useCallback(
-    (list: Watch[]) => {
-      const badges = familyBadges(list)
-      const seen = readSet(BADGES_KEY)
-      if (!seen) {
-        writeSet(BADGES_KEY, new Set(badges.filter((b) => b.earned).map((b) => b.id)))
-        return
-      }
-      const fresh = newlyEarned(badges, seen)
-      if (!fresh.length) return
-      fresh.forEach((b) => seen.add(b.id))
-      writeSet(BADGES_KEY, seen)
-      flash(
-        fresh.length === 1
-          ? t('Badge unlocked: {badge}', { badge: fresh[0].title })
-          : fresh.length === 2
-            ? t('Badges unlocked: {a} and {b}', { a: fresh[0].title, b: fresh[1].title })
-            : t('{n} new badges unlocked · see Stats', { n: fresh.length }),
-      )
-    },
-    [flash],
-  )
+  const checkBadges = useCallback((list: Watch[]) => celebrateBadges(list, flash), [flash])
 
-  /** Where you last read each chat (this phone), for unread badges */
-  const [lastRead, setLastRead] = useState<Record<string, string>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(READ_KEY) || '{}') as Record<string, string>
-    } catch {
-      return {}
-    }
-  })
-  const markRead = useCallback((watchId: string | null) => {
-    setLastRead((cur) => {
-      const next = { ...cur, [threadKey(watchId)]: new Date().toISOString() }
-      try {
-        localStorage.setItem(READ_KEY, JSON.stringify(next))
-      } catch {
-        // Badges just stay a little longer
-      }
-      return next
-    })
-  }, [])
+  const { lastRead, markRead } = useReadState()
   /** Open chat on the Messages tab: undefined = the list, null = Family chat, id = a show's chat */
   const [thread, setThread] = useState<string | null | undefined>(undefined)
   const openThread = useCallback((watchId: string | null | undefined) => {
@@ -272,34 +193,7 @@ export default function App() {
     setTabState('family')
   }, [])
 
-  const [push, setPush] = useState<PushState>('off')
-  useEffect(() => {
-    if (auth.state !== 'ready' || !CLOUD_ENABLED) return
-    pushState().then(setPush).catch(() => setPush('unsupported'))
-  }, [auth.state])
-
-  async function turnOnPush() {
-    try {
-      await store.savePush(await enablePush())
-      setPush('on')
-      flash(t("Notifications on. You'll hear about messages, @mentions and new episodes."))
-    } catch (e) {
-      const why = (e as Error).message
-      setPush(why === 'denied' ? 'denied' : 'off')
-      flash(why === 'denied' ? t('Notifications are blocked. Turn them on in your phone settings.') : why === 'dismissed' ? t('Maybe later, then.') : t("Couldn't turn on notifications. Try again."))
-    }
-  }
-
-  async function turnOffPush() {
-    try {
-      const endpoint = await disablePush()
-      if (endpoint) await store.removePush(endpoint)
-      setPush('off')
-      flash(t('Notifications off on this phone'))
-    } catch {
-      flash(t("Couldn't turn them off. Try again."))
-    }
-  }
+  const { push, turnOn: turnOnPush, turnOff: turnOffPush } = usePush(store, auth.state === 'ready', flash)
 
   /** Opens a show page from a message, scrolled to its family chat. */
   const openShow = useCallback((w: Watch) => {
@@ -311,52 +205,8 @@ export default function App() {
 
   /** "Ana on Severance: …" for chat lines and reactions that arrived since this phone last looked. */
   const announce = useCallback(
-    (snap: { watches: Watch[]; people: Person[]; reactions: Reaction[]; comments: Comment[] }) => {
-      const me = viewerRef.current ?? snap.people.find((p) => p.isAdmin)?.id ?? null
-      const rKey = (r: Reaction) => `r:${r.watchId}:${r.personId}:${r.emoji}`
-      const forMe = snap.reactions.filter((r) => r.targetId === me && r.personId !== me)
-      const seen = readSet(CHAT_KEY)
-      const all = [...snap.comments.map((c) => c.id), ...forMe.map(rKey)]
-      if (!seen) return writeSet(CHAT_KEY, new Set(all))
-      const fresh = unseenComments(snap.comments, seen, me)
-      const freshR = forMe.filter((r) => !seen.has(rKey(r)))
-      all.forEach((id) => seen.add(id))
-      writeSet(CHAT_KEY, seen)
-      const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? t('Someone')
-      const show = (id: string | null) => (id ? snap.watches.find((w) => w.id === id) : undefined)
-      const place = (watchId: string | null) => (watchId ? t('on {show}', { show: show(watchId)?.showName ?? t('a show') }) : t('in Family chat'))
-      const short = (text: string) => (text.length > 60 ? text.slice(0, 58) + '…' : text)
-      // Someone @mentioned you: that's meant for you, so it comes first and shows the words
-      const toMe = me ? fresh.filter((c) => mentionsIn(c.text, snap.people).includes(me)) : []
-      if (toMe.length) {
-        const c = toMe[toMe.length - 1]
-        return flash(t('{name} mentioned you {place}: “{text}”', { name: nameOf(c.personId), place: place(c.watchId), text: short(c.text) }), () => openThread(c.watchId), 'Open')
-      }
-      const count = fresh.length + freshR.length
-      if (count > 1) {
-        const from = [...new Set([...fresh.map((c) => c.personId), ...freshR.map((r) => r.personId)])].map(nameOf).join(' & ')
-        const where = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
-        if (where.size === 1 && !freshR.length) {
-          const id = [...where][0]
-          return flash(t('{from}: {n} new {place}', { from, n: count, place: place(id) }), () => openThread(id), 'Open')
-        }
-        return flash(t('{from}: {n} new messages and reactions', { from, n: count }), () => openThread(undefined), 'Open')
-      }
-      if (fresh.length) {
-        const c = fresh[0]
-        const w = show(c.watchId)
-        if (c.watchId && !w) return
-        // Haven't rated yet: say who wrote, not what (no nudging your stars)
-        return w && chatLocked(w, me)
-          ? flash(t('{name} wrote {place}', { name: nameOf(c.personId), place: place(c.watchId) }), () => openThread(c.watchId), 'Open')
-          : flash(t('{name} {place}: “{text}”', { name: nameOf(c.personId), place: place(c.watchId), text: short(c.text) }), () => openThread(c.watchId), 'Open')
-      }
-      if (freshR.length) {
-        const r = freshR[0]
-        const w = show(r.watchId)
-        if (w) flash(t('{name} reacted {emoji} to your stars on {show}', { name: nameOf(r.personId), emoji: r.emoji, show: w.showName }), () => openShow(w), 'Open')
-      }
-    },
+    (snap: { watches: Watch[]; people: Person[]; reactions: Reaction[]; comments: Comment[] }) =>
+      announceNew(snap, viewerRef.current ?? snap.people.find((p) => p.isAdmin)?.id ?? null, { flash, openShow, openThread }),
     [flash, openShow, openThread],
   )
 
@@ -366,9 +216,7 @@ export default function App() {
       setWatches(snap.watches)
       setPeople(snap.people)
       takeCircle(snap)
-      setReactions(snap.reactions)
-      setComments(snap.comments)
-      setSocial(snap.social)
+      takeChat(snap)
       setOffline(false)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
@@ -380,11 +228,11 @@ export default function App() {
       setWatches(snap.watches)
       setPeople(snap.people)
       takeCircle(snap)
-      setReactions(snap.reactions ?? [])
-      setComments(snap.comments ?? [])
+      takeChat({ comments: snap.comments, reactions: snap.reactions })
       setOffline(true)
     }
-  }, [queueReveals, checkBadges, announce, takeCircle])
+  }, [queueReveals, checkBadges, announce, takeCircle, takeChat])
+  const familyAdmin = useFamilyAdmin(store, reload, flash)
 
   useEffect(() => {
     if (auth.state !== 'ready') return
@@ -475,67 +323,15 @@ export default function App() {
     }
   }
 
-  async function restoreLog(w: Watch, chat: Comment[] = [], reacts: Reaction[] = []) {
+  async function restoreLog(w: Watch, lines: Comment[] = [], reacts: Reaction[] = []) {
     setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
     try {
       await store.save(w)
-      // Best effort: the show is back even if a message can't be restored
-      await Promise.all([...chat.map((c) => store.addComment(c)), ...reacts.map((r) => store.setReaction(r))]).catch(() => undefined)
-      setComments((list) => [...list.filter((c) => c.watchId !== w.id), ...chat])
-      setReactions((list) => [...list.filter((r) => r.watchId !== w.id), ...reacts])
+      await chat.restore(w.id, lines, reacts)
       flash(t('{name} is back', { name: w.showName }))
     } catch {
       setWatches((list) => list.filter((x) => x.id !== w.id))
       flash(t("Couldn't bring it back. Check your connection."))
-    }
-  }
-
-  async function react(watchId: string, targetId: string, emoji: string) {
-    if (!me) return
-    const r = { watchId, personId: me, targetId, emoji }
-    const prev = reactions
-    const next = toggleReaction(prev, r)
-    const kept = next.find((x) => x.watchId === watchId && x.personId === me && x.targetId === targetId)
-    setReactions(next)
-    try {
-      await store.setReaction({ ...r, emoji: kept ? emoji : null })
-    } catch {
-      setReactions(prev)
-      flash(t("Couldn't send your reaction. Check your connection."))
-    }
-  }
-
-  async function sendComment(watchId: string | null, text: string) {
-    if (!me) return false
-    const c: Comment = { id: newId(), watchId, personId: me, text, createdAt: new Date().toISOString() }
-    setComments((list) => [...list, c])
-    // Your own line never gets announced back to you
-    const seen = readSet(CHAT_KEY)
-    if (seen) writeSet(CHAT_KEY, seen.add(c.id))
-    try {
-      await store.addComment(c)
-      return true
-    } catch {
-      setComments((list) => list.filter((x) => x.id !== c.id))
-      flash(t("Couldn't send it. Check your connection."))
-      return false
-    }
-  }
-
-  async function deleteComment(c: Comment) {
-    setComments((list) => list.filter((x) => x.id !== c.id))
-    try {
-      await store.removeComment(c.id)
-      flash(t('Message removed'), async () => {
-        setComments((list) => [...list.filter((x) => x.id !== c.id), c])
-        await store.addComment(c).catch(() => {
-          setComments((list) => list.filter((x) => x.id !== c.id))
-          flash(t("Couldn't bring it back. Check your connection."))
-        })
-      })
-    } catch (e) {
-      setComments((list) => [...list, c])
-      flash((e as Error).message || t("Couldn't remove it. Check your connection."))
     }
   }
 
@@ -671,9 +467,9 @@ export default function App() {
             social={social && !detail.isNew}
             reactions={reactions}
             comments={comments}
-            onReact={(targetId, emoji) => react(detail.watch.id, targetId, emoji)}
-            onComment={(text) => sendComment(detail.watch.id, text)}
-            onRemoveComment={deleteComment}
+            onReact={(targetId, emoji) => chat.react(detail.watch.id, targetId, emoji)}
+            onComment={(text) => chat.send(detail.watch.id, text)}
+            onRemoveComment={chat.remove}
             onChatSeen={() => markRead(detail.watch.id)}
             onRate={(personId, stars) => {
               const saved = watchesRef.current.find((x) => x.id === detail.watch.id)
@@ -801,8 +597,8 @@ export default function App() {
                 lastRead={lastRead}
                 thread={thread}
                 onThread={setThread}
-                onSend={sendComment}
-                onRemove={deleteComment}
+                onSend={chat.send}
+                onRemove={chat.remove}
                 onSeen={markRead}
                 onOpenShow={openShow}
                 mutes={circle.mutes}
@@ -830,46 +626,7 @@ export default function App() {
             loadViewerInvite={store.mode === 'cloud' ? getViewerCode : null}
             households={circle.households}
             meId={me}
-            admin={{
-              onAddHousehold: async (name) => {
-                try {
-                  const { code } = await store.addHousehold(name)
-                  await reload()
-                  flash(t('{name} created. Send them the invite.', { name }))
-                  return code
-                } catch (e) {
-                  flash((e as Error).message || t("Couldn't create it. Check your connection."))
-                  return null
-                }
-              },
-              onUpdateHousehold: async (h) => {
-                try {
-                  await store.updateHousehold(h)
-                  await reload()
-                } catch (e) {
-                  flash((e as Error).message || t("Couldn't save that. Check your connection."))
-                }
-              },
-              onMovePerson: async (personId, householdId) => {
-                try {
-                  await store.movePerson(personId, householdId)
-                  await reload()
-                  flash(t('Moved'))
-                } catch (e) {
-                  flash((e as Error).message || t("Couldn't move them. Check your connection."))
-                }
-              },
-              onAddPerson: async (name, householdId) => {
-                try {
-                  await store.addPerson(name, householdId)
-                  await reload()
-                  flash(t('{name} added', { name }))
-                } catch (e) {
-                  flash((e as Error).message || t("Couldn't add them. Check your connection."))
-                }
-              },
-              householdCode: (id) => store.householdCode(id),
-            }}
+            admin={familyAdmin}
             onSetViewer={async (id, viewer) => {
               const prev = people
               setPeople((list) => list.map((p) => (p.id === id ? { ...p, isViewer: viewer } : p)))
@@ -986,7 +743,7 @@ export default function App() {
           people={people}
           viewer={social ? me : null}
           reactions={reactions}
-          onReact={(targetId, emoji) => react(reveals[0], targetId, emoji)}
+          onReact={(targetId, emoji) => chat.react(reveals[0], targetId, emoji)}
           onClose={closeReveal}
         />
       )}
@@ -1014,24 +771,7 @@ export default function App() {
         />
       )}
 
-      {toast && (
-        <div className={`toast ${toast.undo ? 'has-undo' : ''}`} role="status" key={toast.id}>
-          <Icon name="check" size={18} stroke={2.6} /> <span className="toast-msg">{toast.msg}</span>
-          {toast.undo && (
-            <button
-              className="toast-undo"
-              onClick={() => {
-                const undo = toast.undo!
-                clearTimeout(toastTimer.current)
-                setToast(null)
-                undo()
-              }}
-            >
-              {t(toast.label ?? 'Undo')}
-            </button>
-          )}
-        </div>
-      )}
+      {toast && <Toast toast={toast} onDismiss={dismissToast} />}
 
       {!detail && (
         <nav className="tabbar" aria-label={t('Main')}>
