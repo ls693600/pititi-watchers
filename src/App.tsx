@@ -482,6 +482,7 @@ export default function App() {
             readOnly={detailReadOnly}
             owner={detailReadOnly && !readOnly ? householdLabel(circle.households.find((h) => h.id === detail.watch.householdId), people) : null}
             onMore={(title) => setTitleSheet({ title, mode: 'save' })}
+            onSwitchLog={(w, isNew) => setDetail({ watch: w, isNew })}
             me={me}
             viewer={viewer}
             saving={saving}
@@ -701,6 +702,11 @@ export default function App() {
           onMore={(w) => {
             setQuick(null)
             setDetail({ watch: w, isNew: true })
+          }}
+          onOpenExisting={(w) => {
+            setQuick(null)
+            setFromItem(null)
+            setDetail({ watch: w, isNew: false })
           }}
           onClose={() => {
             setQuick(null)

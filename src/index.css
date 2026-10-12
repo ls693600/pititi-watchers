@@ -818,3 +818,5 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .crash-emoji { font-size: 56px; }
 .problems { list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; }
 .problems li { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; overflow-wrap: anywhere; }
+
+.link-btn.inline { padding: 0; font-size: inherit; text-decoration: underline; }

@@ -904,3 +904,34 @@ export function familyFeed(
   const weight = (e: FeedEvent) => (e.kind === 'rec' ? 2 : e.kind === 'votes' ? 1 : 0)
   return events.sort((a, b) => weight(b) - weight(a) || b.at.localeCompare(a.at))
 }
+
+// ---- Seasons are separate logs ----
+
+/** This show's log for a season in the same household (latest if several), other than `w` itself. */
+export function logForSeason(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'kind' | 'householdId'>, season: number): Watch | null {
+  return (
+    all
+      .filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === season && (x.householdId ?? null) === (w.householdId ?? null))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null
+  )
+}
+
+/** A fresh log for another season of a show you already log: same show and people, nothing marked yet. */
+export function nextSeasonDraft(from: Watch, id: string, me: string | null, now = new Date()): Watch {
+  const at = now.toISOString()
+  return {
+    ...from,
+    id,
+    episodesWatched: 0,
+    totalEpisodes: null,
+    status: 'watching',
+    ratings: {},
+    isRewatch: false,
+    notes: '',
+    episodesByMonth: {},
+    month: currentMonth(now),
+    createdBy: me ?? from.createdBy,
+    createdAt: at,
+    updatedAt: at,
+  }
+}

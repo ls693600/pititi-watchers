@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  logForSeason,
+  nextSeasonDraft,
   sameTitle,
   householdWatches,
   householdMembers,
@@ -810,5 +812,22 @@ describe('households and lists', () => {
     const feed = familyFeed([mine, theirs, old], [list({ visibility: 'circle', askVotes: true, householdId: 'h2' })], [rec], people[0], now)
     expect(feed.map((e) => e.kind)).toEqual(['rec', 'votes', 'finished'])
     expect(feed[2].kind === 'finished' && feed[2].watch.id).toBe('t')
+  })
+})
+
+describe('seasons are separate logs', () => {
+  const s1 = watch({ id: 's1', showId: 50, season: 1, status: 'done', episodesWatched: 8, totalEpisodes: 8, householdId: 'h1', updatedAt: '2026-10-01' })
+  const s2 = watch({ id: 's2', showId: 50, season: 2, status: 'watching', episodesWatched: 2, householdId: 'h1', updatedAt: '2026-10-10' })
+  const other = watch({ id: 'o1', showId: 50, season: 1, status: 'done', householdId: 'h2' })
+  it('finds the log of another season (same show, same household)', () => {
+    expect(logForSeason([s1, s2, other], s2, 1)?.id).toBe('s1')
+    expect(logForSeason([s1, s2, other], s1, 2)?.id).toBe('s2')
+    expect(logForSeason([s1, s2], s2, 3)).toBeNull()
+  })
+  it('a new season starts fresh and never touches the finished one', () => {
+    const d = nextSeasonDraft(s1, 'new', 'l', new Date('2026-10-12T12:00:00'))
+    expect(d).toMatchObject({ id: 'new', season: 1, status: 'watching', episodesWatched: 0, ratings: {}, month: '2026-10' })
+    expect(s1.status).toBe('done')
+    expect(s1.episodesWatched).toBe(8)
   })
 })

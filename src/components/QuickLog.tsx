@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { defaultSeason, monthLabel, premiereMonthFix, togetherWatchers, withSeason } from '../logic'
+import { defaultSeason, logForSeason, monthLabel, premiereMonthFix, togetherWatchers, withSeason } from '../logic'
 import { getAiredCount, getSeasons, type SeasonInfo } from '../tvmaze'
 import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
@@ -17,6 +17,8 @@ interface Props {
   saving: boolean
   onLog: (w: Watch) => void
   onMore: (w: Watch) => void
+  /** That season is already logged: open it instead of adding a copy */
+  onOpenExisting: (w: Watch) => void
   onClose: () => void
 }
 
@@ -31,7 +33,7 @@ async function withAired(s: SeasonInfo): Promise<SeasonInfo> {
 }
 
 /** Bottom sheet: log a show in three taps. Month, rewatch and notes live under More options. */
-export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, onClose }: Props) {
+export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, onOpenExisting, onClose }: Props) {
   const [w, setW] = useState<Watch>(draft)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -184,6 +186,17 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
               {total ? <span> · {t('{n} episodes', { n: total })}</span> : null}
             </div>
             {monthNote && <p className="month-note">{monthNote}</p>}
+            {(() => {
+              const existing = logForSeason(watches, w, w.season)
+              return existing ? (
+                <p className="month-note">
+                  {existing.status === 'done' ? t('Season {n} is already logged as finished.', { n: w.season }) : t('Season {n} is already in progress.', { n: w.season })}{' '}
+                  <button className="link-btn inline" onClick={() => onOpenExisting(existing)}>
+                    {t('Open it')}
+                  </button>
+                </p>
+              ) : null
+            })()}
           </div>
           <button className="icon-btn" aria-label={t('Close')} onClick={onClose} style={{ alignSelf: 'flex-start' }}>
             <Icon name="close" size={18} />

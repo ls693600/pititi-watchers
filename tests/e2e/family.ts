@@ -95,7 +95,12 @@ export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt
         ],
       })
     if (url.pathname.endsWith('/seasons'))
-      return route.fulfill({ json: [{ id: 9001, number: 1, episodeOrder: 12, premiereDate: '2022-09-21', endDate: '2022-11-23' }] })
+      return route.fulfill({
+        json: [
+          { id: 9001, number: 1, episodeOrder: 6, premiereDate: '2022-09-21', endDate: '2022-11-23' },
+          { id: 9002, number: 2, episodeOrder: 12, premiereDate: '2025-04-22', endDate: '2025-05-13' },
+        ],
+      })
     if (url.pathname.startsWith('/seasons/'))
       return route.fulfill({ json: Array.from({ length: 12 }, (_, i) => ({ number: i + 1, name: `Ep ${i + 1}`, airdate: '2022-10-01', type: 'regular' })) })
     return route.fulfill({ json: { id: 1, name: 'Show', summary: '<p>A show.</p>', rating: { average: 8 }, status: 'Ended', averageRuntime: 50, webChannel: { name: 'Disney+' }, officialSite: 'https://example.com' } })

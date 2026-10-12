@@ -835,4 +835,11 @@ export const PT: Record<string, string> = {
   "None in the last 30 days 🎉": "Nenhum nos últimos 30 dias 🎉",
   "Clear all": "Limpar tudo",
   "Computer": "Computador",
+  "Season {n} · finished ✓": "Temporada {n} · terminada ✓",
+  "Season {n} · watching": "Temporada {n} · assistindo",
+  "finished ✓": "terminada ✓",
+  "watching": "assistindo",
+  "Season {n} is already logged as finished.": "A temporada {n} já está registrada como terminada.",
+  "Season {n} is already in progress.": "A temporada {n} já está em andamento.",
+  "Open it": "Abrir",
 }

@@ -5,7 +5,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, titleOf, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -46,10 +46,12 @@ interface Props {
   onChatSeen: () => void
   /** Save to a list / Recommend */
   onMore?: (t: Title) => void
+  /** Open another season's log (isNew: a fresh one to fill in) */
+  onSwitchLog: (w: Watch, isNew: boolean) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
@@ -567,14 +569,27 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               value={w.season}
               onChange={(e) => {
                 const s = seasons.find((x) => x.number === Number(e.target.value))
-                if (s) setW((cur) => withSeason(cur, s, watches))
+                if (!s) return
+                // A new log can still pick its season. A saved one never changes season: each season is its own log,
+                // so picking another opens that season's log (or starts one) and this one stays exactly as saved.
+                const existing = logForSeason(watches, stored, s.number)
+                if (!existing && isNew) return setW((cur) => withSeason(cur, s, watches))
+                if (existing) {
+                  onSwitchLog(existing, false)
+                  onFlash(existing.status === 'done' ? t('Season {n} · finished ✓', { n: s.number }) : t('Season {n} · watching', { n: s.number }))
+                } else onSwitchLog(withSeason(nextSeasonDraft(stored, newId(), me), s, watches), true)
               }}
             >
-              {seasons.map((s) => (
-                <option key={s.number} value={s.number}>
-                  {t('Season {n}', { n: s.number })}{s.episodes ? ` · ${t('{n} eps', { n: s.episodes })}` : ''}{s.aired ? '' : ` · ${t('upcoming')}`}
-                </option>
-              ))}
+              {seasons.map((s) => {
+                const log = s.number === w.season ? null : logForSeason(watches, stored, s.number)
+                return (
+                  <option key={s.number} value={s.number}>
+                    {t('Season {n}', { n: s.number })}
+                    {log ? ` · ${log.status === 'done' ? t('finished ✓') : t('watching')}` : s.episodes ? ` · ${t('{n} eps', { n: s.episodes })}` : ''}
+                    {s.aired ? '' : ` · ${t('upcoming')}`}
+                  </option>
+                )
+              })}
             </select>
           ) : (
             <input
