@@ -4,6 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test -f .env.local || { echo "Missing .env.local (VITE_SUPABASE_URL, VITE_SUPABASE_KEY)"; exit 1; }
 npm test
+# Real screens on iPhone Safari and Android Chrome engines; a failure stops the release
+npm run test:e2e
 npm run build
 touch dist/.nojekyll
 cd dist

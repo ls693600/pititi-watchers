@@ -1054,6 +1054,8 @@ export default function App() {
                   key={tb.id}
                   className={`tab ${tab === tb.id ? 'on' : ''}`}
                   aria-current={tab === tb.id ? 'page' : undefined}
+                  // "Family, 2 new": the name first, then the count
+                  aria-label={tb.id === 'family' && familyBadge > 0 ? `${t(tb.label)}, ${t('{n} new', { n: familyBadge })}` : undefined}
                   onClick={() => {
                     if (tb.id === 'family') {
                       setThread(undefined)
@@ -1064,7 +1066,7 @@ export default function App() {
                   }}
                 >
                   <Icon name={tb.icon} size={23} />
-                  {tb.id === 'family' && familyBadge > 0 && <i className="tab-badge" aria-label={t('{n} new', { n: familyBadge })}>{familyBadge > 9 ? '9+' : familyBadge}</i>}
+                  {tb.id === 'family' && familyBadge > 0 && <i className="tab-badge" aria-hidden="true">{familyBadge > 9 ? '9+' : familyBadge}</i>}
                   <span>{t(tb.label)}</span>
                 </button>
               ))}
