@@ -220,7 +220,11 @@ function friendly(message: string): string {
   if (/profile_taken/i.test(message)) return t('That person already has an account. Sign in instead.')
   if (/name_required/i.test(message)) return t('Enter your name.')
   if (/already registered/i.test(message)) return t('That email already has an account. Sign in instead.')
-  if (/database error/i.test(message)) return t("Couldn't create the account. Check the invite code and try again.")
+  if (/database error/i.test(message))
+    return t("Couldn't create the account. Check the invite code; if your name is in the list, pick it (or ask Leandro to move you to your household).")
+  if (/password should be at least|weak password/i.test(message)) return t('Use at least 6 characters for the password.')
+  if (/invalid.*email|email.*invalid|unable to validate email/i.test(message)) return t('Check the email address: it looks incomplete.')
+  if (/rate limit|too many/i.test(message)) return t('Too many tries. Wait a minute and try again.')
   if (/invalid login/i.test(message)) return t('Wrong email or password.')
   return message
 }

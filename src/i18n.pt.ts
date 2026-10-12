@@ -842,4 +842,9 @@ export const PT: Record<string, string> = {
   "Season {n} is already logged as finished.": "A temporada {n} já está registrada como terminada.",
   "Season {n} is already in progress.": "A temporada {n} já está em andamento.",
   "Open it": "Abrir",
+  "The 8-character code in the invite message. You can also paste the whole message.": "O código de 8 caracteres da mensagem de convite. Você também pode colar a mensagem inteira.",
+  "Enter the invite code from the message Leandro sent (8 letters and numbers), or paste the whole message.": "Digite o código de convite da mensagem que o Leandro mandou (8 letras e números), ou cole a mensagem inteira.",
+  "Couldn't create the account. Check the invite code; if your name is in the list, pick it (or ask Leandro to move you to your household).": "Não deu para criar a conta. Confira o código de convite; se o seu nome estiver na lista, escolha-o (ou peça ao Leandro para te colocar na sua casa).",
+  "Check the email address: it looks incomplete.": "Confira o e-mail: parece incompleto.",
+  "Too many tries. Wait a minute and try again.": "Muitas tentativas. Espere um minuto e tente de novo.",
 }

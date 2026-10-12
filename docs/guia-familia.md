@@ -10,7 +10,8 @@ O Leandro vai mandar um **link de convite só da sua casa**. Abra esse link:
 A partir de agora, abra sempre pelo **ícone do Pititi** na tela do celular.
 
 ## 2. Criar sua conta
-- Toque em **Create account / Criar conta**. O código de convite já vem preenchido.
+- Toque em **Create account / Criar conta**. Se o campo **Código de convite** estiver vazio (no iPhone isso acontece), **copie a mensagem de convite inteira do WhatsApp e cole nesse campo**: o app encontra o código sozinho.
+- Se o seu nome aparecer na lista, **escolha o seu nome** em vez de criar um novo.
 - Escolha seu nome, coloque e-mail e senha. Pronto!
 - Prefere em português? Toque em **PT** no topo da tela inicial.
 

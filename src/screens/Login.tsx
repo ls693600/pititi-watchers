@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../components/Icon'
 import type { JoinAs, JoinOptions } from '../store/cloud'
 import { popularPosters } from '../tvmaze'
+import { inviteCodeFrom } from '../lib/invite'
 import { getLang, setLang, t } from '../i18n'
 
 interface Props {
@@ -14,7 +15,22 @@ interface Props {
 const NEW = '__new__'
 
 /** An invite link (…/?invite=CODE) opens straight on Create account with the code filled in. */
-const INVITE = new URLSearchParams(window.location.search).get('invite')?.trim().toUpperCase().slice(0, 16) ?? ''
+const INVITE_KEY = 'pititi.invite'
+const fromUrl = new URLSearchParams(window.location.search).get('invite')?.trim().toUpperCase().slice(0, 16) ?? ''
+// Remember it: on Android the installed app opens without the link, but shares storage with Chrome
+try {
+  if (fromUrl) localStorage.setItem(INVITE_KEY, fromUrl)
+} catch {
+  // Not fatal: the code can be typed or pasted
+}
+const INVITE = fromUrl || (() => {
+  try {
+    return localStorage.getItem(INVITE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+})()
+
 
 export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
   const [mode, setMode] = useState<'signin' | 'signup'>(INVITE ? 'signup' : 'signin')
@@ -64,7 +80,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
     e.preventDefault()
     if (!email.trim() || !password) return setError(t('Enter your email and password.'))
     if (mode === 'signup') {
-      if (!codeOk) return setError(t('Enter the invite code from Settings on a family member’s phone.'))
+      if (!codeOk) return setError(t('Enter the invite code from the message Leandro sent (8 letters and numbers), or paste the whole message.'))
       if (pick === NEW && !name.trim()) return setError(t('Enter your name.'))
       if (password.length < 6) return setError(t('Use at least 6 characters for the password.'))
     }
@@ -149,15 +165,18 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
             <input
               value={code}
               onChange={(e) => {
-                setCode(e.target.value.toUpperCase())
+                // Pasting the whole invite message or link works too
+                setCode(inviteCodeFrom(e.target.value))
                 setOptions(null)
                 setError(null)
               }}
               placeholder="A1B2C3D4"
               autoCapitalize="characters"
               autoComplete="off"
-              maxLength={12}
+              inputMode="text"
+              aria-describedby="invite-hint"
             />
+            <span id="invite-hint" className="muted small">{t('The 8-character code in the invite message. You can also paste the whole message.')}</span>
             {checking && <span className="muted small">{t('Checking…')}</span>}
             {!checking && options && !options.valid && (
               <span className="error small">{t("That code isn't right. Check Settings → Invite code on a family member's phone.")}</span>
