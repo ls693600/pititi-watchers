@@ -1,6 +1,7 @@
 // The family circle: households, lists (with privacy and votes), recommendations and chat mutes.
 // Kept out of App so the main screen logic stays readable. Every change is optimistic with Undo.
 import { useCallback, useRef, useState } from 'react'
+import { t } from './i18n'
 import { newId } from './logic'
 import type { Snapshot, Store } from './store/store'
 import type { Household, ListItem, Person, Recommendation, Title, WatchList } from './types'
@@ -56,7 +57,7 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
       return true
     } catch (e) {
       setLists((all) => (before ? all.map((x) => (x.id === l.id ? before : x)) : all.filter((x) => x.id !== l.id)))
-      flash((e as Error).message || "Couldn't save the list. Check your connection.")
+      flash((e as Error).message || t("Couldn't save the list. Check your connection."))
       return false
     }
   }
@@ -80,15 +81,15 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
     return (await saveList(up)) ? up : null
   }
 
-  async function addToList(t: Title, listId?: string, quiet = false): Promise<ListItem | null> {
+  async function addToList(title: Title, listId?: string, quiet = false): Promise<ListItem | null> {
     const list = listId ? live.current.lists.find((l) => l.id === listId) : await defaultList()
     if (!list) return null
-    if (live.current.items.some((i) => i.listId === list.id && i.kind === t.kind && i.extId === t.extId)) {
-      if (!quiet) flash(`${t.title} is already on ${list.name}`)
+    if (live.current.items.some((i) => i.listId === list.id && i.kind === title.kind && i.extId === title.extId)) {
+      if (!quiet) flash(t('{title} is already on {list}', { title: title.title, list: t(list.name) }))
       return null
     }
     const item: ListItem = {
-      ...t,
+      ...title,
       id: newId(),
       listId: list.id,
       addedBy: live.current.me?.id ?? null,
@@ -99,11 +100,11 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
     setItems((all) => [...all, item])
     try {
       await store.addItem(item)
-      if (!quiet) flash(`${t.title} saved to ${list.emoji} ${list.name}`, () => removeItem(item, true))
+      if (!quiet) flash(t('{title} saved to {list}', { title: title.title, list: `${list.emoji} ${t(list.name)}` }), () => removeItem(item, true))
       return item
     } catch (e) {
       setItems((all) => all.filter((x) => x.id !== item.id))
-      flash((e as Error).message || "Couldn't save it. Check your connection.")
+      flash((e as Error).message || t("Couldn't save it. Check your connection."))
       return null
     }
   }
@@ -113,10 +114,10 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
     try {
       await store.removeItem(item.id)
       const list = live.current.lists.find((l) => l.id === item.listId)
-      if (!quiet) flash(`${item.title} removed from ${list?.name ?? 'the list'}`, () => restoreItem(item))
+      if (!quiet) flash(list ? t('{title} removed from {list}', { title: item.title, list: t(list.name) }) : t('{title} removed from the list', { title: item.title }), () => restoreItem(item))
     } catch (e) {
       setItems((all) => [...all, item])
-      flash((e as Error).message || "Couldn't remove it. Check your connection.")
+      flash((e as Error).message || t("Couldn't remove it. Check your connection."))
     }
   }
 
@@ -126,7 +127,7 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
       await store.addItem(item)
     } catch {
       setItems((all) => all.filter((x) => x.id !== item.id))
-      flash("Couldn't put it back. Check your connection.")
+      flash(t("Couldn't put it back. Check your connection."))
     }
   }
 
@@ -140,7 +141,7 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
       setItems((all) => all.map((x) => (x.id === item.id ? { ...x, votes } : x)))
     } catch {
       setItems((all) => all.map((x) => (x.id === item.id ? item : x)))
-      flash("Couldn't save your vote. Check your connection.")
+      flash(t("Couldn't save your vote. Check your connection."))
     }
   }
 
@@ -150,28 +151,28 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
     setItems((all) => all.filter((i) => i.listId !== l.id))
     try {
       await store.removeList(l.id)
-      flash(`${l.name} removed`, async () => {
+      flash(t('{name} removed', { name: t(l.name) }), async () => {
         if (await saveList(l)) for (const i of keep) await restoreItem(i)
       })
     } catch (e) {
       setLists((all) => [...all, l])
       setItems((all) => [...all, ...keep])
-      flash((e as Error).message || "Couldn't remove the list. Check your connection.")
+      flash((e as Error).message || t("Couldn't remove the list. Check your connection."))
     }
   }
 
-  async function recommend(t: Title, to: string[], note: string): Promise<boolean> {
+  async function recommend(title: Title, to: string[], note: string): Promise<boolean> {
     const from = live.current.me?.id
     if (!from || !to.length) return false
-    const made: Recommendation[] = to.map((id) => ({ ...t, id: newId(), from, to: id, note, status: 'new', createdAt: new Date().toISOString() }))
+    const made: Recommendation[] = to.map((id) => ({ ...title, id: newId(), from, to: id, note, status: 'new', createdAt: new Date().toISOString() }))
     setRecs((all) => [...made, ...all])
     try {
       for (const r of made) await store.recommend(r)
-      flash(to.length === 1 ? 'Recommendation sent' : `Sent to ${to.length} people`)
+      flash(to.length === 1 ? t('Recommendation sent') : t('Sent to {n} people', { n: to.length }))
       return true
     } catch {
       setRecs((all) => all.filter((r) => !made.some((m) => m.id === r.id)))
-      flash("Couldn't send it. Check your connection.")
+      flash(t("Couldn't send it. Check your connection."))
       return false
     }
   }
@@ -182,26 +183,26 @@ export function useCircle(store: Store, me: Person | undefined, flash: Flash): C
       await store.answerRecommendation(r.id, status)
       if (status === 'added') await addToList(r, undefined, false)
       else
-        flash('Got it. Not for you.', async () => {
+        flash(t('Got it. Not for you.'), async () => {
           setRecs((all) => all.map((x) => (x.id === r.id ? { ...x, status: 'new' } : x)))
           await store.answerRecommendation(r.id, 'new').catch(() => undefined)
         })
     } catch {
       setRecs((all) => all.map((x) => (x.id === r.id ? r : x)))
-      flash("Couldn't save that. Check your connection.")
+      flash(t("Couldn't save that. Check your connection."))
     }
   }
 
   async function mute(thread: string, muted: boolean) {
     const who = live.current.me?.id
     if (!who) return
-    setMutes((all) => (muted ? [...new Set([...all, thread])] : all.filter((t) => t !== thread)))
+    setMutes((all) => (muted ? [...new Set([...all, thread])] : all.filter((x) => x !== thread)))
     try {
       await store.setMute(who, thread, muted)
-      flash(muted ? 'Muted. You still hear @mentions.' : 'Notifications back on for this chat')
+      flash(muted ? t('Muted. You still hear @mentions.') : t('Notifications back on for this chat'))
     } catch {
-      setMutes((all) => (muted ? all.filter((t) => t !== thread) : [...all, thread]))
-      flash("Couldn't change that. Check your connection.")
+      setMutes((all) => (muted ? all.filter((x) => x !== thread) : [...all, thread]))
+      flash(t("Couldn't change that. Check your connection."))
     }
   }
 

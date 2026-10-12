@@ -6,6 +6,7 @@ import { Reactions } from './Reactions'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
+import { t } from '../i18n'
 
 const CONFETTI = ['#ffc371', '#ff4d6d', '#7ee2a1', '#9b5de5', '#5b6cff', '#ff8a3d', '#ff4d8d']
 
@@ -32,7 +33,7 @@ export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: P
   }, [onClose])
 
   return (
-    <div className="reveal" role="dialog" aria-modal="true" aria-label={`Ratings revealed for ${watch.showName}`} onClick={onClose}>
+    <div className="reveal" role="dialog" aria-modal="true" aria-label={t('Ratings revealed for {show}', { show: watch.showName })} onClick={onClose}>
       <div className="confetti" aria-hidden="true">
         {Array.from({ length: spread <= 1 ? 26 : 10 }, (_, i) => (
           <i
@@ -46,19 +47,19 @@ export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: P
           />
         ))}
       </div>
-      <p className="reveal-kicker">Everyone rated · the reveal</p>
+      <p className="reveal-kicker">{t('Everyone rated · the reveal')}</p>
       <div className="reveal-poster">
         {watch.poster ? <img src={bigPoster(watch.poster)!} alt="" /> : <PosterFill src={null} name={watch.showName} />}
       </div>
       <h2 className="reveal-title">
-        {watch.showName} <span>· S{watch.season}</span>
+        {watch.showName} <span>· {t('S{season}', { season: watch.season })}</span>
       </h2>
       <div className="reveal-cards">
         {ids.map((id, i) => (
           <div key={id} className="rcard" style={{ animationDelay: `${0.35 + i * 0.25}s`, ['--tilt' as string]: `${i % 2 ? 4 : -4}deg` }}>
             <Avatar people={people} id={id} size={42} />
             <span className="rcard-num">{watch.ratings[id]}</span>
-            <span className="rcard-stars" aria-label={`${watch.ratings[id]} stars`}>
+            <span className="rcard-stars" aria-label={watch.ratings[id] === 1 ? t('{n} star', { n: 1 }) : t('{n} stars', { n: watch.ratings[id] })}>
               {'★'.repeat(watch.ratings[id])}
               <span>{'★'.repeat(5 - watch.ratings[id])}</span>
             </span>
@@ -79,7 +80,7 @@ export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: P
       </div>
       <div className="reveal-avg" style={{ animationDelay: `${0.5 + ids.length * 0.25}s` }}>
         <strong>{avg.toFixed(1)}</strong>
-        <span>family average</span>
+        <span>{t('family average')}</span>
       </div>
       <span className="verdict" style={{ animationDelay: `${0.8 + ids.length * 0.25}s` }}>
         <Icon name={spread <= 1 ? 'heart' : 'sparkle'} size={18} stroke={2.2} /> {verdict(spread)}
@@ -92,7 +93,7 @@ export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: P
           onClose()
         }}
       >
-        Continue
+        {t('Continue')}
       </button>
     </div>
   )

@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { LongPress } from './LongPress'
 import { PosterFill } from './Poster'
+import { locale, t } from '../i18n'
 
 interface Props {
   watching: Watch[]
@@ -39,11 +40,11 @@ function useOutlooks(watching: Watch[]): Record<string, Outlook> {
 }
 
 function kicker(o: Outlook | undefined): { text: string; tone: 'ready' | 'soon' | 'plain' } {
-  if (o?.fresh) return { text: o.fresh === 1 ? '1 new episode' : `${o.fresh} new episodes`, tone: 'ready' }
-  if (o?.toGo) return { text: o.toGo === 1 ? '1 episode to go' : `${o.toGo} episodes to go`, tone: 'plain' }
-  if (o?.next) return { text: `Next ep · ${airLabel(o.next.date)}`, tone: 'soon' }
-  if (o) return { text: 'Up to date', tone: 'plain' }
-  return { text: 'Continue watching', tone: 'plain' }
+  if (o?.fresh) return { text: o.fresh === 1 ? t('1 new episode') : t('{n} new episodes', { n: o.fresh }), tone: 'ready' }
+  if (o?.toGo) return { text: o.toGo === 1 ? t('1 episode to go') : t('{n} episodes to go', { n: o.toGo }), tone: 'plain' }
+  if (o?.next) return { text: t('Next ep · {date}', { date: airLabel(o.next.date) }), tone: 'soon' }
+  if (o) return { text: t('Up to date'), tone: 'plain' }
+  return { text: t('Continue watching'), tone: 'plain' }
 }
 
 /** Swipeable banner of every show in progress (dots show where you are), then a "Coming up" TV guide. */
@@ -67,10 +68,10 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
   }
 
   return (
-    <section aria-label="Currently watching" className="releases">
+    <section aria-label={t('Currently watching')} className="releases">
       <h2 className="h2" style={{ marginBottom: 10 }}>
-        Currently watching
-        <small>{watching.length} {watching.length === 1 ? 'show' : 'shows'}</small>
+        {t('Currently watching')}
+        <small>{watching.length === 1 ? t('{n} show', { n: watching.length }) : t('{n} shows', { n: watching.length })}</small>
       </h2>
 
       <div
@@ -85,15 +86,15 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
         {cards.map((w, i) => {
           const k = kicker(outlooks[w.id])
           return (
-            <div key={w.id} className="slide" role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${cards.length}: ${w.showName}`}>
+            <div key={w.id} className="slide" role="group" aria-roledescription={t('slide')} aria-label={t('{n} of {total}: {show}', { n: i + 1, total: cards.length, show: w.showName })}>
               <LongPress className="hero" onLong={() => onActions(w)}>
                 {!readOnly && (
-                  <button className="hero-more" aria-label={`Quick actions for ${w.showName}`} onClick={() => onActions(w)}>
+                  <button className="hero-more" aria-label={t('Quick actions for {show}', { show: w.showName })} onClick={() => onActions(w)}>
                     <span aria-hidden="true">•••</span>
                   </button>
                 )}
                 {w.poster && <img src={bigPoster(w.poster)!} alt="" className="hero-bg" />}
-                <button onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`} style={{ flex: 'none' }}>
+                <button onClick={() => onOpen(w)} aria-label={t('Open {name}', { name: w.showName })} style={{ flex: 'none' }}>
                   <span className="hero-poster" style={{ display: 'block', overflow: 'hidden' }}>
                     <PosterFill src={w.poster} name={w.showName} />
                   </span>
@@ -106,7 +107,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                     {w.showName}
                   </button>
                   <span className="hero-sub">
-                    Season {w.season} · {w.totalEpisodes ? `${w.episodesWatched} of ${w.totalEpisodes}` : `${w.episodesWatched} eps`}
+                    {t('Season {n}', { n: w.season })} · {w.totalEpisodes ? t('{n} of {total}', { n: w.episodesWatched, total: w.totalEpisodes }) : t('{n} eps', { n: w.episodesWatched })}
                   </span>
                   {w.totalEpisodes ? (
                     <div className="bar">
@@ -118,7 +119,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {!readOnly && (
                       <button className="hero-plus" onClick={() => onAddEpisode(w)}>
-                        <Icon name="plus" size={16} stroke={2.6} /> Watched next
+                        <Icon name="plus" size={16} stroke={2.6} /> {t('Watched next')}
                       </button>
                     )}
                     <span className="stack">
@@ -135,7 +136,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
       </div>
 
       {cards.length > 1 && (
-        <div className="dots" role="tablist" aria-label="Shows">
+        <div className="dots" role="tablist" aria-label={t('Shows')}>
           {cards.map((w, i) => (
             <button
               key={w.id}
@@ -152,22 +153,22 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
       {coming.length > 0 && (
         <>
           <h2 className="h2" style={{ margin: '18px 0 10px' }}>
-            Coming up
-            <small>new episodes</small>
+            {t('Coming up')}
+            <small>{t('new episodes')}</small>
           </h2>
           <div className="guide">
             {coming.map(({ w, next }) => {
               const [y, m, d] = next.date.split('-').map(Number)
               const day = new Date(y, m - 1, d)
               const label = airLabel(next.date)
-              const soon = label === 'Today' || label === 'Tomorrow'
+              const soon = label === t('Today') || label === t('Tomorrow')
               return (
-                <button key={w.id} className={`guide-tile ${soon ? 'soon' : ''}`} onClick={() => onOpen(w)} aria-label={`${w.showName}, season ${next.season} episode ${next.number}, ${label}`}>
-                  <span className="guide-dow">{soon ? label : day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                <button key={w.id} className={`guide-tile ${soon ? 'soon' : ''}`} onClick={() => onOpen(w)} aria-label={t('{show}, season {season} episode {episode}, {date}', { show: w.showName, season: next.season, episode: next.number, date: label })}>
+                  <span className="guide-dow">{soon ? label : day.toLocaleDateString(locale(), { weekday: 'short' })}</span>
                   <span className="guide-day">{d}</span>
-                  <span className="guide-mon">{day.toLocaleDateString('en-US', { month: 'short' })}</span>
+                  <span className="guide-mon">{day.toLocaleDateString(locale(), { month: 'short' })}</span>
                   <span className="guide-show">{w.showName}</span>
-                  <span className="guide-ep">S{next.season} · E{next.number}</span>
+                  <span className="guide-ep">{t('S{season} · E{episode}', { season: next.season, episode: next.number })}</span>
                 </button>
               )
             })}

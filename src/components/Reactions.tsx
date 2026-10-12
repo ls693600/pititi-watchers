@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { REACTIONS, reactionGroups } from '../logic'
 import type { Person, Reaction } from '../types'
 import { Avatar } from './Avatar'
+import { t } from '../i18n'
 
 interface Props {
   watchId: string
@@ -21,8 +22,8 @@ interface Props {
 export function Reactions({ watchId, targetId, reactions, people, me, canReact, onReact, tone = 'light' }: Props) {
   const [picking, setPicking] = useState(false)
   const groups = reactionGroups(reactions, watchId, targetId)
-  const names = (ids: string[]) => ids.map((id) => (id === me ? 'you' : (people.find((p) => p.id === id)?.name ?? 'someone'))).join(', ')
-  const target = people.find((p) => p.id === targetId)?.name ?? 'them'
+  const names = (ids: string[]) => ids.map((id) => (id === me ? t('you') : (people.find((p) => p.id === id)?.name ?? t('someone')))).join(', ')
+  const target = people.find((p) => p.id === targetId)?.name ?? t('them')
   // One reaction each: once you've reacted, tap yours to take it back instead of adding another
   const reacted = me != null && groups.some((g) => g.people.includes(me))
   if (!groups.length && !canReact) return null
@@ -37,7 +38,7 @@ export function Reactions({ watchId, targetId, reactions, people, me, canReact, 
             type="button"
             className={`react-chip ${mine ? 'mine' : ''}`}
             aria-pressed={mine}
-            aria-label={`${g.emoji} from ${names(g.people)}`}
+            aria-label={t('{emoji} from {names}', { emoji: g.emoji, names: names(g.people) })}
             title={names(g.people)}
             disabled={!canReact}
             onClick={() => onReact(targetId, g.emoji)}
@@ -56,12 +57,12 @@ export function Reactions({ watchId, targetId, reactions, people, me, canReact, 
       {canReact &&
         !reacted &&
         (picking ? (
-          <span className="react-picker" role="group" aria-label={`React to ${target}'s stars`}>
+          <span className="react-picker" role="group" aria-label={t("React to {name}'s stars", { name: target })}>
             {REACTIONS.map((e) => (
               <button
                 key={e}
                 type="button"
-                aria-label={`React ${e}`}
+                aria-label={t('React {emoji}', { emoji: e })}
                 onClick={() => {
                   onReact(targetId, e)
                   setPicking(false)
@@ -72,8 +73,8 @@ export function Reactions({ watchId, targetId, reactions, people, me, canReact, 
             ))}
           </span>
         ) : (
-          <button type="button" className="react-add" aria-label={`React to ${target}'s stars`} onClick={() => setPicking(true)}>
-            <span aria-hidden="true">+</span> React
+          <button type="button" className="react-add" aria-label={t("React to {name}'s stars", { name: target })} onClick={() => setPicking(true)}>
+            <span aria-hidden="true">+</span> {t('React')}
           </button>
         ))}
     </div>

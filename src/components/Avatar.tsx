@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import type { Person } from '../types'
 
 const COLORS = ['#5b6cff', '#ff4d8d', '#12b886', '#f59f00', '#9b5de5', '#ff6b3d', '#0ea5e9', '#e64980']
@@ -34,14 +35,14 @@ export function PersonFilter({
 }) {
   if (people.length < 2) return null
   return (
-    <div className="filter" role="radiogroup" aria-label="Whose shows">
+    <div className="filter" role="radiogroup" aria-label={t('Whose shows')}>
       <button
         role="radio"
         aria-checked={value === null}
         className={`everyone ${value === null ? 'on' : ''}`}
         onClick={() => onChange(null)}
       >
-        Everyone
+        {t('Everyone')}
       </button>
       {people.map((p) => (
         <button

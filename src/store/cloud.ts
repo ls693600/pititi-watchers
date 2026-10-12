@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { Comment, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
 
@@ -215,12 +216,12 @@ export function supabase(): SupabaseClient {
 
 /** Turns database errors raised by the join trigger into something a person can act on. */
 function friendly(message: string): string {
-  if (/invite_invalid/i.test(message)) return "That invite code isn't right. Ask someone in the family for the code in Settings."
-  if (/profile_taken/i.test(message)) return 'That person already has an account. Sign in instead.'
-  if (/name_required/i.test(message)) return 'Enter your name.'
-  if (/already registered/i.test(message)) return 'That email already has an account. Sign in instead.'
-  if (/database error/i.test(message)) return "Couldn't create the account. Check the invite code and try again."
-  if (/invalid login/i.test(message)) return 'Wrong email or password.'
+  if (/invite_invalid/i.test(message)) return t("That invite code isn't right. Ask someone in the family for the code in Settings.")
+  if (/profile_taken/i.test(message)) return t('That person already has an account. Sign in instead.')
+  if (/name_required/i.test(message)) return t('Enter your name.')
+  if (/already registered/i.test(message)) return t('That email already has an account. Sign in instead.')
+  if (/database error/i.test(message)) return t("Couldn't create the account. Check the invite code and try again.")
+  if (/invalid login/i.test(message)) return t('Wrong email or password.')
   return message
 }
 
@@ -231,7 +232,7 @@ export async function currentSession(): Promise<Session | null> {
   // select * so this keeps working before and after the viewer column exists
   const { data: person, error } = await supabase().from('people').select('*').eq('user_id', user.id).maybeSingle()
   if (error) throw error
-  if (!person) throw new Error("This account isn't part of the family yet. Sign out and create an account with the invite code.")
+  if (!person) throw new Error(t("This account isn't part of the family yet. Sign out and create an account with the invite code."))
   return { email: user.email ?? '', personId: person.id as string, isAdmin: Boolean(person.is_admin), isViewer: Boolean(person.is_viewer) }
 }
 
@@ -239,7 +240,7 @@ export async function signIn(email: string, password: string): Promise<Session> 
   const { error } = await supabase().auth.signInWithPassword({ email, password })
   if (error) throw new Error(friendly(error.message))
   const s = await currentSession()
-  if (!s) throw new Error('Sign-in did not return a session.')
+  if (!s) throw new Error(t('Sign-in did not return a session.'))
   return s
 }
 
@@ -395,7 +396,7 @@ export const cloudStore: Store = {
     // RLS silently skips rows you may not delete, so check something was actually removed
     const { data, error } = await supabase().from('watches').delete().eq('id', id).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error('Only Leandro or the person who added it can remove this.')
+    if (!data?.length) throw new Error(t('Only Leandro or the person who added it can remove this.'))
   },
   async setReaction(r) {
     const key = { watch_id: r.watchId, person_id: r.personId, target_id: r.targetId }
@@ -413,7 +414,7 @@ export const cloudStore: Store = {
   async removeComment(id) {
     const { data, error } = await supabase().from('comments').delete().eq('id', id).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error('You can only remove your own messages.')
+    if (!data?.length) throw new Error(t('You can only remove your own messages.'))
   },
   async savePush(sub) {
     const { error } = await supabase()
@@ -451,7 +452,7 @@ export const cloudStore: Store = {
   async movePerson(personId, householdId) {
     const { data, error } = await supabase().from('people').update({ household_id: householdId }).eq('id', personId).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error('Only Leandro can move people between households.')
+    if (!data?.length) throw new Error(t('Only Leandro can move people between households.'))
   },
   async saveList(l) {
     const { error } = await supabase().from('lists').upsert({
@@ -469,17 +470,17 @@ export const cloudStore: Store = {
   async removeList(id) {
     const { data, error } = await supabase().from('lists').delete().eq('id', id).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error("Only your household can remove this list (Up Next can't be removed).")
+    if (!data?.length) throw new Error(t("Only your household can remove this list (Up Next can't be removed)."))
   },
   async addItem(item) {
     const { error } = await supabase().from('list_items').insert({ id: item.id, list_id: item.listId, votes: item.votes, ...titleTo(item) })
-    if (error?.code === '23505') throw new Error("It's already on that list.")
+    if (error?.code === '23505') throw new Error(t("It's already on that list."))
     if (error) throw error
   },
   async removeItem(id) {
     const { data, error } = await supabase().from('list_items').delete().eq('id', id).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error('Only the household that owns this list can remove things from it.')
+    if (!data?.length) throw new Error(t('Only the household that owns this list can remove things from it.'))
   },
   async vote(itemId) {
     const { data, error } = await supabase().rpc('toggle_vote', { item: itemId })
@@ -512,7 +513,7 @@ export const cloudStore: Store = {
   async setViewer(id, viewer) {
     const { data, error } = await supabase().from('people').update({ is_viewer: viewer }).eq('id', id).select('id')
     if (error) throw error
-    if (!data?.length) throw new Error('Only Leandro can change that.')
+    if (!data?.length) throw new Error(t('Only Leandro can change that.'))
   },
   async renamePerson(id, name) {
     const { error } = await supabase().from('people').update({ name }).eq('id', id)

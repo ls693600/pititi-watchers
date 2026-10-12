@@ -16,6 +16,8 @@ function readLang(): Lang {
 }
 
 let current: Lang = readLang()
+// Screen readers and spell-check follow the saved language from the first paint
+if (typeof document !== 'undefined') document.documentElement.lang = current === 'pt' ? 'pt-BR' : 'en'
 
 export function getLang(): Lang {
   return current

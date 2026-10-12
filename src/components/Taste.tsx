@@ -2,16 +2,17 @@ import { MATCH_MIN_SHARED, type Badge, type TasteMatch } from '../logic'
 import type { Person } from '../types'
 import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
+import { t } from '../i18n'
 
 function verdictFor(score: number): string {
-  if (score >= 90) return 'Practically the same brain'
-  if (score >= 75) return 'Great taste match'
-  if (score >= 60) return 'Mostly on the same page'
-  return 'Opposites attract'
+  if (score >= 90) return t('Practically the same brain')
+  if (score >= 75) return t('Great taste match')
+  if (score >= 60) return t('Mostly on the same page')
+  return t('Opposites attract')
 }
 
 export function TasteCard({ match, people, big = false }: { match: TasteMatch; people: Person[]; big?: boolean }) {
-  const name = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
+  const name = (id: string) => people.find((p) => p.id === id)?.name ?? t('Someone')
   const locked = match.shared < MATCH_MIN_SHARED
   const size = big ? 92 : 64
   return (
@@ -26,7 +27,7 @@ export function TasteCard({ match, people, big = false }: { match: TasteMatch; p
             : `conic-gradient(var(--brand) 0 ${match.score}%, var(--surface-2) ${match.score}% 100%)`,
         }}
         role="img"
-        aria-label={locked ? 'Locked' : `${match.score}% match`}
+        aria-label={locked ? t('Locked') : t('{n}% match', { n: match.score })}
       >
         <div style={{ width: size - (big ? 18 : 14), height: size - (big ? 18 : 14), fontSize: big ? 24 : 16 }}>
           {locked ? <Icon name="lock" size={big ? 24 : 18} stroke={2.2} /> : `${match.score}%`}
@@ -42,8 +43,12 @@ export function TasteCard({ match, people, big = false }: { match: TasteMatch; p
         </p>
         <p className="muted match-sub">
           {locked
-            ? `Rate ${MATCH_MIN_SHARED - match.shared} more ${MATCH_MIN_SHARED - match.shared === 1 ? 'show' : 'shows'} together to unlock`
-            : `${verdictFor(match.score)}. Agree on ${match.agreed} of ${match.shared}${match.clash ? `, clash on ${match.clash.watch.showName}` : ''}.`}
+            ? MATCH_MIN_SHARED - match.shared === 1
+              ? t('Rate 1 more show together to unlock')
+              : t('Rate {n} more shows together to unlock', { n: MATCH_MIN_SHARED - match.shared })
+            : match.clash
+              ? t('{verdict}. Agree on {n} of {total}, clash on {show}.', { verdict: verdictFor(match.score), n: match.agreed, total: match.shared, show: match.clash.watch.showName })
+              : t('{verdict}. Agree on {n} of {total}.', { verdict: verdictFor(match.score), n: match.agreed, total: match.shared })}
         </p>
       </div>
     </div>
@@ -65,7 +70,7 @@ const BADGE_LOOK: Record<string, { icon: IconName; grad: string }> = {
 export function BadgeTile({ badge }: { badge: Badge }) {
   const look = BADGE_LOOK[badge.id] ?? BADGE_LOOK.streak
   return (
-    <div className={`bdg ${badge.earned ? '' : 'locked'}`} aria-label={`${badge.title}: ${badge.earned ? 'earned' : `${badge.progress} of ${badge.target}`}`}>
+    <div className={`bdg ${badge.earned ? '' : 'locked'}`} aria-label={`${badge.title}: ${badge.earned ? t('earned') : t('{n} of {total}', { n: badge.progress, total: badge.target })}`}>
       <div className="medal" style={{ background: badge.earned ? look.grad : 'var(--surface-3)' }}>
         <Icon name={look.icon} size={24} stroke={2} />
       </div>

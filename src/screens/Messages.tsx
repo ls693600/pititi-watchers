@@ -30,7 +30,7 @@ interface Props {
 
 /** All the family's chats in one place: the Family chat plus every show that has a conversation. */
 export function Messages({ comments, watches, people, me, lastRead, thread, onThread, onSend, onRemove, onSeen, onOpenShow, notify, embedded = false, mutes = [], onMute }: Props) {
-  const nameOf = (id: string) => (id === me ? 'You' : (people.find((p) => p.id === id)?.name ?? 'Someone'))
+  const nameOf = (id: string) => (id === me ? t('You') : (people.find((p) => p.id === id)?.name ?? t('Someone')))
 
   if (thread !== undefined) {
     const w = thread ? watches.find((x) => x.id === thread) ?? null : null
@@ -38,17 +38,17 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
       // The show was removed (maybe on another phone)
       return (
         <div className="screen">
-          <button className="icon-btn" aria-label="Back to messages" onClick={() => onThread(undefined)}>
+          <button className="icon-btn" aria-label={t('Back to messages')} onClick={() => onThread(undefined)}>
             <Icon name="left" size={20} />
           </button>
-          <p className="muted center">This show was removed from the log, along with its chat.</p>
+          <p className="muted center">{t('This show was removed from the log, along with its chat.')}</p>
         </div>
       )
     }
     return (
       <div className={embedded ? 'stack-col thread' : 'screen thread'}>
         <header className="thread-head">
-          <button className="icon-btn" aria-label="Back to messages" onClick={() => onThread(undefined)}>
+          <button className="icon-btn" aria-label={t('Back to messages')} onClick={() => onThread(undefined)}>
             <Icon name="left" size={20} />
           </button>
           {w ? (
@@ -56,7 +56,7 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
               <Poster src={w.poster} name={w.showName} w={40} />
               <span>
                 <b>{w.showName}</b>
-                <small>Season {w.season} · open show</small>
+                <small>{t('Season {n} · open show', { n: w.season })}</small>
               </span>
             </button>
           ) : (
@@ -65,7 +65,7 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
                 <Icon name="users" size={20} />
               </span>
               <span>
-                <b>Family chat</b>
+                <b>{t('Family chat')}</b>
                 <small>{people.map((p) => p.name).join(', ')}</small>
               </span>
             </div>
@@ -105,30 +105,30 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
           </span>
           <p>
             {notify.state === 'install'
-              ? 'To get notified on this iPhone, open Pititi from your home screen icon (not Safari).'
+              ? t('To get notified on this iPhone, open Pititi from your home screen icon (not Safari).')
               : notify.state === 'denied'
-                ? 'Notifications are blocked for Pititi. Turn them on in your phone settings.'
+                ? t('Notifications are blocked for Pititi. Turn them on in your phone settings.')
                 : notify.state === 'unsupported'
-                  ? "This browser can't show notifications. Use the home screen app."
-                  : 'Get a notification when someone messages or @mentions you.'}
+                  ? t("This browser can't show notifications. Use the home screen app.")
+                  : t('Get a notification when someone messages or @mentions you.')}
           </p>
           {notify.state === 'off' && (
             <button className="btn sm primary" onClick={notify.onEnable}>
-              Turn on
+              {t('Turn on')}
             </button>
           )}
         </div>
       )}
 
       <ul className="inbox">
-        {list.map((t) => {
-          const w = t.watchId ? watches.find((x) => x.id === t.watchId) : null
-          if (t.watchId && !w) return null
+        {list.map((th) => {
+          const w = th.watchId ? watches.find((x) => x.id === th.watchId) : null
+          if (th.watchId && !w) return null
           // A finished show you haven't rated: say who wrote, not what
-          const hidden = w && t.last && t.last.personId !== me && chatLocked(w, me)
+          const hidden = w && th.last && th.last.personId !== me && chatLocked(w, me)
           return (
-            <li key={t.key}>
-              <button className={`inbox-row ${t.unread ? 'unread' : ''}`} onClick={() => onThread(t.watchId)}>
+            <li key={th.key}>
+              <button className={`inbox-row ${th.unread ? 'unread' : ''}`} onClick={() => onThread(th.watchId)}>
                 {w ? (
                   <Poster src={w.poster} name={w.showName} w={48} />
                 ) : (
@@ -138,21 +138,21 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
                 )}
                 <span className="inbox-text">
                   <span className="inbox-top">
-                    <b>{w ? w.showName : 'Family chat'}</b>
-                    {t.last && <small>{timeAgo(t.last.createdAt)}</small>}
+                    <b>{w ? w.showName : t('Family chat')}</b>
+                    {th.last && <small>{timeAgo(th.last.createdAt)}</small>}
                   </span>
                   <span className="inbox-last">
-                    {t.last ? (
+                    {th.last ? (
                       <>
-                        <Avatar people={people} id={t.last.personId} size={16} />
-                        {nameOf(t.last.personId)}: {hidden ? 'rate it to read' : t.last.text}
+                        <Avatar people={people} id={th.last.personId} size={16} />
+                        {nameOf(th.last.personId)}: {hidden ? t('rate it to read') : th.last.text}
                       </>
                     ) : (
-                      'Everyone in the family, any topic'
+                      t('Everyone in the family, any topic')
                     )}
                   </span>
                 </span>
-                {t.unread > 0 && <span className="badge-count" aria-label={`${t.unread} unread`}>{t.unread}</span>}
+                {th.unread > 0 && <span className="badge-count" aria-label={t('{n} unread', { n: th.unread })}>{th.unread}</span>}
               </button>
             </li>
           )
@@ -160,7 +160,7 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
       </ul>
       {list.length === 1 && (
         <p className="muted center small" style={{ padding: '0 20px' }}>
-          Show chats appear here too. Open any show and write in its Family chat.
+          {t('Show chats appear here too. Open any show and write in its Family chat.')}
         </p>
       )}
     </div>

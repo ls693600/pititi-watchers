@@ -1,4 +1,5 @@
 // Share cards: a picture of what the family watched and how they rated it, sent through the phone's share sheet.
+import { t } from './i18n'
 import { bigPoster } from './tvmaze'
 
 export const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
@@ -122,12 +123,12 @@ export async function drawMonthCard(opts: {
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
-  header(ctx, 'What we watched', `Our ${opts.monthName}`)
+  header(ctx, t('What we watched'), t('Our {month}', { month: opts.monthName }))
 
   const pills = [
-    [opts.totals.shows, opts.totals.shows === 1 ? 'show' : 'shows'],
-    [opts.totals.episodes, 'episodes'],
-    [`${opts.totals.hours}h`, 'watched'],
+    [opts.totals.shows, opts.totals.shows === 1 ? t('show') : t('shows')],
+    [opts.totals.episodes, t('episodes')],
+    [`${opts.totals.hours}h`, t('watched')],
   ] as const
   pills.forEach(([n, label], i) => {
     const x = 72 + i * 316
@@ -172,7 +173,7 @@ export async function drawMonthCard(opts: {
   if (!shown.length) {
     ctx.fillStyle = MUTED
     ctx.font = '500 34px -apple-system, system-ui, sans-serif'
-    ctx.fillText('Nothing logged yet this month.', 72, 520)
+    ctx.fillText(t('Nothing logged yet this month.'), 72, 520)
   }
   footer(ctx, opts.names)
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No image'))), 'image/png'))
@@ -193,7 +194,7 @@ export async function drawShowCard(opts: {
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
-  header(ctx, 'We watched', opts.name)
+  header(ctx, t('We watched'), opts.name)
   ctx.fillStyle = '#fff'
   ctx.font = '600 32px -apple-system, system-ui, sans-serif'
   ctx.fillText(fitText(ctx, opts.meta, W - 144), 72, 270)
@@ -221,7 +222,7 @@ export async function drawShowCard(opts: {
     ctx.fillText(opts.average.toFixed(1), x - 6, y + 110)
     ctx.fillStyle = MUTED
     ctx.font = '600 30px -apple-system, system-ui, sans-serif'
-    ctx.fillText(opts.averageLabel ?? 'family average', x, y + 160)
+    ctx.fillText(opts.averageLabel ?? t('family average'), x, y + 160)
     y += 260
   }
   opts.ratings.forEach((r) => {
@@ -241,7 +242,7 @@ export async function drawShowCard(opts: {
     else {
       ctx.fillStyle = MUTED
       ctx.font = '500 26px -apple-system, system-ui, sans-serif'
-      ctx.fillText('Not rated yet', x + 70, y + 42)
+      ctx.fillText(t('Not rated yet'), x + 70, y + 42)
     }
     y += 120
   })

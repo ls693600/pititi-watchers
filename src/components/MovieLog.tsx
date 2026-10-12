@@ -97,7 +97,7 @@ export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForL
             <p className="label-sm">{t('Your rating')}</p>
             <div className="quick-stars">
               <Stars
-                label={t('Your')}
+                label="Your"
                 value={w.ratings[me] ?? null}
                 onChange={(v) =>
                   setW((cur) => {

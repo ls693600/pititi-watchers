@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../components/Icon'
 import type { JoinAs, JoinOptions } from '../store/cloud'
 import { popularPosters } from '../tvmaze'
+import { getLang, setLang, t } from '../i18n'
 
 interface Props {
   onSignIn: (email: string, password: string) => Promise<void>
@@ -38,7 +39,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
     const c = code.trim()
     if (mode !== 'signup' || c.length < 6) return
     let alive = true
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setChecking(true)
       try {
         const o = await loadOptions(c)
@@ -53,7 +54,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
     }, 350)
     return () => {
       alive = false
-      clearTimeout(t)
+      clearTimeout(timer)
     }
   }, [code, mode, loadOptions])
 
@@ -61,11 +62,11 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!email.trim() || !password) return setError('Enter your email and password.')
+    if (!email.trim() || !password) return setError(t('Enter your email and password.'))
     if (mode === 'signup') {
-      if (!codeOk) return setError('Enter the invite code from Settings on a family member’s phone.')
-      if (pick === NEW && !name.trim()) return setError('Enter your name.')
-      if (password.length < 6) return setError('Use at least 6 characters for the password.')
+      if (!codeOk) return setError(t('Enter the invite code from Settings on a family member’s phone.'))
+      if (pick === NEW && !name.trim()) return setError(t('Enter your name.'))
+      if (password.length < 6) return setError(t('Use at least 6 characters for the password.'))
     }
     setBusy(true)
     setError(null)
@@ -77,12 +78,12 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
         const as: JoinAs = pick === NEW ? { name: name.trim() } : { personId: pick }
         const signedIn = await onSignUp(email.trim(), password, code.trim().toUpperCase(), as)
         if (!signedIn) {
-          setNotice('Account created. Open the confirmation email, then come back and sign in.')
+          setNotice(t('Account created. Open the confirmation email, then come back and sign in.'))
           setMode('signin')
         }
       }
     } catch (err) {
-      setError((err as Error).message || "Couldn't sign in. Try again.")
+      setError((err as Error).message || t("Couldn't sign in. Try again."))
     } finally {
       setBusy(false)
     }
@@ -90,6 +91,13 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
 
   return (
     <form className="login" onSubmit={submit} noValidate>
+      <div className="segmented login-lang" role="radiogroup" aria-label="Language / Idioma">
+        {(['en', 'pt'] as const).map((l) => (
+          <button key={l} type="button" role="radio" aria-checked={getLang() === l} className={getLang() === l ? 'on' : ''} lang={l === 'pt' ? 'pt-BR' : 'en'} aria-label={l === 'en' ? 'English' : 'Português'} onClick={() => setLang(l)}>
+            {l.toUpperCase()}
+          </button>
+        ))}
+      </div>
       <div className="mosaic" aria-hidden="true">
         <div className="mosaic-grid">
           {Array.from({ length: 4 }, (_, col) => (
@@ -114,9 +122,9 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       <h1>
         Pititi <span className="grad-text">Watchers</span>
       </h1>
-      <p className="tagline">Everything your family watches. Rated, remembered, together.</p>
+      <p className="tagline">{t('Everything your family watches. Rated, remembered, together.')}</p>
 
-      <div className="segmented wide" role="tablist" aria-label="Account">
+      <div className="segmented wide" role="tablist" aria-label={t('Account')}>
         {(['signin', 'signup'] as const).map((m) => (
           <button
             key={m}
@@ -129,7 +137,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
               setError(null)
             }}
           >
-            {m === 'signin' ? 'Sign in' : 'Create account'}
+            {m === 'signin' ? t('Sign in') : t('Create account')}
           </button>
         ))}
       </div>
@@ -137,7 +145,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       {mode === 'signup' && (
         <>
           <label className="stack-field">
-            <span className="muted">Invite code</span>
+            <span className="muted">{t('Invite code')}</span>
             <input
               value={code}
               onChange={(e) => {
@@ -150,16 +158,16 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
               autoComplete="off"
               maxLength={12}
             />
-            {checking && <span className="muted small">Checking…</span>}
+            {checking && <span className="muted small">{t('Checking…')}</span>}
             {!checking && options && !options.valid && (
-              <span className="error small">That code isn't right. Check Settings → Invite code on a family member's phone.</span>
+              <span className="error small">{t("That code isn't right. Check Settings → Invite code on a family member's phone.")}</span>
             )}
           </label>
 
           {codeOk && (
             <div className="stack-field">
-              <span className="muted">I'm</span>
-              <div className="chips" role="radiogroup" aria-label="Who are you">
+              <span className="muted">{t("I'm")}</span>
+              <div className="chips" role="radiogroup" aria-label={t('Who are you')}>
                 {options!.profiles.map((p) => (
                   <button
                     key={p.id}
@@ -179,11 +187,11 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
                   className={pick === NEW ? 'on' : ''}
                   onClick={() => setPick(NEW)}
                 >
-                  Someone new
+                  {t('Someone new')}
                 </button>
               </div>
               {pick === NEW && (
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={30} aria-label="Your name" />
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Your name')} maxLength={30} aria-label={t('Your name')} />
               )}
             </div>
           )}
@@ -191,18 +199,18 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       )}
 
       <label className="stack-field">
-        <span className="muted">Email</span>
+        <span className="muted">{t('Email')}</span>
         <input
           type="email"
           autoComplete="email"
           autoCapitalize="none"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t('you@example.com')}
         />
       </label>
       <label className="stack-field">
-        <span className="muted">Password</span>
+        <span className="muted">{t('Password')}</span>
         <input
           type="password"
           autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
@@ -213,7 +221,7 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       {notice && <p className="ok" role="status">{notice}</p>}
       {error && <p className="error" role="alert">{error}</p>}
       <button className="btn primary block" type="submit" disabled={busy}>
-        {busy ? 'One moment…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+        {busy ? t('One moment…') : mode === 'signin' ? t('Sign in') : t('Create account')}
       </button>
       </div>
     </form>

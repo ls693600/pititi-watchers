@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
 import { Stars } from './Stars'
+import { t } from '../i18n'
 
 interface Props {
   draft: Watch
@@ -85,7 +86,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
       setMonthNote(null)
       return next
     }
-    setMonthNote(`Filed under ${monthLabel(fix)}: Season ${s.number} premiered then.`)
+    setMonthNote(t('Filed under {month}: Season {n} premiered then.', { month: monthLabel(fix), n: s.number }))
     return { ...next, month: fix }
   }
 
@@ -134,31 +135,31 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
   }
 
   function submit() {
-    if (!w.watchedBy.length) return setError('Pick who watched it.')
+    if (!w.watchedBy.length) return setError(t('Pick who watched it.'))
     onLog({ ...w, updatedAt: new Date().toISOString() })
   }
 
   return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={`Log ${w.showName}`}>
-      <button className="sheet-dim" aria-label="Close" onClick={onClose} />
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={t('Log {title}', { title: w.showName })}>
+      <button className="sheet-dim" aria-label={t('Close')} onClick={onClose} />
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
           <Poster src={w.poster} name={w.showName} w={64} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <p className="label-sm">
-              Quick log · {monthLabel(w.month, 'long').split(' ')[0]}
-              {w.isRewatch && <span className="rewatch-tag"><Icon name="repeat" size={11} stroke={2.6} /> Rewatch</span>}
+              {t('Quick log')} · {monthLabel(w.month, 'long').split(' ')[0]}
+              {w.isRewatch && <span className="rewatch-tag"><Icon name="repeat" size={11} stroke={2.6} /> {t('Rewatch')}</span>}
             </p>
             <h2 className="sheet-title">{w.showName}</h2>
             <div className="sheet-meta">
               {seasons && seasons.length > 1 ? (
                 <label className="season-pick">
-                  Season {w.season}
+                  {t('Season {n}', { n: w.season })}
                   <Icon name="right" size={13} stroke={2.6} />
                   <select
                     value={w.season}
-                    aria-label="Season"
+                    aria-label={t('Season')}
                     onChange={(e) => {
                       const s = seasons.find((x) => x.number === Number(e.target.value))
                       if (!s) return
@@ -172,46 +173,46 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
                   >
                     {seasons.map((s) => (
                       <option key={s.number} value={s.number}>
-                        Season {s.number}{s.aired ? '' : ' (upcoming)'}
+                        {t('Season {n}', { n: s.number })}{s.aired ? '' : ` (${t('upcoming')})`}
                       </option>
                     ))}
                   </select>
                 </label>
               ) : (
-                <span>Season {w.season}</span>
+                <span>{t('Season {n}', { n: w.season })}</span>
               )}
-              {total ? <span> · {total} episodes</span> : null}
+              {total ? <span> · {t('{n} episodes', { n: total })}</span> : null}
             </div>
             {monthNote && <p className="month-note">{monthNote}</p>}
           </div>
-          <button className="icon-btn" aria-label="Close" onClick={onClose} style={{ alignSelf: 'flex-start' }}>
+          <button className="icon-btn" aria-label={t('Close')} onClick={onClose} style={{ alignSelf: 'flex-start' }}>
             <Icon name="close" size={18} />
           </button>
         </div>
 
-        <div className="big-choice" role="radiogroup" aria-label="Status">
+        <div className="big-choice" role="radiogroup" aria-label={t('Status')}>
           <button role="radio" aria-checked={finished} className={finished ? 'on' : ''} onClick={() => setStatus(true)}>
             <Icon name="check" size={18} stroke={2.6} />
-            <b>{airing ? 'Caught up' : 'Finished it'}</b>
-            <small>{airing ? `All ${aired} aired of ${total}` : total ? `All ${total} episodes` : 'The whole season'}</small>
+            <b>{airing ? t('Caught up') : t('Finished it')}</b>
+            <small>{airing ? t('All {n} aired of {total}', { n: aired!, total: total! }) : total ? t('All {n} episodes', { n: total }) : t('The whole season')}</small>
           </button>
           <button role="radio" aria-checked={!finished} className={!finished ? 'on' : ''} onClick={() => setStatus(false)}>
             <Icon name="play" size={16} stroke={2.2} />
-            <b>Still watching</b>
-            <small>Mark episodes as you go</small>
+            <b>{t('Still watching')}</b>
+            <small>{t('Mark episodes as you go')}</small>
           </button>
         </div>
 
         {!finished && (
           <div className="field" style={{ borderBottom: 0, minHeight: 0 }}>
-            <span>Watched so far</span>
+            <span>{t('Watched so far')}</span>
             <div className="stepper">
-              <button aria-label="One episode less" onClick={() => setW((c) => ({ ...c, episodesWatched: Math.max(0, c.episodesWatched - 1) }))}>
+              <button aria-label={t('One episode less')} onClick={() => setW((c) => ({ ...c, episodesWatched: Math.max(0, c.episodesWatched - 1) }))}>
                 <Icon name="minus" size={18} />
               </button>
-              <span aria-live="polite">{w.episodesWatched === 0 ? 'None yet' : `${w.episodesWatched}${total ? ` / ${total}` : ''}`}</span>
+              <span aria-live="polite">{w.episodesWatched === 0 ? t('None yet') : `${w.episodesWatched}${total ? ` / ${total}` : ''}`}</span>
               <button
-                aria-label="One episode more"
+                aria-label={t('One episode more')}
                 onClick={() =>
                   setW((c) => ({ ...c, episodesWatched: Math.min(airing ? aired! : total ? total - 1 : Infinity, c.episodesWatched + 1) }))
                 }
@@ -224,22 +225,22 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
 
         {people.length > 1 && (
           <div>
-            <p className="label-sm" style={{ marginBottom: 8 }}>Watching together?</p>
-            <div className="big-choice together" role="radiogroup" aria-label="Watching together?">
+            <p className="label-sm" style={{ marginBottom: 8 }}>{t('Watching together?')}</p>
+            <div className="big-choice together" role="radiogroup" aria-label={t('Watching together?')}>
               <button type="button" role="radio" aria-checked={!together} className={!together ? 'on' : ''} onClick={() => setTogether(false)}>
                 <Icon name="tv" size={16} stroke={2.2} />
-                <b>Just me</b>
-                <small>Only your stars count</small>
+                <b>{t('Just me')}</b>
+                <small>{t('Only your stars count')}</small>
               </button>
               <button type="button" role="radio" aria-checked={together} className={together ? 'on' : ''} onClick={() => setTogether(true)}>
                 <Icon name="users" size={16} stroke={2.2} />
-                <b>Together</b>
-                <small>{people.length === 2 ? `Average with ${people.find((p) => p.id !== me)?.name ?? 'the family'}` : 'Average of everyone watching'}</small>
+                <b>{t('Together')}</b>
+                <small>{people.length === 2 ? t('Average with {name}', { name: people.find((p) => p.id !== me)?.name ?? t('the family') }) : t('Average of everyone watching')}</small>
               </button>
             </div>
             {/* Bigger families pick exactly who was on the couch */}
             {together && people.length > 2 && (
-              <div className="chips" style={{ padding: '10px 0 0' }} role="group" aria-label="Who watched">
+              <div className="chips" style={{ padding: '10px 0 0' }} role="group" aria-label={t('Who watched')}>
                 {people.map((p) => (
                   <button
                     key={p.id}
@@ -258,22 +259,22 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
 
         {(w.status === 'done' || airing) && finished && iWatched && (
           <div className="quick-rate">
-            <p className="label-sm">Your rating</p>
+            <p className="label-sm">{t('Your rating')}</p>
             <div className="quick-stars">
               <Stars label="Your" value={w.ratings[me!] ?? null} onChange={rate} />
             </div>
             {others.length > 0 && (
-              <p className="muted">{others.map((p) => p.name).join(' and ')} won't see your stars until everyone rates</p>
+              <p className="muted">{t("{names} won't see your stars until everyone rates", { names: others.map((p) => p.name).join(` ${t('and')} `) })}</p>
             )}
           </div>
         )}
 
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn primary block" onClick={submit} disabled={saving}>
-          {saving ? 'Saving…' : 'Log it'}
+          {saving ? t('Saving…') : t('Log it')}
         </button>
         <button className="more" onClick={() => onMore(w)}>
-          More options: month, rewatch, notes
+          {t('More options: month, rewatch, notes')}
         </button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 import { applyUpdate, latestBuild, runningBuild } from '../updates'
+import { t } from '../i18n'
 
 /**
  * iPhones resume a home-screen app without reloading it, so a release can sit unseen for days.
@@ -27,8 +28,8 @@ export function UpdateBanner() {
   return (
     <div className="update-banner" role="status">
       <Icon name="sparkle" size={18} stroke={2.2} />
-      <span>A new version of Pititi is ready.</span>
-      <button onClick={applyUpdate}>Update</button>
+      <span>{t('A new version of Pititi is ready.')}</span>
+      <button onClick={applyUpdate}>{t('Update')}</button>
     </div>
   )
 }

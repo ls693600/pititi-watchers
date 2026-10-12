@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { AvgStars } from './Stars'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
+import { t } from '../i18n'
 
 interface Props {
   month: string
@@ -37,7 +38,7 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
   async function share() {
     setSharing(true)
     try {
-      const names = who ? who.name : people.filter((p) => list.some((w) => w.watchedBy.includes(p.id))).map((p) => p.name).join(' & ') || 'Our family'
+      const names = who ? who.name : people.filter((p) => list.some((w) => w.watchedBy.includes(p.id))).map((p) => p.name).join(' & ') || t('Our family')
       const blob = await drawMonthCard({
         monthName,
         totals: sum,
@@ -46,41 +47,41 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
           name: w.showName,
           poster: w.poster,
           stars: starsFor(w),
-          note: w.status === 'watching' ? 'Still watching' : 'Not rated yet',
+          note: w.status === 'watching' ? t('Still watching') : t('Not rated yet'),
         })),
       })
-      const result = await shareImage(blob, `pititi-${month}.png`, `${who ? `${who.name}'s` : 'Our'} ${monthName} on Pititi Watchers`)
-      if (result === 'saved') onFlash('Picture saved. Send it from your photos or files.')
+      const result = await shareImage(blob, `pititi-${month}.png`, who ? t("{name}'s {month} on Pititi Watchers", { name: who.name, month: monthName }) : t('Our {month} on Pititi Watchers', { month: monthName }))
+      if (result === 'saved') onFlash(t('Picture saved. Send it from your photos or files.'))
     } catch {
-      onFlash("Couldn't make the picture. Check your connection and try again.")
+      onFlash(t("Couldn't make the picture. Check your connection and try again."))
     } finally {
       setSharing(false)
     }
   }
 
   return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={`${monthLabel(month)} details`}>
-      <button className="sheet-dim" aria-label="Close" onClick={onClose} />
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={t('{month} details', { month: monthLabel(month) })}>
+      <button className="sheet-dim" aria-label={t('Close')} onClick={onClose} />
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="topbar" style={{ paddingTop: 0 }}>
           <div>
-            <p className="label-sm">{who ? `${who.name} · ` : ''}Month details</p>
+            <p className="label-sm">{who ? `${who.name} · ` : ''}{t('Month details')}</p>
             <h2 className="sheet-title">{monthLabel(month)}</h2>
           </div>
-          <button className="icon-btn" aria-label="Close" onClick={onClose}>
+          <button className="icon-btn" aria-label={t('Close')} onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
         </div>
 
         <div className="tiles">
-          <div className="tile"><strong>{sum.shows}</strong><span>{sum.shows === 1 ? 'show' : 'shows'}</span></div>
-          <div className="tile"><strong>{sum.episodes}</strong><span>episodes</span></div>
-          <div className="tile"><strong>{sum.hours}h</strong><span>watched</span></div>
+          <div className="tile"><strong>{sum.shows}</strong><span>{sum.shows === 1 ? t('show') : t('shows')}</span></div>
+          <div className="tile"><strong>{sum.episodes}</strong><span>{t('episodes')}</span></div>
+          <div className="tile"><strong>{sum.hours}h</strong><span>{t('watched')}</span></div>
         </div>
 
         {list.length === 0 ? (
-          <p className="muted center" style={{ padding: 16 }}>Nothing logged in {monthLabel(month)}.</p>
+          <p className="muted center" style={{ padding: 16 }}>{t('Nothing logged in {month}.', { month: monthLabel(month) })}</p>
         ) : (
           <ul className="month-list">
             {list.map((w) => {
@@ -93,7 +94,7 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
                     <span className="lrow-text">
                       <span className="lrow-title">{w.showName}</span>
                       <span className="muted">
-                        S{w.season} · {eps} {eps === 1 ? 'episode' : 'episodes'} this month · {w.status === 'done' ? 'finished' : 'in progress'}
+                        {t('S{season}', { season: w.season })} · {eps === 1 ? t('{n} episode this month', { n: eps }) : t('{n} episodes this month', { n: eps })} · {w.status === 'done' ? t('finished') : t('in progress')}
                       </span>
                       <span className="stack" style={{ marginTop: 3 }}>
                         {w.watchedBy.map((id) => (
@@ -107,7 +108,7 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
                         <b>{stars.toFixed(1)}</b>
                       </span>
                     ) : (
-                      <span className="muted" style={{ fontSize: 12 }}>Not rated</span>
+                      <span className="muted" style={{ fontSize: 12 }}>{t('Not rated')}</span>
                     )}
                   </button>
                 </li>
@@ -117,7 +118,7 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
         )}
 
         <button className="btn primary block" onClick={share} disabled={sharing || list.length === 0}>
-          <Icon name="share" size={18} /> {sharing ? 'Making the picture…' : `Share ${who ? `${who.name}'s` : 'our'} ${monthName}`}
+          <Icon name="share" size={18} /> {sharing ? t('Making the picture…') : who ? t("Share {name}'s {month}", { name: who.name, month: monthName }) : t('Share our {month}', { month: monthName })}
         </button>
       </div>
     </div>

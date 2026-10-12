@@ -21,6 +21,8 @@ import { TitleSheet } from './components/TitleSheet'
 import { MovieLog } from './components/MovieLog'
 import { useCircle } from './circle'
 import { t, useLang } from './i18n'
+import { useFestive } from './useFestive'
+import { FestiveRain } from './components/Festive'
 import { cloudStore, currentSession, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
@@ -121,6 +123,7 @@ export default function App() {
   const [watches, setWatches] = useState<Watch[]>([])
   const [people, setPeople] = useState<Person[]>([])
   useLang()
+  const festive = useFestive()
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [comments, setComments] = useState<Comment[]>([])
   /** Reactions and chat need migration 006; hidden until it's run */
@@ -231,10 +234,10 @@ export default function App() {
       writeSet(BADGES_KEY, seen)
       flash(
         fresh.length === 1
-          ? `Badge unlocked: ${fresh[0].title}`
+          ? t('Badge unlocked: {badge}', { badge: fresh[0].title })
           : fresh.length === 2
-            ? `Badges unlocked: ${fresh[0].title} and ${fresh[1].title}`
-            : `${fresh.length} new badges unlocked · see Stats`,
+            ? t('Badges unlocked: {a} and {b}', { a: fresh[0].title, b: fresh[1].title })
+            : t('{n} new badges unlocked · see Stats', { n: fresh.length }),
       )
     },
     [flash],
@@ -279,11 +282,11 @@ export default function App() {
     try {
       await store.savePush(await enablePush())
       setPush('on')
-      flash("Notifications on. You'll hear about messages, @mentions and new episodes.")
+      flash(t("Notifications on. You'll hear about messages, @mentions and new episodes."))
     } catch (e) {
       const why = (e as Error).message
       setPush(why === 'denied' ? 'denied' : 'off')
-      flash(why === 'denied' ? 'Notifications are blocked. Turn them on in your phone settings.' : why === 'dismissed' ? 'Maybe later, then.' : "Couldn't turn on notifications. Try again.")
+      flash(why === 'denied' ? t('Notifications are blocked. Turn them on in your phone settings.') : why === 'dismissed' ? t('Maybe later, then.') : t("Couldn't turn on notifications. Try again."))
     }
   }
 
@@ -292,9 +295,9 @@ export default function App() {
       const endpoint = await disablePush()
       if (endpoint) await store.removePush(endpoint)
       setPush('off')
-      flash('Notifications off on this phone')
+      flash(t('Notifications off on this phone'))
     } catch {
-      flash("Couldn't turn them off. Try again.")
+      flash(t("Couldn't turn them off. Try again."))
     }
   }
 
@@ -319,15 +322,15 @@ export default function App() {
       const freshR = forMe.filter((r) => !seen.has(rKey(r)))
       all.forEach((id) => seen.add(id))
       writeSet(CHAT_KEY, seen)
-      const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? 'Someone'
+      const nameOf = (id: string) => snap.people.find((p) => p.id === id)?.name ?? t('Someone')
       const show = (id: string | null) => (id ? snap.watches.find((w) => w.id === id) : undefined)
-      const place = (watchId: string | null) => (watchId ? `on ${show(watchId)?.showName ?? 'a show'}` : 'in Family chat')
-      const short = (t: string) => (t.length > 60 ? t.slice(0, 58) + '…' : t)
+      const place = (watchId: string | null) => (watchId ? t('on {show}', { show: show(watchId)?.showName ?? t('a show') }) : t('in Family chat'))
+      const short = (text: string) => (text.length > 60 ? text.slice(0, 58) + '…' : text)
       // Someone @mentioned you: that's meant for you, so it comes first and shows the words
       const toMe = me ? fresh.filter((c) => mentionsIn(c.text, snap.people).includes(me)) : []
       if (toMe.length) {
         const c = toMe[toMe.length - 1]
-        return flash(`${nameOf(c.personId)} mentioned you ${place(c.watchId)}: “${short(c.text)}”`, () => openThread(c.watchId), 'Open')
+        return flash(t('{name} mentioned you {place}: “{text}”', { name: nameOf(c.personId), place: place(c.watchId), text: short(c.text) }), () => openThread(c.watchId), 'Open')
       }
       const count = fresh.length + freshR.length
       if (count > 1) {
@@ -335,9 +338,9 @@ export default function App() {
         const where = new Set([...fresh.map((c) => c.watchId), ...freshR.map((r) => r.watchId)])
         if (where.size === 1 && !freshR.length) {
           const id = [...where][0]
-          return flash(`${from}: ${count} new ${place(id)}`, () => openThread(id), 'Open')
+          return flash(t('{from}: {n} new {place}', { from, n: count, place: place(id) }), () => openThread(id), 'Open')
         }
-        return flash(`${from}: ${count} new messages and reactions`, () => openThread(undefined), 'Open')
+        return flash(t('{from}: {n} new messages and reactions', { from, n: count }), () => openThread(undefined), 'Open')
       }
       if (fresh.length) {
         const c = fresh[0]
@@ -345,13 +348,13 @@ export default function App() {
         if (c.watchId && !w) return
         // Haven't rated yet: say who wrote, not what (no nudging your stars)
         return w && chatLocked(w, me)
-          ? flash(`${nameOf(c.personId)} wrote ${place(c.watchId)}`, () => openThread(c.watchId), 'Open')
-          : flash(`${nameOf(c.personId)} ${place(c.watchId)}: “${short(c.text)}”`, () => openThread(c.watchId), 'Open')
+          ? flash(t('{name} wrote {place}', { name: nameOf(c.personId), place: place(c.watchId) }), () => openThread(c.watchId), 'Open')
+          : flash(t('{name} {place}: “{text}”', { name: nameOf(c.personId), place: place(c.watchId), text: short(c.text) }), () => openThread(c.watchId), 'Open')
       }
       if (freshR.length) {
         const r = freshR[0]
         const w = show(r.watchId)
-        if (w) flash(`${nameOf(r.personId)} reacted ${r.emoji} to your stars on ${w.showName}`, () => openShow(w), 'Open')
+        if (w) flash(t('{name} reacted {emoji} to your stars on {show}', { name: nameOf(r.personId), emoji: r.emoji, show: w.showName }), () => openShow(w), 'Open')
       }
     },
     [flash, openShow, openThread],
@@ -445,29 +448,29 @@ export default function App() {
     try {
       await store.save(next)
       const after = put(watchesRef.current, next)
-      flash(okMsg, opts.undo ? () => (before ? persist(before, 'Undone', { exact: true }) : removeLog(next, 'Undone')) : undefined)
+      flash(okMsg, opts.undo ? () => (before ? persist(before, t('Undone'), { exact: true }) : removeLog(next, t('Undone'))) : undefined)
       queueReveals(after)
       checkBadges(after)
       return true
     } catch {
       setWatches((list) => put(list, before))
-      flash("Couldn't save. Check your connection and try again.")
+      flash(t("Couldn't save. Check your connection and try again."))
       return false
     }
   }
 
   /** Removes a log; Undo brings it back with its chat and reactions. */
-  async function removeLog(w: Watch, okMsg = `${w.showName} removed`) {
+  async function removeLog(w: Watch, okMsg = t('{name} removed', { name: w.showName })) {
     const keepChat = comments.filter((c) => c.watchId === w.id)
     const keepReacts = reactions.filter((r) => r.watchId === w.id)
     setWatches((list) => list.filter((x) => x.id !== w.id))
     try {
       await store.remove(w.id)
-      flash(okMsg, okMsg === 'Undone' ? undefined : () => restoreLog(w, keepChat, keepReacts))
+      flash(okMsg, okMsg === t('Undone') ? undefined : () => restoreLog(w, keepChat, keepReacts))
       return true
     } catch (e) {
       setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
-      flash((e as Error).message?.startsWith('Only') ? (e as Error).message : "Couldn't remove it. Check your connection and try again.")
+      flash((e as Error).message === t('Only Leandro or the person who added it can remove this.') ? (e as Error).message : t("Couldn't remove it. Check your connection and try again."))
       return false
     }
   }
@@ -480,10 +483,10 @@ export default function App() {
       await Promise.all([...chat.map((c) => store.addComment(c)), ...reacts.map((r) => store.setReaction(r))]).catch(() => undefined)
       setComments((list) => [...list.filter((c) => c.watchId !== w.id), ...chat])
       setReactions((list) => [...list.filter((r) => r.watchId !== w.id), ...reacts])
-      flash(`${w.showName} is back`)
+      flash(t('{name} is back', { name: w.showName }))
     } catch {
       setWatches((list) => list.filter((x) => x.id !== w.id))
-      flash("Couldn't bring it back. Check your connection.")
+      flash(t("Couldn't bring it back. Check your connection."))
     }
   }
 
@@ -498,7 +501,7 @@ export default function App() {
       await store.setReaction({ ...r, emoji: kept ? emoji : null })
     } catch {
       setReactions(prev)
-      flash("Couldn't send your reaction. Check your connection.")
+      flash(t("Couldn't send your reaction. Check your connection."))
     }
   }
 
@@ -514,7 +517,7 @@ export default function App() {
       return true
     } catch {
       setComments((list) => list.filter((x) => x.id !== c.id))
-      flash("Couldn't send it. Check your connection.")
+      flash(t("Couldn't send it. Check your connection."))
       return false
     }
   }
@@ -523,16 +526,16 @@ export default function App() {
     setComments((list) => list.filter((x) => x.id !== c.id))
     try {
       await store.removeComment(c.id)
-      flash('Message removed', async () => {
+      flash(t('Message removed'), async () => {
         setComments((list) => [...list.filter((x) => x.id !== c.id), c])
         await store.addComment(c).catch(() => {
           setComments((list) => list.filter((x) => x.id !== c.id))
-          flash("Couldn't bring it back. Check your connection.")
+          flash(t("Couldn't bring it back. Check your connection."))
         })
       })
     } catch (e) {
       setComments((list) => [...list, c])
-      flash((e as Error).message || "Couldn't remove it. Check your connection.")
+      flash((e as Error).message || t("Couldn't remove it. Check your connection."))
     }
   }
 
@@ -592,7 +595,7 @@ export default function App() {
   if (auth.state === 'checking') {
     return (
       <div className="app loading">
-        <div className="logo" aria-label="Loading">
+        <div className="logo" aria-label={t('Loading')}>
           <Icon name="tv" size={32} stroke={2.2} />
         </div>
       </div>
@@ -642,8 +645,9 @@ export default function App() {
 
   return (
     <div className="app">
-      {offline && <p className="banner warn" role="status">Offline. Showing your last synced log.</p>}
+      {offline && <p className="banner warn" role="status">{t('Offline. Showing your last synced log.')}</p>}
       <UpdateBanner />
+      {festive && <FestiveRain key={festive.id} festive={festive} />}
 
       <main>
         {detail ? (
@@ -675,28 +679,28 @@ export default function App() {
               const saved = watchesRef.current.find((x) => x.id === detail.watch.id)
               if (!saved) return
               const name = people.find((p) => p.id === personId)?.name
-              persist(setOwnRating(saved, personId, stars), stars ? `${personId === me ? 'Your' : `${name}'s`} ${stars}★ saved` : 'Rating cleared', { exact: true, undo: true })
+              persist(setOwnRating(saved, personId, stars), stars ? (personId === me ? t('Your {stars}★ saved', { stars }) : t("{name}'s {stars}★ saved", { name: name ?? '', stars })) : t('Rating cleared'), { exact: true, undo: true })
             }}
             onMerge={async (keep, drop) => {
               if (!canDelete(drop, who)) {
-                flash(`Ask ${people.find((p) => p.isAdmin)?.name ?? 'the admin'} to merge these: you can only remove logs you added.`)
+                flash(t('Ask {name} to merge these: you can only remove logs you added.', { name: people.find((p) => p.isAdmin)?.name ?? t('the admin') }))
                 return
               }
               const keepBefore = watchesRef.current.find((x) => x.id === keep.id) ?? keep
               const merged = mergeLogs(keep, drop)
-              const ok = await persist(merged, 'Merged into one log', { exact: true })
+              const ok = await persist(merged, t('Merged into one log'), { exact: true })
               if (!ok) return
               setWatches((list) => list.filter((x) => x.id !== drop.id))
               const dropChat = comments.filter((c) => c.watchId === drop.id)
               const dropReacts = reactions.filter((r) => r.watchId === drop.id)
               try {
                 await store.remove(drop.id)
-                flash('Merged into one log', async () => {
-                  await persist(keepBefore, 'Undone', { exact: true })
+                flash(t('Merged into one log'), async () => {
+                  await persist(keepBefore, t('Undone'), { exact: true })
                   await restoreLog(drop, dropChat, dropReacts)
                 })
               } catch {
-                flash("Merged, but couldn't remove the old copy. Try again from it.")
+                flash(t("Merged, but couldn't remove the old copy. Try again from it."))
               }
               setDetail(null)
             }}
@@ -716,11 +720,12 @@ export default function App() {
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
             onAddEpisode={(w) => {
               const next = addEpisode(w)
-              quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
+              quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Episode {n} logged', { n: next.episodesWatched }))
             }}
             onActions={(w) => setActionsFor(w.id)}
             readOnly={readOnly}
             everyone={people}
+            festive={festive}
             onAdd={() => {
               setAddMonth(month)
               setTab('search')
@@ -870,10 +875,10 @@ export default function App() {
               setPeople((list) => list.map((p) => (p.id === id ? { ...p, isViewer: viewer } : p)))
               try {
                 await store.setViewer(id, viewer)
-                flash(viewer ? 'Now a viewer: sees and chats only' : 'Now a full member')
+                flash(viewer ? t('Now a viewer: sees and chats only') : t('Now a full member'))
               } catch (e) {
                 setPeople(prev)
-                flash((e as Error).message || "Couldn't change that. Check your connection.")
+                flash((e as Error).message || t("Couldn't change that. Check your connection."))
               }
             }}
             notify={store.mode === 'cloud' || import.meta.env.DEV ? { state: push, onEnable: turnOnPush, onDisable: turnOffPush } : null}
@@ -889,7 +894,7 @@ export default function App() {
             onAddPerson={async (name) => {
               const person = await store.addPerson(name)
               setPeople((list) => [...list, person])
-              flash(`${name} added to the family`)
+              flash(t('{name} added to the family', { name }))
             }}
             onSignOut={async () => {
               await signOut()
@@ -993,14 +998,14 @@ export default function App() {
           me={me}
           onEpisode={(w) => {
             const next = addEpisode(w)
-            quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Episode ${next.episodesWatched} logged`)
+            quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Episode {n} logged', { n: next.episodesWatched }))
           }}
           onFinish={(w, aired) => {
             const next = finishSeason(w, aired)
-            quickSave(next, next.status === 'done' ? `${w.showName} S${w.season} finished` : `Caught up on ${w.showName}`)
+            quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Caught up on {show}', { show: w.showName }))
           }}
-          onJoin={(w) => me && persist(joinWatchers(w, me), `You're on ${w.showName} now`, { undo: true })}
-          onRate={(w, stars) => me && persist(setOwnRating(w, me, stars), stars ? `${stars}★ for ${w.showName}` : 'Rating cleared', { undo: true })}
+          onJoin={(w) => me && persist(joinWatchers(w, me), t("You're on {show} now", { show: w.showName }), { undo: true })}
+          onRate={(w, stars) => me && persist(setOwnRating(w, me, stars), stars ? t('{stars}★ for {show}', { stars, show: w.showName }) : t('Rating cleared'), { undo: true })}
           onOpen={(w) => {
             setActionsFor(null)
             setDetail({ watch: w, isNew: false })
@@ -1022,20 +1027,20 @@ export default function App() {
                 undo()
               }}
             >
-              {toast.label ?? 'Undo'}
+              {t(toast.label ?? 'Undo')}
             </button>
           )}
         </div>
       )}
 
       {!detail && (
-        <nav className="tabbar" aria-label="Main">
+        <nav className="tabbar" aria-label={t('Main')}>
           {SIDE_TABS.map((group, gi) => (
             <Fragment key={gi}>
               {gi === 1 && !readOnly && (
                 <button
                   className={`fab ${tab === 'search' ? 'on' : ''}`}
-                  aria-label="Add a show"
+                  aria-label={t('Add a show')}
                   onClick={() => {
                     setAddMonth(currentMonth())
                     setTab('search')
@@ -1044,23 +1049,23 @@ export default function App() {
                   <Icon name="plus" size={28} stroke={2.6} />
                 </button>
               )}
-              {group.map((t) => (
+              {group.map((tb) => (
                 <button
-                  key={t.id}
-                  className={`tab ${tab === t.id ? 'on' : ''}`}
-                  aria-current={tab === t.id ? 'page' : undefined}
+                  key={tb.id}
+                  className={`tab ${tab === tb.id ? 'on' : ''}`}
+                  aria-current={tab === tb.id ? 'page' : undefined}
                   onClick={() => {
-                    if (t.id === 'family') {
+                    if (tb.id === 'family') {
                       setThread(undefined)
                       setHouseholdOpen(null)
                     }
-                    if (t.id === 'lists') setListOpen(null)
-                    setTab(t.id)
+                    if (tb.id === 'lists') setListOpen(null)
+                    setTab(tb.id)
                   }}
                 >
-                  <Icon name={t.icon} size={23} />
-                  {t.id === 'family' && familyBadge > 0 && <i className="tab-badge" aria-label={`${familyBadge} new`}>{familyBadge > 9 ? '9+' : familyBadge}</i>}
-                  <span>{t.label}</span>
+                  <Icon name={tb.icon} size={23} />
+                  {tb.id === 'family' && familyBadge > 0 && <i className="tab-badge" aria-label={t('{n} new', { n: familyBadge })}>{familyBadge > 9 ? '9+' : familyBadge}</i>}
+                  <span>{t(tb.label)}</span>
                 </button>
               ))}
             </Fragment>

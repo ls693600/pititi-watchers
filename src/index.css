@@ -778,3 +778,36 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .house-row::-webkit-scrollbar, .emoji-row::-webkit-scrollbar { display: none; }
 .feed-actions { flex-wrap: nowrap; }
 .feed-actions .btn.sm { min-height: 36px; padding: 0 12px; font-size: 13.5px; white-space: nowrap; }
+
+/* Language switch (Home header pill, Login corner) */
+.topbar-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.lang-btn { min-width: 42px; height: 34px; padding: 0 11px; border-radius: 999px; font-size: 13px; font-weight: 800; letter-spacing: .04em; color: var(--text-2); background: var(--surface); box-shadow: var(--shadow-sm); }
+.login { position: relative; }
+.login-lang { position: absolute; z-index: 2; top: calc(env(safe-area-inset-top) + 12px); right: 14px; box-shadow: var(--shadow-sm); }
+.login-lang button { padding: 6px 11px; font-size: 13px; font-weight: 750; }
+
+/* Festive looks: each special day recolors the brand (light and dark) */
+:root[data-festive='halloween'] { --brand: #ff7a00; --brand-2: #7b2cbf; --brand-ink: #c2410c; --brand-soft: #fff0e0; --grad: linear-gradient(135deg, #ff7a00 0%, #7b2cbf 100%); --avg-bg: linear-gradient(135deg, #fff3e6 0%, #f3e8ff 100%); }
+:root[data-festive='christmas'] { --brand: #d62839; --brand-2: #1b7a43; --brand-ink: #b91c2c; --brand-soft: #ffe9eb; --grad: linear-gradient(135deg, #d62839 0%, #1b7a43 100%); --avg-bg: linear-gradient(135deg, #fff0f1 0%, #e9f7ef 100%); }
+:root[data-festive='newyear'] { --brand: #c9a227; --brand-2: #1f2a44; --brand-ink: #8a6d10; --brand-soft: #fbf3d8; --grad: linear-gradient(135deg, #e0b83a 0%, #1f2a44 100%); --avg-bg: linear-gradient(135deg, #fdf7e3 0%, #eef0f6 100%); }
+:root[data-festive='valentines'], :root[data-festive='namorados'] { --brand: #e11d74; --brand-2: #ff7eb3; --brand-ink: #be185d; --brand-soft: #ffe4f0; --grad: linear-gradient(135deg, #e11d74 0%, #ff7eb3 100%); --avg-bg: linear-gradient(135deg, #fff0f6 0%, #ffe9f2 100%); }
+:root[data-festive='stpatricks'] { --brand: #16a34a; --brand-2: #84cc16; --brand-ink: #15803d; --brand-soft: #e3f8ea; --grad: linear-gradient(135deg, #16a34a 0%, #84cc16 100%); --avg-bg: linear-gradient(135deg, #ecfbf1 0%, #f4fbe5 100%); }
+:root[data-festive='easter'] { --brand: #a855f7; --brand-2: #f9a8d4; --brand-ink: #7e22ce; --brand-soft: #f5ebff; --grad: linear-gradient(135deg, #a855f7 0%, #f9a8d4 100%); --avg-bg: linear-gradient(135deg, #f8f1ff 0%, #fff0f7 100%); }
+:root[data-festive='carnaval'] { --brand: #009c3b; --brand-2: #ffcc00; --brand-ink: #00762c; --brand-soft: #e3f7ea; --grad: linear-gradient(135deg, #009c3b 0%, #ffcc00 100%); --avg-bg: linear-gradient(135deg, #eafaf0 0%, #fff9db 100%); }
+:root[data-festive='junina'] { --brand: #e85d04; --brand-2: #f4a261; --brand-ink: #c2410c; --brand-soft: #ffefe0; --grad: linear-gradient(135deg, #e85d04 0%, #2a9d8f 100%); --avg-bg: linear-gradient(135deg, #fff4e8 0%, #e8f6f4 100%); }
+:root[data-festive='mothers'] { --brand: #db2777; --brand-2: #f9a8d4; --brand-ink: #be185d; --brand-soft: #fde7f1; --grad: linear-gradient(135deg, #db2777 0%, #fb923c 100%); --avg-bg: linear-gradient(135deg, #fff0f6 0%, #fff4ea 100%); }
+:root[data-theme='dark'][data-festive] { --brand-soft: color-mix(in srgb, var(--brand) 18%, transparent); --brand-ink: color-mix(in srgb, var(--brand) 70%, white); --avg-bg: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
+
+.festive-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 20px; background: var(--grad); color: #fff; box-shadow: var(--shadow); }
+.festive-card p { font-size: 14.5px; line-height: 1.35; }
+.festive-card b { display: block; font-family: var(--display); font-size: 17px; }
+.festive-emoji { font-size: 34px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2)); }
+.festive-rain { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.festive-rain span { position: absolute; top: -40px; animation: festive-fall linear forwards; opacity: 0; }
+@keyframes festive-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(105vh) rotate(200deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .festive-rain { display: none; } }

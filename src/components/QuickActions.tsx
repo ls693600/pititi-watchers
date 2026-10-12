@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
 import { Stars } from './Stars'
+import { t } from '../i18n'
 
 interface Props {
   watch: Watch
@@ -56,21 +57,22 @@ export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin
   }
 
   return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={`Quick actions for ${w.showName}`}>
-      <button className="sheet-dim" aria-label="Close" onClick={onClose} />
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={t('Quick actions for {show}', { show: w.showName })}>
+      <button className="sheet-dim" aria-label={t('Close')} onClick={onClose} />
       <div className="sheet qa">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
           <Poster src={w.poster} name={w.showName} w={56} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="label-sm">{watching ? 'Still watching' : 'Finished'}</p>
+            <p className="label-sm">{watching ? t('Still watching') : t('Finished')}</p>
             <h2 className="sheet-title">{w.showName}</h2>
             <p className="sheet-meta">
-              Season {w.season} · {w.episodesWatched}
-              {total ? ` of ${total}` : ''} episodes
+              {total
+                ? t('Season {season} · {n} of {total} episodes', { season: w.season, n: w.episodesWatched, total })
+                : t('Season {season} · {n} episodes', { season: w.season, n: w.episodesWatched })}
             </p>
           </div>
-          <button className="icon-btn" aria-label="Close" onClick={onClose}>
+          <button className="icon-btn" aria-label={t('Close')} onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -79,13 +81,13 @@ export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin
           <div className="qa-grid">
             <button className="qa-big primary" disabled={!canNext} onClick={() => act(() => onEpisode(w))}>
               <Icon name="plus" size={20} stroke={2.6} />
-              <b>{canNext ? `Watched episode ${nextEp}` : 'All caught up'}</b>
-              <span>{canNext ? 'Marks the next one' : 'No new episodes out yet'}</span>
+              <b>{canNext ? t('Watched episode {n}', { n: nextEp }) : t('All caught up')}</b>
+              <span>{canNext ? t('Marks the next one') : t('No new episodes out yet')}</span>
             </button>
             <button className="qa-big" disabled={caughtUp} onClick={() => act(() => onFinish(w, aired))}>
               <Icon name="check" size={20} stroke={2.6} />
-              <b>{complete || out == null ? 'Finished the season' : 'Caught up'}</b>
-              <span>{out == null ? 'Marks every episode' : complete ? `All ${total} episodes` : `${out} of ${total ?? '?'} aired so far`}</span>
+              <b>{complete || out == null ? t('Finished the season') : t('Caught up')}</b>
+              <span>{out == null ? t('Marks every episode') : complete ? t('All {n} episodes', { n: total! }) : t('{n} of {total} aired so far', { n: out, total: total ?? '?' })}</span>
             </button>
           </div>
         )}
@@ -93,7 +95,7 @@ export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin
         {iWatched && meP && canEditRating(meP, me) ? (
           <div className="qa-rate">
             <span className="who">
-              <Avatar people={people} id={meP.id} size={26} /> Your stars
+              <Avatar people={people} id={meP.id} size={26} /> {t('Your stars')}
             </span>
             <Stars label="Your" value={w.ratings[meP.id] ?? null} onChange={(v) => onRate(w, v)} />
           </div>
@@ -101,23 +103,23 @@ export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin
           <button className="qa-row" onClick={() => act(() => onJoin(w))}>
             <Icon name="users" size={20} />
             <span>
-              <b>I watched this too</b>
-              <small>Adds you under "Who watched?" so you can rate it</small>
+              <b>{t('I watched this too')}</b>
+              <small>{t('Adds you under "Who watched?" so you can rate it')}</small>
             </span>
           </button>
         ) : null}
 
         {averageRating(w) != null && (
           <p className="qa-note">
-            <Icon name="sparkle" size={14} stroke={2.2} /> Family average {averageRating(w)!.toFixed(1)}
+            <Icon name="sparkle" size={14} stroke={2.2} /> {t('Family average {n}', { n: averageRating(w)!.toFixed(1) })}
           </p>
         )}
 
         <button className="qa-row" onClick={() => onOpen(w)}>
           <Icon name="tv" size={20} />
           <span>
-            <b>Open show page</b>
-            <small>Episodes, family chat, notes and more</small>
+            <b>{t('Open show page')}</b>
+            <small>{t('Episodes, family chat, notes and more')}</small>
           </span>
           <Icon name="right" size={16} />
         </button>

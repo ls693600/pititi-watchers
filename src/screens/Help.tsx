@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
+import { t } from '../i18n'
 
 interface QA {
   id: string
@@ -82,7 +83,7 @@ const SECTIONS: Section[] = [
         id: 'undo',
         q: 'I tapped the wrong thing. Can I undo it?',
         a: [
-          'Yes. After marking an episode, rating, saving, removing a show, merging or removing from Up Next, the message at the bottom has Undo for a few seconds.',
+          'Yes. After marking an episode, rating, saving, removing a show, merging or removing something from a list, the message at the bottom has Undo for a few seconds.',
           'Removing a show brings it back with its chat and reactions.',
         ],
       },
@@ -193,14 +194,62 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'The family circle',
+    items: [
+      {
+        id: 'households',
+        q: 'What is a household?',
+        a: [
+          'A couple (or one person) with their own log, stats and lists. Every household together is the family circle.',
+          'Your Home and Stats show only your household. The Family tab shows what the others are watching.',
+          'Each household has its own invite link: your avatar → Family and invites.',
+        ],
+      },
+      {
+        id: 'lists',
+        q: 'How do lists work?',
+        a: [
+          'Lists are for what you want to watch: Up Next is built in, and you can make more (Movie night, Kids, Scary…).',
+          'Each list says who can see it: Only us, people you pick, or the whole family. Nobody else can see it, not even in the app\'s data.',
+          'Only your household adds or removes things. Tap a title for "We\'re watching it", recommend it or remove it.',
+        ],
+      },
+      {
+        id: 'votes',
+        q: 'How do votes work?',
+        a: [
+          'Turn on "Help us pick" on a list. Everyone who can see it gets a notification and taps ♡ on what they want to watch.',
+          'The title with the most votes goes to the top. One vote per person per title; tap again to take it back.',
+          'You can vote on other households\' lists the same way when they ask.',
+        ],
+      },
+      {
+        id: 'recommend',
+        q: 'How do I recommend something?',
+        a: [
+          'Tap ••• next to any show or movie (in search, on its page, or on a list) → Recommend, pick people and add a note.',
+          'They get a notification and see it in Family → Activity, with Up Next (adds it to their list) or Not for me.',
+        ],
+      },
+      {
+        id: 'movies',
+        q: 'Can I log movies?',
+        a: [
+          'Yes. Tap +, switch to Movies, and tap the movie. A movie is one sitting: say who watched and give your stars.',
+          'Movie pages show where to watch it in your country.',
+        ],
+      },
+    ],
+  },
+  {
     title: 'Messages and notifications',
     items: [
       {
         id: 'messages',
         q: 'Where are all the messages?',
         a: [
-          'Tap Messages at the bottom. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.',
-          'A red number means new messages. Open a chat to read them.',
+          'Tap Family at the bottom, then Chats. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.',
+          'A red number means new messages. Open a chat to read them, and tap the bell to mute a chat (you still hear @mentions).',
           'Tap @Name under the message box to mention someone.',
         ],
       },
@@ -208,8 +257,8 @@ const SECTIONS: Section[] = [
         id: 'notify',
         q: 'How do I get notified on my phone?',
         a: [
-          'Open Pititi from your home screen icon, then Messages → Turn on (or your avatar → Notifications) and allow it.',
-          'You get one for new messages, @mentions, and when a show you\'re watching has a new episode out today.',
+          'Open Pititi from your home screen icon, then Family → Chats → Turn on (or your avatar → Notifications) and allow it.',
+          'You get one for new messages, @mentions, recommendations, vote requests, and when a show you\'re watching has a new episode out today.',
           'iPhone needs iOS 16.4 or newer and the home screen app (not Safari). Android works in Chrome.',
           'Each phone turns it on separately. Turn it off any time in Settings.',
         ],
@@ -217,16 +266,12 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: 'Up Next',
+    title: 'Language',
     items: [
       {
-        id: 'upnext',
-        q: 'What is Up Next?',
-        a: [
-          'The family list of shows you want to watch. Save a show with the bookmark next to any search result.',
-          'Tap ♡ on shows you want. The most-hearted one is Tonight\'s pick; Pick again draws another, favoring popular ones.',
-          'Watch it logs the show and removes it from the list.',
-        ],
+        id: 'language',
+        q: 'Can I use Pititi in Portuguese?',
+        a: ['Yes. Tap PT at the top of Home (or your avatar → Language). Each phone keeps its own choice; tap EN to switch back.'],
       },
     ],
   },
@@ -279,7 +324,7 @@ const SECTIONS: Section[] = [
           'Stats → tap any month → Share: a picture of that month\'s shows, your stars and totals.',
           'On a show\'s page, tap the share icon at the top for that show with everyone\'s stars.',
           'It opens your phone\'s share sheet, so you can send it on WhatsApp, Messages or anywhere. Stars that are still hidden (blind rating) stay hidden in the picture.',
-          'To have them join and log their own shows, Leandro shares the invite code from the Family tab.',
+          'To have them join and log their own shows, share your household\'s invite: your avatar → Family and invites.',
         ],
       },
     ],
@@ -295,7 +340,7 @@ const SECTIONS: Section[] = [
       {
         id: 'admin',
         q: 'What can the admin do?',
-        a: ['Leandro is the only admin: he manages family members and the invite code, and can remove any log. Everyone can log, rate and use Up Next, and remove what they added.'],
+        a: ['Leandro is the admin: he creates households and moves people between them. In each household everyone can log, rate and manage lists, and remove what they added.'],
       },
       {
         id: 'offline',
@@ -316,36 +361,43 @@ export function Help({ topic, onBack }: { topic: string | null; onBack: () => vo
   }, [topic])
 
   const q = query.trim().toLowerCase()
+  // Translated once per render, so the search looks at the words on screen
   const sections = SECTIONS.map((s) => ({
-    ...s,
-    items: q ? s.items.filter((i) => (i.q + ' ' + i.a.join(' ')).toLowerCase().includes(q)) : s.items,
-  })).filter((s) => s.items.length)
+    key: s.title,
+    title: t(s.title),
+    items: s.items.map((i) => ({ id: i.id, q: t(i.q), a: i.a.map((line) => t(line)) })),
+  }))
+    .map((s) => ({
+      ...s,
+      items: q ? s.items.filter((i) => (i.q + ' ' + i.a.join(' ')).toLowerCase().includes(q)) : s.items,
+    }))
+    .filter((s) => s.items.length)
 
   return (
     <div className="screen">
       <header className="topbar">
-        <button className="icon-btn" aria-label="Back" onClick={onBack} style={{ marginRight: 4 }}>
+        <button className="icon-btn" aria-label={t('Back')} onClick={onBack} style={{ marginRight: 4 }}>
           <Icon name="left" size={20} />
         </button>
         <div style={{ flex: 1 }}>
-          <p className="eyebrow">Questions and answers</p>
-          <h1 className="title-xl">Help</h1>
+          <p className="eyebrow">{t('Questions and answers')}</p>
+          <h1 className="title-xl">{t('Help')}</h1>
         </div>
       </header>
 
       <div className="searchbox">
         <Icon name="search" size={20} />
-        <input type="search" placeholder="Search questions" aria-label="Search help" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder={t('Search questions')} aria-label={t('Search help')} value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
 
       {sections.length === 0 && (
         <p className="muted center" style={{ padding: 20 }}>
-          Nothing matches "{query.trim()}". Try another word, or ask Leandro.
+          {t('Nothing matches "{query}". Try another word, or ask Leandro.', { query: query.trim() })}
         </p>
       )}
 
       {sections.map((s) => (
-        <section key={s.title}>
+        <section key={s.key}>
           <h2 className="h2" style={{ marginBottom: 10 }}>{s.title}</h2>
           <div className="card faq">
             {s.items.map((i) => (

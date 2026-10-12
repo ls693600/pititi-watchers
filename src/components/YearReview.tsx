@@ -7,6 +7,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
 import { AvgStars } from './Stars'
+import { t } from '../i18n'
 
 const SLIDE_MS = 6500
 
@@ -30,8 +31,8 @@ function names(people: Person[], ids: string[]): string {
 }
 
 function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boolean, share: ReactNode): Slide[] {
-  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
-  const who = names(people, r.people.map((p) => p.id)) || 'The family'
+  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? t('Someone')
+  const who = names(people, r.people.map((p) => p.id)) || t('The family')
   const posters = [...new Set(watches.filter((w) => w.month.startsWith(`${r.year}-`) && w.poster).map((w) => w.poster!))].slice(0, 6)
   const maxHours = Math.max(1, ...r.people.map((p) => p.hours))
   const slides: Slide[] = [
@@ -47,7 +48,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
           </div>
           <p className="yr-kicker">Pititi Wrapped</p>
           <h2 className="yr-huge">{r.year}</h2>
-          <p className="yr-sub">{soFar ? 'So far: the year' : 'The year'} {who} spent on the couch.</p>
+          <p className="yr-sub">{soFar ? t('So far: the year {who} spent on the couch.', { who }) : t('The year {who} spent on the couch.', { who })}</p>
         </>
       ),
     },
@@ -56,15 +57,15 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'violet',
       body: (
         <>
-          <p className="yr-kicker">Together you watched</p>
+          <p className="yr-kicker">{t('Together you watched')}</p>
           <div className="yr-stats">
-            <p><b>{r.shows}</b> {r.shows === 1 ? 'show' : 'shows'}</p>
-            <p><b>{r.episodes}</b> episodes</p>
-            <p><b>{r.hours}</b> hours</p>
+            <p><b>{r.shows}</b> {r.shows === 1 ? t('show') : t('shows')}</p>
+            <p><b>{r.episodes}</b> {t('episodes')}</p>
+            <p><b>{r.hours}</b> {t('hours')}</p>
           </div>
           {r.days >= 1 && (
             <p className="yr-sub">
-              That's {r.days === 1 ? 'a full day' : `${r.days} full days`} of TV. No regrets.
+              {r.days === 1 ? t("That's a full day of TV. No regrets.") : t("That's {n} full days of TV. No regrets.", { n: r.days })}
             </p>
           )}
         </>
@@ -78,13 +79,13 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'gold',
       body: (
         <>
-          <p className="yr-kicker">Show of the year</p>
+          <p className="yr-kicker">{t('Show of the year')}</p>
           <div className="yr-poster">{w.poster ? <img src={bigPoster(w.poster)!} alt="" /> : <PosterFill src={null} name={w.showName} />}</div>
           <h2 className="yr-title">{w.showName}</h2>
           <div className="yr-stars">
             <AvgStars value={r.top.avg} size={26} /> <b>{r.top.avg.toFixed(1)}</b>
           </div>
-          <p className="yr-sub">{w.watchedBy.length > 1 ? 'Your highest family average.' : `${nameOf(w.watchedBy[0])}'s top pick.`}</p>
+          <p className="yr-sub">{w.watchedBy.length > 1 ? t('Your highest family average.') : t("{name}'s top pick.", { name: nameOf(w.watchedBy[0]) })}</p>
         </>
       ),
     })
@@ -95,10 +96,10 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'ocean',
       body: (
         <>
-          <p className="yr-kicker">Busiest month</p>
+          <p className="yr-kicker">{t('Busiest month')}</p>
           <h2 className="yr-huge sm">{monthLabel(r.busiest.month, 'long').split(' ')[0]}</h2>
           <p className="yr-sub">
-            {r.busiest.count} {r.busiest.count === 1 ? 'show' : 'shows'} on the go. The remote never rested.
+            {r.busiest.count === 1 ? t('1 show on the go. The remote never rested.') : t('{n} shows on the go. The remote never rested.', { n: r.busiest.count })}
           </p>
         </>
       ),
@@ -110,7 +111,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'berry',
       body: (
         <>
-          <p className="yr-kicker">Most time on the couch</p>
+          <p className="yr-kicker">{t('Most time on the couch')}</p>
           <h2 className="yr-title">{nameOf(r.people[0].id)} 👑</h2>
           <ul className="yr-bars">
             {r.people.map((p) => (
@@ -124,7 +125,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
             ))}
           </ul>
           <p className="yr-sub">
-            {r.together} watched together · {r.solo} solo
+            {t('{together} watched together · {solo} solo', { together: r.together, solo: r.solo })}
           </p>
         </>
       ),
@@ -136,7 +137,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'mint',
       body: (
         <>
-          <p className="yr-kicker">Your kind of TV</p>
+          <p className="yr-kicker">{t('Your kind of TV')}</p>
           <ol className="yr-genres">
             {r.genres.map((g, i) => (
               <li key={g.name} style={{ ['--i' as string]: i }}>
@@ -156,7 +157,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
       tone: 'ember',
       body: (
         <>
-          <p className="yr-kicker">Biggest disagreement</p>
+          <p className="yr-kicker">{t('Biggest disagreement')}</p>
           <div className="yr-poster sm">{w.poster ? <img src={bigPoster(w.poster)!} alt="" /> : <PosterFill src={null} name={w.showName} />}</div>
           <h2 className="yr-title">{w.showName}</h2>
           <div className="yr-versus">
@@ -167,7 +168,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
               </span>
             ))}
           </div>
-          <p className="yr-sub">{r.disagreement.diff} stars apart. Still talking to each other.</p>
+          <p className="yr-sub">{t('{n} stars apart. Still talking to each other.', { n: r.disagreement.diff })}</p>
         </>
       ),
     })
@@ -177,9 +178,9 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
     tone: 'sunset',
     body: (
       <>
-        <p className="yr-kicker">That's a wrap</p>
-        <h2 className="yr-huge sm">{soFar ? 'More to come' : `See you in ${r.year + 1}`}</h2>
-        <p className="yr-sub">Send it to the family group.</p>
+        <p className="yr-kicker">{t("That's a wrap")}</p>
+        <h2 className="yr-huge sm">{soFar ? t('More to come') : t('See you in {year}', { year: r.year + 1 })}</h2>
+        <p className="yr-sub">{t('Send it to the family group.')}</p>
         {share}
       </>
     ),
@@ -203,17 +204,17 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
         .filter((w) => w.month.startsWith(`${year}-`))
         .map((w) => ({ w, avg: w.watchedBy.every((id) => w.ratings[id] != null) ? w.watchedBy.reduce((s, id) => s + w.ratings[id], 0) / w.watchedBy.length : null }))
         .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0))
-      const shows = [...new Map(top.map((t) => [t.w.showId, t])).values()].slice(0, 6)
+      const shows = [...new Map(top.map((x) => [x.w.showId, x])).values()].slice(0, 6)
       const blob = await drawMonthCard({
         monthName: String(year),
         totals: { shows: r.shows, episodes: r.episodes, hours: r.hours },
-        names: names(people, r.people.map((p) => p.id)) || 'Our family',
-        shows: shows.map(({ w, avg }) => ({ name: w.showName, poster: w.poster, stars: avg, note: w.status === 'watching' ? 'Still watching' : 'Not rated yet' })),
+        names: names(people, r.people.map((p) => p.id)) || t('Our family'),
+        shows: shows.map(({ w, avg }) => ({ name: w.showName, poster: w.poster, stars: avg, note: w.status === 'watching' ? t('Still watching') : t('Not rated yet') })),
       })
-      const result = await shareImage(blob, `pititi-${year}.png`, `Our ${year} on Pititi Watchers`)
-      if (result === 'saved') onFlash('Picture saved. Send it from your photos or files.')
+      const result = await shareImage(blob, `pititi-${year}.png`, t('Our {month} on Pititi Watchers', { month: year }))
+      if (result === 'saved') onFlash(t('Picture saved. Send it from your photos or files.'))
     } catch {
-      onFlash("Couldn't make the picture. Check your connection and try again.")
+      onFlash(t("Couldn't make the picture. Check your connection and try again."))
     } finally {
       setSharing(false)
     }
@@ -228,7 +229,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
       }}
       disabled={sharing}
     >
-      <Icon name="share" size={18} /> {sharing ? 'Making the picture…' : `Share our ${year}`}
+      <Icon name="share" size={18} /> {sharing ? t('Making the picture…') : t('Share our {month}', { month: year })}
     </button>
   )
   const slides = buildSlides(r, watches, people, soFar, shareBtn)
@@ -255,7 +256,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
 
   const slide = slides[i]
   return (
-    <div className={`yr tone-${slide.tone}`} role="dialog" aria-modal="true" aria-label={`${year} in review`}>
+    <div className={`yr tone-${slide.tone}`} role="dialog" aria-modal="true" aria-label={t('{year} in review', { year })}>
       <div className="yr-progress" aria-hidden="true">
         {slides.map((s, n) => (
           <span key={s.id}>
@@ -263,7 +264,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
           </span>
         ))}
       </div>
-      <button className="yr-close" aria-label="Close" onClick={onClose}>
+      <button className="yr-close" aria-label={t('Close')} onClick={onClose}>
         <Icon name="close" size={22} stroke={2.4} />
       </button>
       <div
@@ -282,7 +283,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
         </div>
       </div>
       <p className="yr-hint" aria-hidden="true">
-        {i < last ? 'Tap for next · hold to pause' : ' '}
+        {i < last ? t('Tap for next · hold to pause') : ' '}
       </p>
     </div>
   )

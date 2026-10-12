@@ -1,4 +1,5 @@
 // Which version is running, and getting the newest one onto the phone.
+import { locale } from './i18n'
 
 /** The script this page is running, e.g. "index-BKD_bZ4R.js". */
 export function runningBuild(): string | null {
@@ -38,6 +39,6 @@ export async function checkForUpdate(): Promise<'updating' | 'latest' | 'offline
 /** "Oct 11, 2:40 PM", when this version was built. */
 export function versionLabel(): string {
   const d = new Date(__APP_BUILT__)
-  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+  return `${d.toLocaleDateString(locale(), { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' })}`
 }
 

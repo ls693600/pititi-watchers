@@ -1,3 +1,4 @@
+import { locale, t } from './i18n'
 import type { SeasonInfo } from './tvmaze'
 import type { Comment, Household, Kind, ListItem, Person, Reaction, Recommendation, Title, Watch, WatchList } from './types'
 
@@ -50,8 +51,8 @@ export function monthLabel(month: string, style: 'long' | 'short' = 'long'): str
   const [y, m] = month.split('-').map(Number)
   const d = new Date(y, m - 1, 1)
   return style === 'long'
-    ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    : d.toLocaleDateString('en-US', { month: 'short' })
+    ? d.toLocaleDateString(locale(), { month: 'long', year: 'numeric' })
+    : d.toLocaleDateString(locale(), { month: 'short' })
 }
 
 export function byUpdatedDesc(a: Watch, b: Watch): number {
@@ -250,10 +251,10 @@ export function ratingSpread(w: Pick<Watch, 'watchedBy' | 'ratings'>): number {
 }
 
 export function verdict(spread: number): string {
-  if (spread === 0) return 'Perfect match'
-  if (spread === 1) return 'Almost a perfect match'
-  if (spread === 2) return 'Mixed feelings'
-  return 'Big debate'
+  if (spread === 0) return t('Perfect match')
+  if (spread === 1) return t('Almost a perfect match')
+  if (spread === 2) return t('Mixed feelings')
+  return t('Big debate')
 }
 
 /** Logs that just became fully rated and are worth a reveal for this viewer (2+ watchers, viewer among them, not seen yet). */
@@ -414,9 +415,9 @@ export function airLabel(date: string, now = new Date()): string {
   const day = new Date(y, m - 1, d)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  return day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  if (diff === 0) return t('Today')
+  if (diff === 1) return t('Tomorrow')
+  return day.toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 export interface TasteMatch {
@@ -500,15 +501,15 @@ export function familyBadges(list: Watch[]): Badge[] {
     earned: progress >= target,
   })
   return [
-    make('streak', 'On a roll', 'Log shows 3 months in a row', monthStreak(list), 3),
-    make('binge', 'Binge mode', '50 episodes in one month', busiestMonthEpisodes, 50),
-    make('soulmates', 'Soulmates', '5 perfect matches', perfect, 5),
-    make('family-night', 'Family night', 'A show watched by 3 or more', Math.max(0, ...list.map((w) => w.watchedBy.length)), 3),
-    make('debate', 'Agree to disagree', 'A show 3+ stars apart', Math.max(0, ...list.filter((w) => averageRating(w) != null).map(ratingSpread)), 3),
-    make('rewatch', 'Rewatch royalty', '5 rewatches', list.filter((w) => w.isRewatch).length, 5),
-    make('explorer', 'Explorer', 'Shows from 6 genres', genres.size, 6),
-    make('night-owl', 'Night owl', 'Log a show after 1 AM', lateNight, 1),
-    make('centurion', 'Centurion', '100 different shows', uniqueShows(list), 100),
+    make('streak', t('On a roll'), t('Log shows 3 months in a row'), monthStreak(list), 3),
+    make('binge', t('Binge mode'), t('50 episodes in one month'), busiestMonthEpisodes, 50),
+    make('soulmates', t('Soulmates'), t('5 perfect matches'), perfect, 5),
+    make('family-night', t('Family night'), t('A show watched by 3 or more'), Math.max(0, ...list.map((w) => w.watchedBy.length)), 3),
+    make('debate', t('Agree to disagree'), t('A show 3+ stars apart'), Math.max(0, ...list.filter((w) => averageRating(w) != null).map(ratingSpread)), 3),
+    make('rewatch', t('Rewatch royalty'), t('5 rewatches'), list.filter((w) => w.isRewatch).length, 5),
+    make('explorer', t('Explorer'), t('Shows from 6 genres'), genres.size, 6),
+    make('night-owl', t('Night owl'), t('Log a show after 1 AM'), lateNight, 1),
+    make('centurion', t('Centurion'), t('100 different shows'), uniqueShows(list), 100),
   ]
 }
 
@@ -622,11 +623,11 @@ export function cleanComment(text: string): string | null {
 /** "now", "5m", "3h", "2d", then a date. */
 export function timeAgo(iso: string, now = new Date()): string {
   const s = Math.max(0, (now.getTime() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return 'now'
+  if (s < 60) return t('now')
   if (s < 3600) return `${Math.floor(s / 60)}m`
   if (s < 86400) return `${Math.floor(s / 3600)}h`
   if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString(locale(), { month: 'short', day: 'numeric' })
 }
 
 /** Comments from others that this phone hasn't seen yet (first run: none, just remember). */
@@ -668,7 +669,7 @@ export function togetherWatchers(me: string | null, people: { id: string }[], to
 
 /** How the score reads: one watcher's own stars, or an average of several. */
 export function scoreLabel(w: Pick<Watch, 'watchedBy'>, nameOf: (id: string) => string): string {
-  return w.watchedBy.length === 1 ? `${nameOf(w.watchedBy[0])}'s rating` : 'Our average'
+  return w.watchedBy.length === 1 ? t("{name}'s rating", { name: nameOf(w.watchedBy[0]) }) : t('Our average')
 }
 
 // ---- Year in Review ----
@@ -836,7 +837,7 @@ export function householdMembers(people: Person[], householdId: string | null | 
 export function householdLabel(h: Household | undefined, people: Person[]): string {
   if (h?.name) return h.name
   const names = people.filter((p) => p.householdId === h?.id).map((p) => p.name)
-  return names.length ? names.join(' & ') : 'Household'
+  return names.length ? names.join(' & ') : t('Household')
 }
 
 // ---- Lists ----
@@ -865,10 +866,10 @@ export function toggleVote(item: ListItem, personId: string): ListItem {
 }
 
 export function visibilityLabel(l: Pick<WatchList, 'visibility' | 'sharedWith'>, people: Person[]): string {
-  if (l.visibility === 'household') return 'Only us'
-  if (l.visibility === 'circle') return 'Whole family'
+  if (l.visibility === 'household') return t('Only us')
+  if (l.visibility === 'circle') return t('Whole family')
   const names = people.filter((p) => l.sharedWith.includes(p.id)).map((p) => p.name)
-  return names.length ? `Us + ${names.join(', ')}` : 'Only us'
+  return names.length ? t('Us + {names}', { names: names.join(', ') }) : t('Only us')
 }
 
 // ---- Family activity ----

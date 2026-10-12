@@ -6,6 +6,8 @@ import type { Session } from '../store/store'
 import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Household, Person, Watch } from '../types'
 import { FamilyAdmin } from '../components/FamilyAdmin'
+import { setFestivePref, useFestivePref } from '../useFestive'
+import { getLang, setLang, t } from '../i18n'
 
 interface Props {
   mode: 'local' | 'cloud'
@@ -55,6 +57,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemePref>(getThemePref)
   const [viewerCode, setViewerCode] = useState<string | null>(null)
+  const festiveOn = useFestivePref()
   const [update, setUpdate] = useState<'idle' | 'checking' | 'latest' | 'updating' | 'offline'>('idle')
 
   async function checkUpdates() {
@@ -72,12 +75,12 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   async function shareViewerInvite() {
     if (!viewerCode) return
     const link = `${APP_URL}?invite=${encodeURIComponent(viewerCode)}`
-    const text = `Take a look at our Pititi Watchers (you can see our shows and chat with us). Open ${link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (code ${viewerCode}, already filled in).`
+    const text = t('Take a look at our Pititi Watchers (you can see our shows and chat with us). Open {link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (code {code}, already filled in).', { link, code: viewerCode })
     try {
       if (navigator.share) await navigator.share({ title: 'Pititi Watchers', text })
       else {
         await navigator.clipboard.writeText(text)
-        setInviteMsg('Viewer invite copied. Paste it in a message.')
+        setInviteMsg(t('Viewer invite copied. Paste it in a message.'))
       }
     } catch {
       // Share sheet dismissed
@@ -88,7 +91,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
     if (!isAdmin) return
     loadInvite?.()
       .then(setCode)
-      .catch(() => setInviteMsg("Couldn't load the invite code. Check your connection."))
+      .catch(() => setInviteMsg(t("Couldn't load the invite code. Check your connection.")))
   }, [loadInvite, isAdmin])
 
   const me = people.find((p) => p.id === session?.personId)
@@ -96,16 +99,16 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   async function add(e: FormEvent) {
     e.preventDefault()
     const n = name.trim()
-    if (!n) return setError('Enter a name.')
-    if (n.length > 30) return setError('Keep the name under 30 characters.')
-    if (people.some((p) => p.name.toLowerCase() === n.toLowerCase())) return setError(`${n} is already in the family.`)
+    if (!n) return setError(t('Enter a name.'))
+    if (n.length > 30) return setError(t('Keep the name under 30 characters.'))
+    if (people.some((p) => p.name.toLowerCase() === n.toLowerCase())) return setError(t('{name} is already in the family.', { name: n }))
     setBusy(true)
     setError(null)
     try {
       await onAddPerson(n)
       setName('')
     } catch {
-      setError("Couldn't add them. Check your connection and try again.")
+      setError(t("Couldn't add them. Check your connection and try again."))
     } finally {
       setBusy(false)
     }
@@ -114,12 +117,12 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   async function shareInvite() {
     if (!code) return
     const link = `${APP_URL}?invite=${encodeURIComponent(code)}`
-    const text = `Join our Pititi Watchers! Open ${link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (invite code ${code}, already filled in).`
+    const text = t('Join our Pititi Watchers! Open {link}\niPhone: in Safari tap Share → Add to Home Screen.\nAndroid: in Chrome tap ⋮ → Add to Home screen.\nThen create your account (invite code {code}, already filled in).', { link, code })
     try {
       if (navigator.share) await navigator.share({ title: 'Pititi Watchers', text })
       else {
         await navigator.clipboard.writeText(text)
-        setInviteMsg('Invite copied. Paste it in a message.')
+        setInviteMsg(t('Invite copied. Paste it in a message.'))
       }
     } catch {
       // Share sheet dismissed
@@ -127,12 +130,12 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   }
 
   async function renew() {
-    if (!renewInvite || !confirm('Make a new invite code? The old code stops working for new accounts.')) return
+    if (!renewInvite || !confirm(t('Make a new invite code? The old code stops working for new accounts.'))) return
     try {
       setCode(await renewInvite())
-      setInviteMsg('New code ready. Existing accounts are not affected.')
+      setInviteMsg(t('New code ready. Existing accounts are not affected.'))
     } catch {
-      setInviteMsg("Couldn't change the code. Try again.")
+      setInviteMsg(t("Couldn't change the code. Try again."))
     }
   }
 
@@ -149,16 +152,16 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
     <div className="screen">
       <header className="topbar">
         {onBack && (
-          <button className="icon-btn" aria-label="Back" onClick={onBack} style={{ marginRight: 4 }}>
+          <button className="icon-btn" aria-label={t('Back')} onClick={onBack} style={{ marginRight: 4 }}>
             <Icon name="left" size={20} />
           </button>
         )}
         <div style={{ flex: 1 }}>
-          <p className="eyebrow">{view === 'family' ? 'Who watches with you' : 'Your account'}</p>
-          <h1 className="title-xl">{view === 'family' ? 'Family' : 'Settings'}</h1>
+          <p className="eyebrow">{view === 'family' ? t('Who watches with you') : t('Your account')}</p>
+          <h1 className="title-xl">{view === 'family' ? t('Family') : t('Settings')}</h1>
         </div>
         {view === 'family' && onOpenSettings && (
-          <button className="icon-btn" aria-label="Settings" onClick={onOpenSettings}>
+          <button className="icon-btn" aria-label={t('Settings')} onClick={onOpenSettings}>
             <Icon name="settings" size={20} />
           </button>
         )}
@@ -173,7 +176,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
           </div>
           {isAdmin && (
             <span className="badge admin">
-              <Icon name="crown" size={12} stroke={2.4} /> Admin
+              <Icon name="crown" size={12} stroke={2.4} /> {t('Admin')}
             </span>
           )}
         </section>
@@ -194,8 +197,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
       {view === 'family' && !(households.length > 0 && admin) && (
       <>
       <h2 className="h2">
-        Members
-        <small>{people.length} {people.length === 1 ? 'person' : 'people'}</small>
+        {t('Members')}
+        <small>{people.length === 1 ? t('{n} person', { n: people.length }) : t('{n} people', { n: people.length })}</small>
       </h2>
       <section className="card">
         <ul>
@@ -205,24 +208,24 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
                 <Avatar people={people} id={p.id} size={38} />
                 <span className="lrow-text">
                   <span className="lrow-title">
-                    {p.name} {me?.id === p.id && <span className="you">you</span>}
+                    {p.name} {me?.id === p.id && <span className="you">{t('you')}</span>}
                   </span>
-                  {p.isAdmin ? <span className="muted">Admin</span> : p.isViewer ? <span className="muted">Viewer · sees and chats</span> : null}
+                  {p.isAdmin ? <span className="muted">{t('Admin')}</span> : p.isViewer ? <span className="muted">{t('Viewer · sees and chats')}</span> : null}
                 </span>
                 {isAdmin && onSetViewer && !p.isAdmin && p.userId ? (
                   <button
                     className={`badge ${p.isViewer ? 'viewer' : 'ok'}`}
                     onClick={() => {
                       const next = !p.isViewer
-                      if (confirm(next ? `Make ${p.name} a viewer? They'll see everything and chat, but can't add or rate shows.` : `Make ${p.name} a full member? They'll be able to add, rate and edit shows.`))
+                      if (confirm(next ? t("Make {name} a viewer? They'll see everything and chat, but can't add or rate shows.", { name: p.name }) : t("Make {name} a full member? They'll be able to add, rate and edit shows.", { name: p.name })))
                         onSetViewer(p.id, next)
                     }}
-                    aria-label={`${p.name}: ${p.isViewer ? 'viewer' : 'member'}. Change`}
+                    aria-label={p.isViewer ? t('{name}: viewer. Change', { name: p.name }) : t('{name}: member. Change', { name: p.name })}
                   >
-                    {p.isViewer ? 'Viewer' : 'Member'}
+                    {p.isViewer ? t('Viewer') : t('Member')}
                   </button>
                 ) : (
-                  mode === 'cloud' && <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? 'Joined' : 'Not joined'}</span>
+                  mode === 'cloud' && <span className={`badge ${p.userId ? 'ok' : ''}`}>{p.userId ? t('Joined') : t('Not joined')}</span>
                 )}
               </div>
             </li>
@@ -237,56 +240,55 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
                   setName(e.target.value)
                   setError(null)
                 }}
-                placeholder="Add someone, like Mom"
-                aria-label="New family member's name"
+                placeholder={t('Add someone, like Mom')}
+                aria-label={t("New family member's name")}
                 maxLength={30}
               />
               <button className="btn dark sm" type="submit" disabled={busy} style={{ minHeight: 46 }}>
-                {busy ? 'Adding…' : 'Add'}
+                {busy ? t('Adding…') : t('Add')}
               </button>
             </form>
             {error && <p className="error" role="alert">{error}</p>}
             <p className="muted small" style={{ padding: '4px 0 14px' }}>
-              They can be picked in "Who watched?" right away, even without a phone.
+              {t('They can be picked in "Who watched?" right away, even without a phone.')}
             </p>
           </>
         ) : (
           <p className="muted small" style={{ padding: '4px 0 14px' }}>
-            {people.find((p) => p.isAdmin)?.name ?? 'The admin'} manages the family and invites.
+            {t('{name} manages the family and invites.', { name: people.find((p) => p.isAdmin)?.name ?? t('The admin') })}
           </p>
         )}
       </section>
 
       {mode === 'cloud' && isAdmin && (
         <>
-          <h2 className="h2">Invite family</h2>
+          <h2 className="h2">{t('Invite family')}</h2>
           <section className="card pad">
             <p className="muted" style={{ fontSize: 14.5 }}>
-              Share this code. They install the app, tap Create account, and enter it.
+              {t('Share this code. They install the app, tap Create account, and enter it.')}
             </p>
-            <div className="invite-code" aria-label="Invite code">{code ?? '········'}</div>
+            <div className="invite-code" aria-label={t('Invite code')}>{code ?? '········'}</div>
             <button className="btn primary block" onClick={shareInvite} disabled={!code}>
-              <Icon name="share" size={18} /> Share invite
+              <Icon name="share" size={18} /> {t('Share invite')}
             </button>
             {inviteMsg && <p className="ok small center" role="status" style={{ marginTop: 10 }}>{inviteMsg}</p>}
             <button className="btn ghost block" onClick={renew} disabled={!code} style={{ marginTop: 4 }}>
-              Make a new code
+              {t('Make a new code')}
             </button>
           </section>
           {viewerCode && (
             <>
               <h2 className="h2">
-                Invite a viewer
-                <small>see + chat</small>
+                {t('Invite a viewer')}
+                <small>{t('see + chat')}</small>
               </h2>
               <section className="card pad">
                 <p className="muted" style={{ fontSize: 14.5 }}>
-                  For someone who wants to follow along, like a friend testing the app. They see your shows, ratings and stats, and can chat and react,
-                  but can't add, rate or change anything. You can make them a full member later.
+                  {t("For someone who wants to follow along, like a friend testing the app. They see your shows, ratings and stats, and can chat and react, but can't add, rate or change anything. You can make them a full member later.")}
                 </p>
-                <div className="invite-code" aria-label="Viewer invite code">{viewerCode}</div>
+                <div className="invite-code" aria-label={t('Viewer invite code')}>{viewerCode}</div>
                 <button className="btn primary block" onClick={shareViewerInvite}>
-                  <Icon name="share" size={18} /> Share viewer invite
+                  <Icon name="share" size={18} /> {t('Share viewer invite')}
                 </button>
               </section>
             </>
@@ -302,7 +304,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
       {onOpenFamily && (
         <section className="card">
           <button className="field" onClick={onOpenFamily} style={{ width: '100%' }}>
-            <span>Family and invites</span>
+            <span>{t('Family and invites')}</span>
             <span className="chev">
               <span className="stack" style={{ marginRight: 6 }}>
                 {people.slice(0, 4).map((p) => (
@@ -315,22 +317,22 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
           {notify && (
             <div className="field">
               <span>
-                Notifications
+                {t('Notifications')}
                 <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>
                   {notify.state === 'install'
-                    ? 'Open Pititi from your home screen icon to turn on'
+                    ? t('Open Pititi from your home screen icon to turn on')
                     : notify.state === 'denied'
-                      ? 'Blocked in your phone settings'
+                      ? t('Blocked in your phone settings')
                       : notify.state === 'unsupported'
-                        ? 'Not available in this browser'
-                        : 'Messages, @mentions and new episodes'}
+                        ? t('Not available in this browser')
+                        : t('Messages, @mentions and new episodes')}
                 </small>
               </span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={notify.state === 'on'}
-                aria-label="Notifications"
+                aria-label={t('Notifications')}
                 className={`toggle ${notify.state === 'on' ? 'on' : ''}`}
                 disabled={notify.state !== 'on' && notify.state !== 'off'}
                 onClick={() => (notify.state === 'on' ? notify.onDisable() : notify.onEnable())}
@@ -340,77 +342,101 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
         </section>
       )}
 
-      <h2 className="h2">App</h2>
+      <h2 className="h2">{t('App')}</h2>
       <section className="card">
         <div className="field">
-          <span>Appearance</span>
-          <div className="segmented" role="radiogroup" aria-label="Appearance">
-            {(['auto', 'light', 'dark'] as const).map((t) => (
+          <span>{t('Appearance')}</span>
+          <div className="segmented" role="radiogroup" aria-label={t('Appearance')}>
+            {(['auto', 'light', 'dark'] as const).map((th) => (
               <button
-                key={t}
+                key={th}
                 type="button"
                 role="radio"
-                aria-checked={theme === t}
-                className={theme === t ? 'on' : ''}
+                aria-checked={theme === th}
+                className={theme === th ? 'on' : ''}
                 onClick={() => {
-                  setTheme(t)
-                  setThemePref(t)
+                  setTheme(th)
+                  setThemePref(th)
                 }}
               >
-                {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
+                {th === 'auto' ? t('Auto') : th === 'light' ? t('Light') : t('Dark')}
               </button>
             ))}
           </div>
         </div>
-        {theme === 'auto' && <p className="muted small" style={{ marginTop: -6, paddingBottom: 10 }}>Dark from 7 PM to 7 AM, when you're watching.</p>}
+        {theme === 'auto' && <p className="muted small" style={{ marginTop: -6, paddingBottom: 10 }}>{t("Dark from 7 PM to 7 AM, when you're watching.")}</p>}
         <div className="field">
-          <span>Sync</span>
-          <span className={mode === 'cloud' ? 'ok' : 'muted'}>{mode === 'cloud' ? 'On · every family phone' : 'Off · this phone only'}</span>
+          <span>{t('Language')}</span>
+          <div className="segmented" role="radiogroup" aria-label={t('Language')}>
+            {(['en', 'pt'] as const).map((l) => (
+              <button key={l} type="button" role="radio" aria-checked={getLang() === l} className={getLang() === l ? 'on' : ''} lang={l === 'pt' ? 'pt-BR' : 'en'} onClick={() => setLang(l)}>
+                {l === 'en' ? 'English' : 'Português'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="field">
-          <span>Logged shows</span>
+          <span>
+            {t('Festive looks')}
+            <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>{t('Halloween, Christmas, Carnaval and more change the colors for the day')}</small>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={festiveOn}
+            aria-label={t('Festive looks')}
+            className={`toggle ${festiveOn ? 'on' : ''}`}
+            onClick={() => setFestivePref(!festiveOn)}
+          />
+        </div>
+        <div className="field">
+          <span>{t('Sync')}</span>
+          <span className={mode === 'cloud' ? 'ok' : 'muted'}>{mode === 'cloud' ? t('On · every family phone') : t('Off · this phone only')}</span>
+        </div>
+        <div className="field">
+          <span>{t('Logged shows')}</span>
           <strong>{watches.length}</strong>
         </div>
         {onOpenHelp && (
           <button className="field" onClick={onOpenHelp} style={{ width: '100%' }}>
-            <span>Help and questions</span>
+            <span>{t('Help and questions')}</span>
             <span className="chev"><Icon name="right" size={20} /></span>
           </button>
         )}
         <div className="field">
           <span>
-            Version
+            {t('Version')}
             <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>
               {versionLabel()} · {__APP_SHA__}
             </small>
           </span>
           <button className="btn sm ghost-dark" onClick={checkUpdates} disabled={update === 'checking' || update === 'updating'}>
             {update === 'checking'
-              ? 'Checking…'
+              ? t('Checking…')
               : update === 'updating'
-                ? 'Updating…'
+                ? t('Updating…')
                 : update === 'latest'
-                  ? '✓ Up to date'
+                  ? `✓ ${t('Up to date')}`
                   : update === 'offline'
-                    ? 'Offline · try again'
-                    : 'Check for updates'}
+                    ? t('Offline · try again')
+                    : t('Check for updates')}
           </button>
         </div>
         <button className="field" onClick={exportBackup} disabled={watches.length === 0} style={{ width: '100%' }}>
-          <span>Export backup</span>
+          <span>{t('Export backup')}</span>
           <span className="chev"><Icon name="download" size={20} /></span>
         </button>
       </section>
 
       {session && (
         <button className="btn danger block" onClick={onSignOut}>
-          <Icon name="logout" size={18} /> Sign out
+          <Icon name="logout" size={18} /> {t('Sign out')}
         </button>
       )}
       </>
       )}
 
-      {view === 'account' && <p className="muted small center">Show data from TVmaze</p>}
+      {view === 'account' && <p className="muted small center">{t('Show data from TVmaze')}</p>}
     </div>
   )
 }

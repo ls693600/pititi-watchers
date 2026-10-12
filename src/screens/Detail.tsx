@@ -135,9 +135,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       const colors = ['#5b6cff', '#ff4d8d', '#12b886', '#f59f00', '#9b5de5', '#ff6b3d', '#0ea5e9', '#e64980']
       const blob = await drawShowCard({
         name: saved.showName,
-        meta: [`Season ${saved.season}`, saved.network, saved.status === 'done' ? 'finished' : 'watching now'].filter(Boolean).join(' · '),
+        meta: [t('Season {n}', { n: saved.season }), saved.network, saved.status === 'done' ? t('finished') : t('watching now')].filter(Boolean).join(' · '),
         poster: saved.poster,
-        averageLabel: saved.watchedBy.length === 1 ? scoreLabel(saved, nameOf).replace(/'s rating$/, "'s stars") : 'family average',
+        averageLabel: saved.watchedBy.length === 1 ? t("{name}'s stars", { name: nameOf(saved.watchedBy[0]) }) : t('family average'),
         // Blind rating holds for shares too: only stars this phone is allowed to see
         ratings: watchersList.map((p) => ({
           name: p.name,
@@ -145,12 +145,12 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           stars: canSeeRating(saved, p.id, viewer) ? (saved.ratings[p.id] ?? null) : null,
         })),
         average: averageRating(saved),
-        names: watchersList.map((p) => p.name).join(' & ') || 'Our family',
+        names: watchersList.map((p) => p.name).join(' & ') || t('Our family'),
       })
-      const result = await shareImage(blob, `pititi-${saved.showName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, `${saved.showName} on Pititi Watchers`)
-      if (result === 'saved') onFlash('Picture saved. Send it from your photos or files.')
+      const result = await shareImage(blob, `pititi-${saved.showName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, t('{show} on Pititi Watchers', { show: saved.showName }))
+      if (result === 'saved') onFlash(t('Picture saved. Send it from your photos or files.'))
     } catch {
-      onFlash("Couldn't make the picture. Check your connection and try again.")
+      onFlash(t("Couldn't make the picture. Check your connection and try again."))
     } finally {
       setSharing(false)
     }
@@ -161,7 +161,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   // Blind rating follows what's saved, so tapping your stars never spoils the reveal
   const savedComplete = averageRating(stored) != null
   const blind = viewer != null && !savedComplete && w.watchedBy.length > 1
-  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? 'Someone'
+  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? t('Someone')
   const watchers = people.filter((p) => w.watchedBy.includes(p.id))
 
   function toggleWatcher(id: string) {
@@ -190,9 +190,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const total = w.totalEpisodes
 
   function save() {
-    if (!w.watchedBy.length) return setError('Pick who watched it.')
-    if (!/^\d{4}-\d{2}$/.test(w.month)) return setError('Pick the month you watched it.')
-    if (total != null && w.episodesWatched > total) return setError(`Season ${w.season} only has ${total} episodes.`)
+    if (!w.watchedBy.length) return setError(t('Pick who watched it.'))
+    if (!/^\d{4}-\d{2}$/.test(w.month)) return setError(t('Pick the month you watched it.'))
+    if (total != null && w.episodesWatched > total) return setError(t('Season {season} only has {n} episodes.', { season: w.season, n: total }))
     setError(null)
     // Stars you can't edit (other people's accounts) always come from the latest saved copy,
     // so saving notes here never wipes a rating someone just gave on their phone
@@ -210,11 +210,11 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
     <div className="screen detail">
       <div className="dhead">
         {w.poster && <img src={bigPoster(w.poster)!} alt="" className="dhead-bg" />}
-        <button className="icon-btn glass close" aria-label="Close" onClick={onClose}>
+        <button className="icon-btn glass close" aria-label={t('Close')} onClick={onClose}>
           <Icon name="close" size={20} />
         </button>
         {!isNew && (
-          <button className="icon-btn glass share" aria-label={`Share ${w.showName}`} onClick={shareShow} disabled={sharing}>
+          <button className="icon-btn glass share" aria-label={t('Share {show}', { show: w.showName })} onClick={shareShow} disabled={sharing}>
             <Icon name="share" size={19} />
           </button>
         )}
@@ -226,7 +226,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         <div className="dhead-id">
           <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
           <div style={{ minWidth: 0, paddingBottom: 4 }}>
-            {isNew && <span className="badge admin" style={{ marginBottom: 8 }}>New log</span>}
+            {isNew && <span className="badge admin" style={{ marginBottom: 8 }}>{t('New log')}</span>}
             <h1>{w.showName}</h1>
             <p className="dhead-meta">{[w.year, w.network, w.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</p>
           </div>
@@ -237,13 +237,15 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         <div className="health-card" role="alert">
           <Icon name="info" size={20} stroke={2.2} />
           <div>
-            <b>This season is logged twice</b>
+            <b>{t('This season is logged twice')}</b>
             <p>
-              Another log of Season {w.season} ({duplicate.episodesWatched} {duplicate.episodesWatched === 1 ? 'episode' : 'episodes'},{' '}
-              {monthLabel(duplicate.month)}) makes it look watched twice. Merge keeps the furthest progress, everyone who watched and all
-              ratings.
+              {t('Another log of Season {season} ({episodes}, {month}) makes it look watched twice. Merge keeps the furthest progress, everyone who watched and all ratings.', {
+                season: w.season,
+                episodes: duplicate.episodesWatched === 1 ? t('{n} episode', { n: duplicate.episodesWatched }) : t('{n} episodes', { n: duplicate.episodesWatched }),
+                month: monthLabel(duplicate.month),
+              })}
             </p>
-            <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>Merge into one</button>
+            <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>{t('Merge into one')}</button>
           </div>
         </div>
       )}
@@ -252,12 +254,14 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
-            <b>Watched {timesWatchedFor(watches, w)} times?</b>
+            <b>{t('Watched {n} times?', { n: timesWatchedFor(watches, w) })}</b>
             <p>
-              Season {w.season} is also logged in {monthLabel(pair.month)}, so it counts as a rewatch. If you only watched it once, merge them:
-              it keeps the progress, everyone who watched and all ratings.
+              {t('Season {season} is also logged in {month}, so it counts as a rewatch. If you only watched it once, merge them: it keeps the progress, everyone who watched and all ratings.', {
+                season: w.season,
+                month: monthLabel(pair.month),
+              })}
             </p>
-            <button className="btn sm dark" onClick={() => onMerge(w, pair)}>Only once · merge</button>
+            <button className="btn sm dark" onClick={() => onMerge(w, pair)}>{t('Only once · merge')}</button>
           </div>
         </div>
       )}
@@ -267,13 +271,12 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
-            <b>Marked as a rewatch</b>
+            <b>{t('Marked as a rewatch')}</b>
             <p>
-              There's no earlier viewing of Season {w.season} in your log, so it shows as watched twice. If you'd seen it before you started
-              using Pititi, keep it.
+              {t("There's no earlier viewing of Season {season} in your log, so it shows as watched twice. If you'd seen it before you started using Pititi, keep it.", { season: w.season })}
             </p>
             <button className="btn sm dark" onClick={() => onSave({ ...w, isRewatch: false, updatedAt: new Date().toISOString() })}>
-              First time watching
+              {t('First time watching')}
             </button>
           </div>
         </div>
@@ -283,12 +286,12 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         <div className="health-card" role="alert">
           <Icon name="calendar" size={20} stroke={2.2} />
           <div>
-            <b>Filed before it aired</b>
+            <b>{t('Filed before it aired')}</b>
             <p>
-              This log is in {monthLabel(w.month)}, but Season {w.season} premiered in {monthLabel(earlyMonth)}.
+              {t('This log is in {month}, but Season {season} premiered in {premiere}.', { month: monthLabel(w.month), season: w.season, premiere: monthLabel(earlyMonth) })}
             </p>
             <button className="btn sm dark" onClick={() => setW((cur) => ({ ...cur, month: earlyMonth }))}>
-              Move to {monthLabel(earlyMonth)}
+              {t('Move to {month}', { month: monthLabel(earlyMonth) })}
             </button>
           </div>
         </div>
@@ -338,11 +341,11 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                 <b className="gold">★</b> {info.rating.toFixed(1)}
               </span>
             )}
-            {info.status && <span>{info.status === 'Running' ? 'Still airing' : info.status === 'Ended' ? 'Ended' : info.status}</span>}
+            {info.status && <span>{info.status === 'Running' ? t('Still airing') : t(info.status)}</span>}
             {info.runtime != null && <span>~{info.runtime} min</span>}
             {seasons && seasons.length > 0 && (() => {
               const n = seasons.filter((x) => x.aired).length || seasons.length
-              return <span>{n} {n === 1 ? 'season' : 'seasons'}</span>
+              return <span>{n === 1 ? t('{n} season', { n }) : t('{n} seasons', { n })}</span>
             })()}
           </div>
           {info.home && (
@@ -357,14 +360,14 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                 <Icon name={info.home.kind === 'stream' ? 'play' : 'tv'} size={18} stroke={2.2} />
               </span>
               <span className="where-text">
-                <small>Where to watch</small>
+                <small>{t('Where to watch')}</small>
                 <b>
-                  {info.home.kind === 'stream' ? 'Streams on' : 'Airs on'} {info.home.name}
+                  {info.home.kind === 'stream' ? t('Streams on {name}', { name: info.home.name }) : t('Airs on {name}', { name: info.home.name })}
                 </b>
               </span>
               {info.officialSite && (
                 <span className="where-go">
-                  Open <Icon name="right" size={14} stroke={2.6} />
+                  {t('Open')} <Icon name="right" size={14} stroke={2.6} />
                 </span>
               )}
             </a>
@@ -378,9 +381,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             <div className="next-air">
               <span className="next-air-icon"><Icon name="calendar" size={20} /></span>
               <div>
-                <b>Next episode: {airLabel(info.nextEpisode.airdate)}</b>
+                <b>{t('Next episode: {date}', { date: airLabel(info.nextEpisode.airdate) })}</b>
                 <p className="muted">
-                  S{info.nextEpisode.season} E{info.nextEpisode.number}
+                  {t('S{season} E{episode}', { season: info.nextEpisode.season, episode: info.nextEpisode.number })}
                   {info.nextEpisode.name ? ` · ${info.nextEpisode.name}` : ''}
                 </p>
               </div>
@@ -392,8 +395,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       <section className="card">
         {people.length > 1 && !readOnly && (
           <div className="together-row">
-            <span className="field-label" style={{ padding: 0 }}>Watching together?</span>
-            <div className="segmented" role="radiogroup" aria-label="Watching together?">
+            <span className="field-label" style={{ padding: 0 }}>{t('Watching together?')}</span>
+            <div className="segmented" role="radiogroup" aria-label={t('Watching together?')}>
               <button
                 type="button"
                 role="radio"
@@ -405,7 +408,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                   setW((cur) => ({ ...cur, watchedBy: solo ? [solo] : [], ratings: solo && cur.ratings[solo] != null ? { [solo]: cur.ratings[solo] } : {} }))
                 }}
               >
-                Solo
+                {t('Solo')}
               </button>
               <button
                 type="button"
@@ -414,13 +417,13 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                 className={w.watchedBy.length > 1 ? 'on' : ''}
                 onClick={() => setW((cur) => ({ ...cur, watchedBy: togetherWatchers(me, people, true) }))}
               >
-                Together
+                {t('Together')}
               </button>
             </div>
           </div>
         )}
-        <p className="field-label">Who watched?</p>
-        <div className="chips" role="group" aria-label="Watched by">
+        <p className="field-label">{t('Who watched?')}</p>
+        <div className="chips" role="group" aria-label={t('Watched by')}>
           {people.map((p) => (
             <button
               key={p.id}
@@ -446,7 +449,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               <span className="who">
                 <Avatar people={people} id={p.id} />
                 {p.name}
-                {me === p.id && <span className="you">you</span>}
+                {me === p.id && <span className="you">{t('you')}</span>}
               </span>
               {editable ? (
                 <Stars label={p.name} value={stars} onChange={(v) => rate(p.id, v)} />
@@ -455,7 +458,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               ) : (
                 <span className={`hidden-rating ${stars != null ? 'done' : ''}`}>
                   <Icon name={stars != null ? 'lock' : 'clock'} size={15} stroke={2.2} />
-                  {stars != null ? 'Rated · hidden' : 'Not rated yet'}
+                  {stars != null ? t('Rated · hidden') : t('Not rated yet')}
                 </span>
               )}
             </div>
@@ -483,11 +486,11 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               <AvgStars value={avg} size={24} />
             ) : avg != null ? (
               <span className="save-to-reveal">
-                <Icon name="sparkle" size={16} stroke={2.2} /> Save to reveal
+                <Icon name="sparkle" size={16} stroke={2.2} /> {t('Save to reveal')}
               </span>
             ) : (
               <span className="muted" style={{ textAlign: 'right' }}>
-                {viewer && watchers.length > 1 ? 'Revealed when everyone rates' : 'Waiting for'}
+                {viewer && watchers.length > 1 ? t('Revealed when everyone rates') : t('Waiting for')}
                 <br />
                 <b style={{ color: 'var(--text-2)' }}>{pendingRaters(w).map(nameOf).join(', ')}</b>
               </span>
@@ -511,24 +514,27 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       {episodes && episodes.length > 0 && (
         <section className="card pad">
           <div className="eps-head">
-            <b>Season {w.season} · {w.episodesWatched} of {total ?? episodes.length}</b>
-            <span className="muted">Tap the last one you watched</span>
+            <b>{t('Season {season} · {n} of {total}', { season: w.season, n: w.episodesWatched, total: total ?? episodes.length })}</b>
+            <span className="muted">{t('Tap the last one you watched')}</span>
           </div>
           {overCounted && (
             <div className="eps-warn" role="alert">
               <span>
-                Only {airedCount} of {total ?? episodes.length} episodes have aired, so this log counts {w.episodesWatched - airedCount!} that
-                haven't happened yet.
+                {t("Only {aired} of {total} episodes have aired, so this log counts {extra} that haven't happened yet.", {
+                  aired: airedCount!,
+                  total: total ?? episodes.length,
+                  extra: w.episodesWatched - airedCount!,
+                })}
               </span>
               <button className="btn sm dark" onClick={() => setW((cur) => capToAired({ ...cur, status: 'done' }, airedCount))}>
-                Fix: set to {airedCount}
+                {t('Fix: set to {n}', { n: airedCount! })}
               </button>
             </div>
           )}
           {!overCounted && airedCount != null && total != null && airedCount < total && w.episodesWatched === airedCount && (
-            <p className="eps-note">Caught up. {total - airedCount} more episodes still to air.</p>
+            <p className="eps-note">{t('Caught up. {n} more episodes still to air.', { n: total - airedCount })}</p>
           )}
-          <div className="eps" role="group" aria-label={`Season ${w.season} episodes`}>
+          <div className="eps" role="group" aria-label={t('Season {n} episodes', { n: w.season })}>
             {episodes.map((e) => {
               const watched = e.number <= w.episodesWatched
               const next = e.number === w.episodesWatched + 1
@@ -538,7 +544,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                   key={e.number}
                   className={`ep ${watched ? 'w' : ''} ${next ? 'n' : ''} ${upcoming ? 'u' : ''}`}
                   aria-pressed={watched}
-                  aria-label={`Episode ${e.number}${e.name ? `: ${e.name}` : ''}${upcoming && e.airdate ? `, airs ${airLabel(e.airdate)}` : ''}`}
+                  aria-label={`${t('Episode {n}', { n: e.number })}${e.name ? `: ${e.name}` : ''}${upcoming && e.airdate ? `, ${t('airs {date}', { date: airLabel(e.airdate) })}` : ''}`}
                   title={e.name}
                   disabled={readOnly || (upcoming && !watched)}
                   onClick={() => setW((cur) => tapEpisode({ ...cur, totalEpisodes: cur.totalEpisodes ?? episodes.length }, e.number, airedCount))}
@@ -555,7 +561,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       <fieldset className="card plain">
         {!isMovie && (
         <label className="field">
-          <span>Season</span>
+          <span>{t('Season')}</span>
           {seasons && seasons.length > 0 ? (
             <select
               value={w.season}
@@ -566,7 +572,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             >
               {seasons.map((s) => (
                 <option key={s.number} value={s.number}>
-                  Season {s.number}{s.episodes ? ` · ${s.episodes} eps` : ''}{s.aired ? '' : ' · upcoming'}
+                  {t('Season {n}', { n: s.number })}{s.episodes ? ` · ${t('{n} eps', { n: s.episodes })}` : ''}{s.aired ? '' : ` · ${t('upcoming')}`}
                 </option>
               ))}
             </select>
@@ -577,7 +583,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               inputMode="numeric"
               value={w.season}
               onChange={(e) => set({ season: Math.max(1, Number(e.target.value) || 1) })}
-              aria-label="Season number"
+              aria-label={t('Season number')}
             />
           )}
         </label>
@@ -585,8 +591,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
 
         {!isMovie && (
         <div className="field">
-          <span>Status</span>
-          <div className="segmented" role="radiogroup" aria-label="Status">
+          <span>{t('Status')}</span>
+          <div className="segmented" role="radiogroup" aria-label={t('Status')}>
             {(['watching', 'done'] as const).map((s) => (
               <button
                 key={s}
@@ -596,7 +602,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                 className={w.status === s ? 'on' : ''}
                 onClick={() => setW((cur) => capToAired({ ...cur, status: s, episodesWatched: s === 'done' && total ? total : cur.episodesWatched }, airedCount))}
               >
-                {s === 'watching' ? 'Watching' : 'Finished'}
+                {s === 'watching' ? t('Watching') : t('Finished')}
               </button>
             ))}
           </div>
@@ -605,14 +611,14 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
 
         {!isMovie && !(episodes && episodes.length > 0) && (
         <div className="field">
-          <span>Episodes</span>
+          <span>{t('Episodes')}</span>
           <div className="stepper">
-            <button aria-label="One episode less" onClick={() => set({ episodesWatched: Math.max(0, w.episodesWatched - 1) })}>
+            <button aria-label={t('One episode less')} onClick={() => set({ episodesWatched: Math.max(0, w.episodesWatched - 1) })}>
               <Icon name="minus" size={18} />
             </button>
             <span aria-live="polite">{w.episodesWatched}{total ? ` / ${total}` : ''}</span>
             <button
-              aria-label="One episode more"
+              aria-label={t('One episode more')}
               onClick={() => {
                 const n = total ? Math.min(total, w.episodesWatched + 1) : w.episodesWatched + 1
                 set({ episodesWatched: n, status: total && n >= total ? 'done' : w.status })
@@ -625,17 +631,17 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         )}
 
         <label className="field">
-          <span>Watched in</span>
-          <input type="month" value={w.month} onChange={(e) => set({ month: e.target.value })} aria-label="Month watched" />
+          <span>{t('Watched in')}</span>
+          <input type="month" value={w.month} onChange={(e) => set({ month: e.target.value })} aria-label={t('Month watched')} />
         </label>
 
         <div className="field">
-          <span>Rewatch</span>
+          <span>{t('Rewatch')}</span>
           <button
             type="button"
             role="switch"
             aria-checked={w.isRewatch}
-            aria-label="Rewatch"
+            aria-label={t('Rewatch')}
             className={`toggle ${w.isRewatch ? 'on' : ''}`}
             onClick={() => set({ isRewatch: !w.isRewatch })}
           >
@@ -644,7 +650,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         </div>
 
         <div className="field">
-          <span>Times watched</span>
+          <span>{t('Times watched')}</span>
           <strong>{times}</strong>
         </div>
       </fieldset>
@@ -660,11 +666,11 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       ) : (
       <section className="card">
         <label className="notes">
-          <span className="field-label" style={{ paddingTop: 0 }}>Notes</span>
+          <span className="field-label" style={{ paddingTop: 0 }}>{t('Notes')}</span>
           <textarea
             value={w.notes}
             maxLength={1000}
-            placeholder={readOnly ? 'No notes' : 'That finale though…'}
+            placeholder={readOnly ? t('No notes') : t('That finale though…')}
             readOnly={readOnly}
             onChange={(e) => set({ notes: e.target.value })}
           />
@@ -684,7 +690,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       ) : (
       <div className="actions">
         <button className="btn primary block" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : isNew ? `Add to ${monthLabel(w.month)}` : 'Save changes'}
+          {saving ? t('Saving…') : isNew ? t('Add to {month}', { month: monthLabel(w.month) }) : t('Save changes')}
         </button>
         {!isNew && canDelete && (
           <button
@@ -692,7 +698,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             // No "are you sure?": the message after removing has Undo
             onClick={() => onDelete(w)}
           >
-            <Icon name="trash" size={18} /> Remove from log
+            <Icon name="trash" size={18} /> {t('Remove from log')}
           </button>
         )}
       </div>

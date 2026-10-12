@@ -16,7 +16,9 @@ import {
   watchedByPerson,
   watchesInMonth,
 } from '../logic'
+import { getLang, setLang, t } from '../i18n'
 import type { Person, Watch } from '../types'
+import type { Festive } from '../festive'
 
 interface Props {
   watches: Watch[]
@@ -38,6 +40,8 @@ interface Props {
   onProfile: () => void
   /** Everyone incl. viewers, for your own name and avatar in the header */
   everyone?: Person[]
+  /** Today's festive look: greeting card at the top */
+  festive?: Festive | null
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -52,11 +56,11 @@ function tipSeen(): boolean {
 
 function greeting(now = new Date()): string {
   const h = now.getHours()
-  return h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return h < 5 ? t('Late night') : h < 12 ? t('Good morning') : h < 18 ? t('Good afternoon') : t('Good evening')
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, everyone = props.people } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, everyone = props.people, festive = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   const hideTip = () => {
     setShowTip(false)
@@ -90,32 +94,52 @@ export function Home(props: Props) {
           <p className="eyebrow">{greeting()}{meName ? ',' : ''}</p>
           <h1 className="title-xl">{meName ?? 'Pititi Watchers'}</h1>
         </div>
-        {me && (
-          <button className="who-btn" onClick={onProfile} aria-label="Your profile and settings">
-            <Avatar people={everyone} id={me} size={44} />
+        <div className="topbar-actions">
+          <button
+            className="lang-btn"
+            onClick={() => setLang(getLang() === 'pt' ? 'en' : 'pt')}
+            aria-label={getLang() === 'pt' ? 'Switch to English' : 'Mudar para português'}
+            lang={getLang() === 'pt' ? 'en' : 'pt-BR'}
+          >
+            {getLang() === 'pt' ? 'EN' : 'PT'}
           </button>
-        )}
+          {me && (
+            <button className="who-btn" onClick={onProfile} aria-label={t('Your profile and settings')}>
+              <Avatar people={everyone} id={me} size={44} />
+            </button>
+          )}
+        </div>
       </header>
+
+      {festive && (
+        <div className="festive-card" role="note">
+          <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
+          <p>
+            <b>{t(festive.name)}</b>
+            {t(festive.greeting)}
+          </p>
+        </div>
+      )}
 
       {isCurrent && watching.length > 0 && (
         <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} readOnly={readOnly} />
       )}
 
       <div className="monthbar">
-        <button className="icon-btn" aria-label="Previous month" onClick={() => onMonth(shiftMonth(month, -1))}>
+        <button className="icon-btn" aria-label={t('Previous month')} onClick={() => onMonth(shiftMonth(month, -1))}>
           <Icon name="left" size={20} />
         </button>
         <div className="monthbar-label">
           <strong>{monthLabel(month)}</strong>
           {isCurrent ? (
-            <span className="muted">This month</span>
+            <span className="muted">{t('This month')}</span>
           ) : (
             <button className="today-btn" onClick={() => onMonth(currentMonth())}>
-              Back to this month
+              {t('Back to this month')}
             </button>
           )}
         </div>
-        <button className="icon-btn" aria-label="Next month" onClick={() => onMonth(shiftMonth(month, 1))} disabled={isCurrent}>
+        <button className="icon-btn" aria-label={t('Next month')} onClick={() => onMonth(shiftMonth(month, 1))} disabled={isCurrent}>
           <Icon name="right" size={20} />
         </button>
       </div>
@@ -126,17 +150,17 @@ export function Home(props: Props) {
         <div className="tile">
           <span className="tile-icon"><Icon name="tv" size={17} /></span>
           <strong>{sum.shows}</strong>
-          <span>{sum.shows === 1 ? 'show' : 'shows'}</span>
+          <span>{sum.shows === 1 ? t('show') : t('shows')}</span>
         </div>
         <div className="tile">
           <span className="tile-icon"><Icon name="play" size={15} /></span>
           <strong>{sum.episodes}</strong>
-          <span>episodes</span>
+          <span>{t('episodes')}</span>
         </div>
         <div className="tile">
           <span className="tile-icon"><Icon name="clock" size={17} /></span>
           <strong>{sum.hours}h</strong>
-          <span>watched</span>
+          <span>{t('watched')}</span>
         </div>
       </div>
 
@@ -144,14 +168,14 @@ export function Home(props: Props) {
         <div className="empty">
           <div className="empty-icon"><Icon name="tv" size={30} /></div>
           <p className="empty-title">
-            {who ? `${who.name} hasn't logged anything yet` : isCurrent ? 'Your month starts here' : `Nothing in ${monthLabel(month)}`}
+            {who ? t("{name} hasn't logged anything yet", { name: who.name }) : isCurrent ? t('Your month starts here') : t('Nothing in {month}', { month: monthLabel(month) })}
           </p>
           <p className="muted" style={{ fontSize: 15 }}>
-            Add what you watched {isCurrent ? 'this month' : `in ${monthLabel(month)}`} and rate it together.
+            {isCurrent ? t('Add what you watched this month and rate it together.') : t('Add what you watched in {month} and rate it together.', { month: monthLabel(month) })}
           </p>
           {!readOnly && (
             <button className="btn primary" onClick={onAdd}>
-              <Icon name="plus" size={18} stroke={2.4} /> Add a show
+              <Icon name="plus" size={18} stroke={2.4} /> {t('Add a show')}
             </button>
           )}
         </div>
@@ -163,20 +187,20 @@ export function Home(props: Props) {
                 <Icon name="sparkle" size={16} stroke={2.2} />
               </span>
               <p>
-                <b>Tip:</b> press and hold any show to mark episodes, finish it or rate it, without opening it.
+                <b>{t('Tip:')}</b> {t('press and hold any show to mark episodes, finish it or rate it, without opening it.')}
               </p>
-              <button className="icon-btn" aria-label="Got it" onClick={hideTip}>
+              <button className="icon-btn" aria-label={t('Got it')} onClick={hideTip}>
                 <Icon name="close" size={16} />
               </button>
             </div>
           )}
           <h2 className="h2">
-            {isCurrent ? 'Watched this month' : `Watched in ${monthName}`}
-            <small>{isCurrent ? `${grid.length} finished` : `${grid.length} ${grid.length === 1 ? 'show' : 'shows'}`}</small>
+            {isCurrent ? t('Watched this month') : t('Watched in {month}', { month: monthName })}
+            <small>{isCurrent ? t('{n} finished', { n: grid.length }) : grid.length === 1 ? t('{n} show', { n: grid.length }) : t('{n} shows', { n: grid.length })}</small>
           </h2>
           {grid.length === 0 && (
             <p className="muted" style={{ fontSize: 14.5, marginTop: -8 }}>
-              Nothing finished yet this month. Episodes you watch from the shows above still count in the numbers.
+              {t('Nothing finished yet this month. Episodes you watch from the shows above still count in the numbers.')}
             </p>
           )}
           <div className="grid">
@@ -185,16 +209,16 @@ export function Home(props: Props) {
               return (
                 <LongPress key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} onLong={() => actions(w)}>
                   <div className="pcard-img">
-                    <button className="pcard-hit" onClick={() => onOpen(w)} aria-label={`Open ${w.showName}`}>
+                    <button className="pcard-hit" onClick={() => onOpen(w)} aria-label={t('Open {name}', { name: w.showName })}>
                       <PosterFill src={w.poster} name={w.showName} />
                     </button>
                     {w.isRewatch && (
-                      <span className="pcard-badge" title="Rewatch" aria-label="Rewatch">
+                      <span className="pcard-badge" title={t('Rewatch')} aria-label={t('Rewatch')}>
                         <Icon name="repeat" size={12} stroke={2.6} />
                       </span>
                     )}
                     {w.watchedBy.length > 0 && (
-                      <span className="pcard-watchers stack" aria-label="Watched by">
+                      <span className="pcard-watchers stack" aria-label={t('Watched by')}>
                         {w.watchedBy.slice(0, 3).map((id) => (
                           <Avatar key={id} people={people} id={id} size={22} />
                         ))}
@@ -214,13 +238,13 @@ export function Home(props: Props) {
                   <span className={`pcard-sub ${viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
                     {w.status === 'watching'
                       ? isCurrent
-                        ? `S${w.season} · ${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''} eps`
-                        : `S${w.season} · ${episodesIn(w, month)} eps in ${monthName}`
+                        ? t('S{season} · {n} eps', { season: w.season, n: `${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''}` })
+                        : t('S{season} · {n} eps in {month}', { season: w.season, n: episodesIn(w, month), month: monthName })
                       : avg != null
-                        ? `S${w.season}`
+                        ? t('S{season}', { season: w.season })
                         : viewer && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
-                          ? 'Your turn to rate'
-                          : `Waiting for ${pendingRaters(w).map((id) => people.find((p) => p.id === id)?.name ?? 'someone').join(', ')}`}
+                          ? t('Your turn to rate')
+                          : t('Waiting for {names}', { names: pendingRaters(w).map((id) => people.find((p) => p.id === id)?.name ?? t('someone')).join(', ') })}
                   </span>
                 </LongPress>
               )
