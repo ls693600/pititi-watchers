@@ -26,16 +26,20 @@ import { usePush } from './hooks/usePush'
 import { useReadState } from './hooks/useReadState'
 import { useChat } from './hooks/useChat'
 import { useFamilyAdmin } from './hooks/useFamilyAdmin'
+import { onOutbox, readOutbox, withOutbox } from './store/outbox'
+import { setErrorScreen } from './errors'
 import { Toast } from './components/Toast'
 import { SEEN_KEY, readSet, writeSet } from './lib/seen'
 import { announceNew, celebrateBadges } from './lib/announce'
 import { FestiveRain } from './components/Festive'
-import { cloudStore, currentSession, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
+import { clearProblems, cloudStore, currentSession, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { Comment, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
 
-const store = CLOUD_ENABLED ? cloudStore : localStore
+// Cloud changes made without signal wait on the phone (and in its offline copy) and sync when it's back
+const cloud = withOutbox(cloudStore, localStore)
+const store = CLOUD_ENABLED ? cloud : localStore
 
 type Tab = 'home' | 'lists' | 'search' | 'family' | 'stats' | 'members' | 'settings' | 'help'
 // Settings lives behind your avatar (Home) and the gear on Family
@@ -129,6 +133,9 @@ export default function App() {
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
   const { toast, flash, dismiss: dismissToast } = useToast()
+  /** Changes waiting to sync (made without signal) */
+  const [pending, setPending] = useState(0)
+  useEffect(() => onOutbox(setPending), [])
   // Undo runs later than the render that created it, so read the latest list from here
   const watchesRef = useRef<Watch[]>([])
   useEffect(() => {
@@ -212,6 +219,12 @@ export default function App() {
 
   const reload = useCallback(async () => {
     try {
+      // Send what waited offline first, so the fresh copy already includes it
+      if (CLOUD_ENABLED && readOutbox().length) {
+        const { sent, dropped } = await cloud.flush()
+        if (dropped) flash(t("{n} offline changes couldn't be saved (no permission).", { n: dropped }))
+        else if (sent) flash(t('Back online: {n} changes synced', { n: sent }))
+      }
       const snap = await store.load()
       setWatches(snap.watches)
       setPeople(snap.people)
@@ -231,7 +244,7 @@ export default function App() {
       takeChat({ comments: snap.comments, reactions: snap.reactions })
       setOffline(true)
     }
-  }, [queueReveals, checkBadges, announce, takeCircle, takeChat])
+  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, flash])
   const familyAdmin = useFamilyAdmin(store, reload, flash)
 
   useEffect(() => {
@@ -240,9 +253,12 @@ export default function App() {
     const unsubscribe = store.subscribe(reload)
     const onFocus = () => document.visibilityState === 'visible' && reload()
     document.addEventListener('visibilitychange', onFocus)
+    // Signal is back: sync what waited and refresh
+    window.addEventListener('online', reload)
     return () => {
       unsubscribe()
       document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('online', reload)
     }
   }, [auth.state, reload])
 
@@ -277,6 +293,9 @@ export default function App() {
       if (w) openShow(w)
     }
   }, [watches, openThread, openShow])
+
+  // Problem reports say where it happened
+  useEffect(() => setErrorScreen(detail ? (detail.isNew ? 'new log' : 'show page') : tab), [tab, detail])
 
   // Every screen change starts at the top (iOS keeps the old scroll position otherwise)
   useEffect(() => {
@@ -441,7 +460,13 @@ export default function App() {
 
   return (
     <div className="app">
-      {offline && <p className="banner warn" role="status">{t('Offline. Showing your last synced log.')}</p>}
+      {(offline || pending > 0) && (
+        <p className="banner warn" role="status">
+          {pending > 0
+            ? t('Offline · {n} changes saved on this phone will sync when you\'re back online', { n: pending })
+            : t('Offline. Showing your last synced log.')}
+        </p>
+      )}
       <UpdateBanner />
       {festive && <FestiveRain key={festive.id} festive={festive} />}
 
@@ -626,6 +651,7 @@ export default function App() {
             loadViewerInvite={store.mode === 'cloud' ? getViewerCode : null}
             households={circle.households}
             meId={me}
+            problems={store.mode === 'cloud' ? { load: recentProblems, clear: clearProblems } : null}
             admin={familyAdmin}
             onSetViewer={async (id, viewer) => {
               const prev = people

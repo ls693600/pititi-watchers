@@ -549,3 +549,31 @@ export const cloudStore: Store = {
     }
   },
 }
+
+export interface ProblemReport {
+  id: string
+  created_at: string
+  person_id: string | null
+  version: string
+  screen: string
+  message: string
+  user_agent: string
+}
+
+/** Admin: problems reported from family phones in the last 30 days (newest first). */
+export async function recentProblems(): Promise<ProblemReport[]> {
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString()
+  const { data, error } = await supabase()
+    .from('client_errors')
+    .select('id, created_at, person_id, version, screen, message, user_agent')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return (data ?? []) as ProblemReport[]
+}
+
+export async function clearProblems(): Promise<void> {
+  const { error } = await supabase().from('client_errors').delete().gte('created_at', '1970-01-01')
+  if (error) throw error
+}

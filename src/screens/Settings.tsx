@@ -6,6 +6,8 @@ import type { Session } from '../store/store'
 import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Household, Person, Watch } from '../types'
 import { FamilyAdmin } from '../components/FamilyAdmin'
+import { Problems } from '../components/Problems'
+import type { ProblemReport } from '../store/cloud'
 import { setFestivePref, useFestivePref } from '../useFestive'
 import { getLang, setLang, t } from '../i18n'
 
@@ -35,6 +37,8 @@ interface Props {
   households?: Household[]
   /** Who's using the app (works in single-phone mode too) */
   meId?: string | null
+  /** Admin: problems reported from family phones */
+  problems?: { load: () => Promise<ProblemReport[]>; clear: () => Promise<void> } | null
   admin?: {
     onAddHousehold: (name: string) => Promise<string | null>
     onUpdateHousehold: (h: Household) => Promise<void>
@@ -49,7 +53,7 @@ interface Props {
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -427,6 +431,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
           <span className="chev"><Icon name="download" size={20} /></span>
         </button>
       </section>
+
+      {isAdmin && problems && <Problems load={problems.load} clear={problems.clear} people={people} />}
 
       {session && (
         <button className="btn danger block" onClick={onSignOut}>

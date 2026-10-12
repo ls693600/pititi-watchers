@@ -811,3 +811,10 @@ ul.queue .qrow:last-child { border-bottom: 0; }
   100% { transform: translateY(105vh) rotate(200deg); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .festive-rain { display: none; } }
+
+/* Crash page */
+.crash { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.crash-card { max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.crash-emoji { font-size: 56px; }
+.problems { list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; }
+.problems li { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; overflow-wrap: anywhere; }
