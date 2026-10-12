@@ -3,6 +3,7 @@ import { FamilyChat } from '../components/FamilyChat'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { chatLocked, threads, timeAgo } from '../logic'
+import { t } from '../i18n'
 import type { Comment, Person, Watch } from '../types'
 
 interface Props {
@@ -20,10 +21,15 @@ interface Props {
   onOpenShow: (w: Watch) => void
   /** Push notifications: shown as a nudge at the top of the inbox until they're on */
   notify: { state: 'on' | 'off' | 'unsupported' | 'install' | 'denied'; onEnable: () => void } | null
+  /** Inside the Family tab: no page title */
+  embedded?: boolean
+  /** Muted chats ("family" or a log id); muted chats only notify for @mentions */
+  mutes?: string[]
+  onMute?: (thread: string, muted: boolean) => void
 }
 
 /** All the family's chats in one place: the Family chat plus every show that has a conversation. */
-export function Messages({ comments, watches, people, me, lastRead, thread, onThread, onSend, onRemove, onSeen, onOpenShow, notify }: Props) {
+export function Messages({ comments, watches, people, me, lastRead, thread, onThread, onSend, onRemove, onSeen, onOpenShow, notify, embedded = false, mutes = [], onMute }: Props) {
   const nameOf = (id: string) => (id === me ? 'You' : (people.find((p) => p.id === id)?.name ?? 'Someone'))
 
   if (thread !== undefined) {
@@ -40,7 +46,7 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
       )
     }
     return (
-      <div className="screen thread">
+      <div className={embedded ? 'stack-col thread' : 'screen thread'}>
         <header className="thread-head">
           <button className="icon-btn" aria-label="Back to messages" onClick={() => onThread(undefined)}>
             <Icon name="left" size={20} />
@@ -64,6 +70,16 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
               </span>
             </div>
           )}
+          {onMute && (
+            <button
+              className={`icon-btn ${mutes.includes(thread ?? 'family') ? 'muted' : ''}`}
+              aria-label={mutes.includes(thread ?? 'family') ? t('Unmute this chat') : t('Mute this chat')}
+              aria-pressed={mutes.includes(thread ?? 'family')}
+              onClick={() => onMute(thread ?? 'family', !mutes.includes(thread ?? 'family'))}
+            >
+              <Icon name={mutes.includes(thread ?? 'family') ? 'bellOff' : 'bell'} size={19} />
+            </button>
+          )}
         </header>
         <FamilyChat watch={w} comments={comments} people={people} me={me} onSend={(text) => onSend(thread, text)} onRemove={onRemove} onSeen={() => onSeen(thread)} bare />
       </div>
@@ -72,13 +88,15 @@ export function Messages({ comments, watches, people, me, lastRead, thread, onTh
 
   const list = threads(comments, lastRead, me)
   return (
-    <div className="screen">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Talk about what you watch</p>
-          <h1 className="title-xl">Messages</h1>
-        </div>
-      </header>
+    <div className={embedded ? 'stack-col' : 'screen'}>
+      {!embedded && (
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">{t('Talk about what you watch')}</p>
+            <h1 className="title-xl">{t('Messages')}</h1>
+          </div>
+        </header>
+      )}
 
       {notify && notify.state !== 'on' && (
         <div className="tip notify-tip" role="note">

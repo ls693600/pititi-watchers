@@ -8,11 +8,19 @@ export interface Person {
   isAdmin: boolean
   /** Sees everything and can chat, but can't add, rate or change shows (joined with the viewer invite) */
   isViewer?: boolean
+  /** Their household (null for viewers outside any household) */
+  householdId?: string | null
+  /** Phone notifications: all · mine (only @mentions, recommendations, votes) · off */
+  notifyLevel?: 'all' | 'mine' | 'off'
 }
 
 /** One show-season logged in a given month. A show lands in the month you last watched it. */
 export interface Watch {
   id: string
+  /** TV show (TVmaze id) or movie (TMDB id); older logs are TV */
+  kind?: 'tv' | 'movie'
+  /** The household whose log this is */
+  householdId?: string | null
   showId: number
   showName: string
   poster: string | null
@@ -76,5 +84,64 @@ export interface Comment {
   watchId: string | null
   personId: string
   text: string
+  createdAt: string
+}
+
+export type Kind = 'tv' | 'movie'
+
+/** A couple or a person with their own log and stats. Households together form the family circle. */
+export interface Household {
+  id: string
+  name: string
+  /** Other households can see this household's watch log (feed and household page) */
+  shareLog: boolean
+}
+
+export type ListVisibility = 'household' | 'people' | 'circle'
+
+/** A household's list of shows and movies. Up Next is the built-in one (isDefault). */
+export interface WatchList {
+  id: string
+  householdId: string
+  name: string
+  emoji: string
+  /** household = only us · people = us + sharedWith · circle = whole family */
+  visibility: ListVisibility
+  sharedWith: string[]
+  /** "Help us pick": everyone who can see it votes */
+  askVotes: boolean
+  isDefault: boolean
+  createdBy: string | null
+  createdAt: string
+}
+
+/** A show or movie, as it appears in search, lists and recommendations. */
+export interface Title {
+  kind: Kind
+  /** TVmaze show id (tv) or TMDB movie id (movie) */
+  extId: number
+  title: string
+  poster: string | null
+  year: string | null
+  genres: string[]
+  runtime: number | null
+  network: string | null
+}
+
+export interface ListItem extends Title {
+  id: string
+  listId: string
+  addedBy: string | null
+  /** People who voted for it */
+  votes: string[]
+  createdAt: string
+}
+
+export interface Recommendation extends Title {
+  id: string
+  from: string
+  to: string
+  note: string
+  status: 'new' | 'added' | 'dismissed'
   createdAt: string
 }

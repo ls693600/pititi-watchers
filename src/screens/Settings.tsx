@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { checkForUpdate, versionLabel } from '../updates'
 import type { Session } from '../store/store'
 import { getThemePref, setThemePref, type ThemePref } from '../theme'
-import type { Person, Watch } from '../types'
+import type { Household, Person, Watch } from '../types'
+import { FamilyAdmin } from '../components/FamilyAdmin'
 
 interface Props {
   mode: 'local' | 'cloud'
@@ -27,6 +29,17 @@ interface Props {
   onSetViewer?: (id: string, viewer: boolean) => Promise<void>
   /** Push notifications switch (null when there's no sync) */
   notify?: { state: 'on' | 'off' | 'unsupported' | 'install' | 'denied'; onEnable: () => void; onDisable: () => void } | null
+  /** Households (after migration 008): the family view is organized by household */
+  households?: Household[]
+  /** Who's using the app (works in single-phone mode too) */
+  meId?: string | null
+  admin?: {
+    onAddHousehold: (name: string) => Promise<string | null>
+    onUpdateHousehold: (h: Household) => Promise<void>
+    onMovePerson: (personId: string, householdId: string | null) => Promise<void>
+    onAddPerson: (name: string, householdId: string | null) => Promise<void>
+    householdCode: (id: string) => Promise<string | null>
+  }
   /** Settings has no tab of its own; this returns to where you came from */
   onBack?: () => void
   onOpenHelp?: () => void
@@ -34,7 +47,7 @@ interface Props {
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -42,6 +55,12 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemePref>(getThemePref)
   const [viewerCode, setViewerCode] = useState<string | null>(null)
+  const [update, setUpdate] = useState<'idle' | 'checking' | 'latest' | 'updating' | 'offline'>('idle')
+
+  async function checkUpdates() {
+    setUpdate('checking')
+    setUpdate(await checkForUpdate())
+  }
 
   useEffect(() => {
     if (!isAdmin || !loadViewerInvite) return
@@ -160,7 +179,19 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
         </section>
       )}
 
-      {view === 'family' && (
+      {view === 'family' && households.length > 0 && admin && onSetViewer && (
+        <FamilyAdmin
+          people={people}
+          households={households}
+          me={me ?? people.find((p) => p.id === meId)}
+          isAdmin={isAdmin}
+          viewerCode={viewerCode}
+          onSetViewer={onSetViewer}
+          {...admin}
+        />
+      )}
+
+      {view === 'family' && !(households.length > 0 && admin) && (
       <>
       <h2 className="h2">
         Members
@@ -346,6 +377,25 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
             <span className="chev"><Icon name="right" size={20} /></span>
           </button>
         )}
+        <div className="field">
+          <span>
+            Version
+            <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>
+              {versionLabel()} · {__APP_SHA__}
+            </small>
+          </span>
+          <button className="btn sm ghost-dark" onClick={checkUpdates} disabled={update === 'checking' || update === 'updating'}>
+            {update === 'checking'
+              ? 'Checking…'
+              : update === 'updating'
+                ? 'Updating…'
+                : update === 'latest'
+                  ? '✓ Up to date'
+                  : update === 'offline'
+                    ? 'Offline · try again'
+                    : 'Check for updates'}
+          </button>
+        </div>
         <button className="field" onClick={exportBackup} disabled={watches.length === 0} style={{ width: '100%' }}>
           <span>Export backup</span>
           <span className="chev"><Icon name="download" size={20} /></span>

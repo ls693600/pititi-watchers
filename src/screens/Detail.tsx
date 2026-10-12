@@ -5,10 +5,12 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
-import type { Comment, Person, Reaction, Watch } from '../types'
+import type { Comment, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
+import { getMovie, type MovieInfo } from '../movies'
+import { t } from '../i18n'
 
 interface Props {
   initial: Watch
@@ -19,6 +21,8 @@ interface Props {
   everyone: Person[]
   /** Viewer: sees everything and chats, changes nothing */
   readOnly: boolean
+  /** Another household's log: whose it is (shown instead of the viewer note) */
+  owner?: string | null
   me: string | null
   /** Signed-in person; null in single-phone mode (no blind rating there) */
   viewer: string | null
@@ -40,15 +44,19 @@ interface Props {
   onRate: (personId: string, stars: number | null) => void
   /** The show's chat was read on screen (clears the Messages badge) */
   onChatSeen: () => void
+  /** Save to a list / Recommend */
+  onMore?: (t: Title) => void
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, everyone, readOnly, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [info, setInfo] = useState<ShowInfo | null>(null)
+  const [movie, setMovie] = useState<MovieInfo | null>(null)
+  const isMovie = initial.kind === 'movie'
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
   const [moreSynopsis, setMoreSynopsis] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -62,6 +70,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
   }, [watches])
 
   useEffect(() => {
+    if (isMovie) return
     let alive = true
     getSeasons(initial.showId)
       .then((s) => {
@@ -77,18 +86,24 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
     return () => {
       alive = false
     }
-  }, [initial.showId, initial.totalEpisodes, isNew])
+  }, [initial.showId, initial.totalEpisodes, isNew, isMovie])
 
   // Synopsis, rating and the next air date (best effort: the page works without them)
   useEffect(() => {
     let alive = true
-    getShowInfo(initial.showId)
-      .then((i) => alive && setInfo(i))
-      .catch(() => undefined)
+    // Movies: description, rating and where to watch in your country (TMDB)
+    if (isMovie)
+      getMovie(initial.showId)
+        .then((m) => alive && setMovie(m))
+        .catch(() => undefined)
+    else
+      getShowInfo(initial.showId)
+        .then((i) => alive && setInfo(i))
+        .catch(() => undefined)
     return () => {
       alive = false
     }
-  }, [initial.showId])
+  }, [initial.showId, isMovie])
 
   // Episode grid for the season being logged
   const seasonId = seasons?.find((x) => x.number === w.season)?.id
@@ -203,6 +218,11 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
             <Icon name="share" size={19} />
           </button>
         )}
+        {!isNew && onMore && (
+          <button className="icon-btn glass more" aria-label={t('Save or recommend {title}', { title: w.showName })} onClick={() => onMore(titleOf(w))}>
+            <span aria-hidden="true" style={{ fontWeight: 800, letterSpacing: 1 }}>•••</span>
+          </button>
+        )}
         <div className="dhead-id">
           <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
           <div style={{ minWidth: 0, paddingBottom: 4 }}>
@@ -243,7 +263,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
       )}
 
       {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
-      {!readOnly && !isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id) && (
+      {!readOnly && !isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id, w.kind ?? 'tv') && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
@@ -272,6 +292,42 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
             </button>
           </div>
         </div>
+      )}
+
+      {movie && (
+        <section className="show-info">
+          <div className="meta-pills">
+            <span>{t('Movie')}</span>
+            {movie.rating != null && (
+              <span>
+                <b className="gold">★</b> {movie.rating.toFixed(1)}
+              </span>
+            )}
+            {movie.runtime != null && <span>{Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m</span>}
+            {movie.year && <span>{movie.year}</span>}
+          </div>
+          <a className="where" href={movie.link} target="_blank" rel="noopener noreferrer">
+            <span className="where-icon" aria-hidden="true">
+              <Icon name="play" size={18} stroke={2.2} />
+            </span>
+            <span className="where-text">
+              <small>{t('Where to watch')}</small>
+              <b>
+                {movie.providers.length
+                  ? movie.providers.map((p) => (p.how === 'rent' ? `${p.name} (${t('rent')})` : p.name)).join(' · ')
+                  : t('Not streaming near you right now')}
+              </b>
+            </span>
+            <span className="where-go">
+              {t('Open')} <Icon name="right" size={14} stroke={2.6} />
+            </span>
+          </a>
+          {movie.overview && (
+            <button className={`synopsis ${moreSynopsis ? 'open' : ''}`} onClick={() => setMoreSynopsis(!moreSynopsis)} aria-expanded={moreSynopsis}>
+              {movie.overview}
+            </button>
+          )}
+        </section>
       )}
 
       {info && (
@@ -495,7 +551,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
         </section>
       )}
 
-      <fieldset className="card plain" disabled={readOnly}>
+      {!readOnly && (
+      <fieldset className="card plain">
+        {!isMovie && (
         <label className="field">
           <span>Season</span>
           {seasons && seasons.length > 0 ? (
@@ -523,7 +581,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
             />
           )}
         </label>
+        )}
 
+        {!isMovie && (
         <div className="field">
           <span>Status</span>
           <div className="segmented" role="radiogroup" aria-label="Status">
@@ -541,8 +601,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
             ))}
           </div>
         </div>
+        )}
 
-        {!(episodes && episodes.length > 0) && (
+        {!isMovie && !(episodes && episodes.length > 0) && (
         <div className="field">
           <span>Episodes</span>
           <div className="stepper">
@@ -587,7 +648,16 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
           <strong>{times}</strong>
         </div>
       </fieldset>
+      )}
 
+      {readOnly ? (
+        w.notes && (
+          <section className="card pad">
+            <p className="field-label" style={{ paddingTop: 0 }}>{t('Notes')}</p>
+            <p style={{ whiteSpace: 'pre-wrap' }}>{w.notes}</p>
+          </section>
+        )
+      ) : (
       <section className="card">
         <label className="notes">
           <span className="field-label" style={{ paddingTop: 0 }}>Notes</span>
@@ -600,12 +670,16 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, me
           />
         </label>
       </section>
+      )}
 
       {error && <p className="error" role="alert">{error}</p>}
 
       {readOnly ? (
         <p className="viewer-note">
-          <Icon name="info" size={15} stroke={2.2} /> You're a viewer: you can see everything and chat, but not change shows.
+          <Icon name="info" size={15} stroke={2.2} />{' '}
+          {owner
+            ? t("This is {owner}'s show: chat and react all you want, only they change it.", { owner })
+            : t("You're a viewer: you can see everything and chat, but not change shows.")}
         </p>
       ) : (
       <div className="actions">

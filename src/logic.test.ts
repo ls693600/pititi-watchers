@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   addEpisode,
+  sameTitle,
+  householdWatches,
+  householdMembers,
+  canSeeList,
+  canEditList,
+  rankedItems,
+  familyFeed,
+  movieWatch,
   threads,
   totalUnread,
   unreadIn,
@@ -748,5 +756,59 @@ describe('messages inbox', () => {
     expect(unreadIn(all, 'sev', {}, 'l')).toBe(1)
     expect(unreadIn(all, 'sev', { sev: '2026-10-11T11:30:00Z' }, 'l')).toBe(0)
     expect(totalUnread(all, { family: '2026-10-11T10:00:00Z' }, 'l')).toBe(2)
+  })
+})
+
+describe('movies and tv', () => {
+  it('a movie and a show with the same id are different titles', () => {
+    expect(sameTitle({ showId: 5, kind: 'tv' }, { showId: 5 })).toBe(true)
+    expect(sameTitle({ showId: 5, kind: 'movie' }, { showId: 5 })).toBe(false)
+    expect(inProgressFor([watch({ showId: 5, status: 'watching', kind: 'movie' })], 5, 'tv')).toBeNull()
+  })
+  it('a movie watch is one full sitting', () => {
+    const m = movieWatch(watch({ status: 'done', runtime: 150, season: 3, totalEpisodes: 9 }))
+    expect(m).toMatchObject({ kind: 'movie', season: 1, totalEpisodes: 1, episodesWatched: 1 })
+  })
+})
+
+describe('households and lists', () => {
+  const people = [
+    { id: 'l', name: 'Leandro', userId: 'u', isAdmin: true, householdId: 'h1' },
+    { id: 'a', name: 'Ana', userId: 'u2', isAdmin: false, householdId: 'h1' },
+    { id: 'f', name: 'Fernando', userId: 'u3', isAdmin: false, householdId: 'h2' },
+    { id: 'v', name: 'Guest', userId: 'u4', isAdmin: false, isViewer: true, householdId: null },
+  ]
+  it('each household sees its own log and members', () => {
+    const all = [watch({ id: '1', householdId: 'h1' }), watch({ id: '2', householdId: 'h2' }), watch({ id: '3' })]
+    expect(householdWatches(all, 'h1').map((w) => w.id)).toEqual(['1', '3'])
+    expect(householdMembers(people, 'h2').map((p) => p.id)).toEqual(['f'])
+    expect(householdMembers(people, null).map((p) => p.id)).toEqual(['l', 'a', 'f'])
+  })
+  const list = (over: object) => ({ id: 'x', householdId: 'h1', name: 'Movies', emoji: '🍿', visibility: 'household' as const, sharedWith: [], askVotes: false, isDefault: false, createdBy: 'l', createdAt: '', ...over })
+  it('list privacy: only us, specific people, whole family', () => {
+    expect(canSeeList(list({}), people[2])).toBe(false)
+    expect(canSeeList(list({ visibility: 'people', sharedWith: ['f'] }), people[2])).toBe(true)
+    expect(canSeeList(list({ visibility: 'people', sharedWith: ['f'] }), people[3])).toBe(false)
+    expect(canSeeList(list({ visibility: 'circle' }), people[3])).toBe(true)
+    expect(canSeeList(list({}), people[1])).toBe(true)
+  })
+  it('only the household edits its lists; viewers never', () => {
+    expect(canEditList(list({}), people[1])).toBe(true)
+    expect(canEditList(list({ visibility: 'circle' }), people[2])).toBe(false)
+    expect(canEditList(list({}), { ...people[0], isViewer: true })).toBe(false)
+  })
+  it('ranks by votes, then newest', () => {
+    const item = (id: string, votes: string[], createdAt: string) => ({ id, listId: 'x', kind: 'tv' as const, extId: 1, title: id, poster: null, year: null, genres: [], runtime: null, network: null, addedBy: null, votes, createdAt })
+    expect(rankedItems([item('a', ['l'], '1'), item('b', ['l', 'a'], '0'), item('c', ['f'], '2')], 'x').map((i) => i.id)).toEqual(['b', 'c', 'a'])
+  })
+  it('family feed: things for you first, then other households, never your own', () => {
+    const now = new Date('2026-10-11T12:00:00Z')
+    const mine = watch({ id: 'm', householdId: 'h1', status: 'done', updatedAt: '2026-10-10T00:00:00Z' })
+    const theirs = watch({ id: 't', householdId: 'h2', status: 'done', updatedAt: '2026-10-09T00:00:00Z' })
+    const old = watch({ id: 'o', householdId: 'h2', status: 'done', updatedAt: '2026-08-01T00:00:00Z' })
+    const rec = { id: 'r', from: 'f', to: 'l', note: '', status: 'new' as const, createdAt: '2026-10-01T00:00:00Z', kind: 'movie' as const, extId: 1, title: 'X', poster: null, year: null, genres: [], runtime: null, network: null }
+    const feed = familyFeed([mine, theirs, old], [list({ visibility: 'circle', askVotes: true, householdId: 'h2' })], [rec], people[0], now)
+    expect(feed.map((e) => e.kind)).toEqual(['rec', 'votes', 'finished'])
+    expect(feed[2].kind === 'finished' && feed[2].watch.id).toBe('t')
   })
 })

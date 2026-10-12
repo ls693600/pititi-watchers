@@ -1,5 +1,5 @@
 import type { SeasonInfo } from './tvmaze'
-import type { Comment, Reaction, Watch } from './types'
+import type { Comment, Household, Kind, ListItem, Person, Reaction, Recommendation, Title, Watch, WatchList } from './types'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
 export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
@@ -119,8 +119,8 @@ export function timesWatched(all: Watch[], showId: number, season: number): numb
 
 /** True when this show-season was already logged before, so a new log is a rewatch. */
 /** True when this show-season was already finished in another log, so a new log is a rewatch. */
-export function isPriorWatch(all: Watch[], showId: number, season: number, excludeId?: string): boolean {
-  return all.some((w) => w.showId === showId && w.season === season && w.id !== excludeId && w.status === 'done')
+export function isPriorWatch(all: Watch[], showId: number, season: number, excludeId?: string, kind: Kind = 'tv'): boolean {
+  return all.some((w) => w.showId === showId && kindOf(w) === kind && w.season === season && w.id !== excludeId && w.status === 'done')
 }
 
 /** Episodes of a log in a period: one month, a set of months, or all time. */
@@ -271,7 +271,7 @@ export function withSeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
     season: s.number,
     totalEpisodes: s.episodes,
     episodesWatched: cur.status === 'done' && s.episodes ? s.episodes : Math.min(cur.episodesWatched, s.episodes ?? Infinity),
-    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id),
+    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id, kindOf(cur)),
   }
   return capToAired(next, s.airedEpisodes ?? null)
 }
@@ -289,15 +289,15 @@ export function capToAired(w: Watch, aired: number | null): Watch {
 }
 
 /** Times this show-season has been logged, counting the log being edited once even if its season just changed. */
-export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season'>): number {
+export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'kind'>): number {
   // Only finished watches of this season count; an unfinished duplicate isn't a second viewing
-  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && x.status === 'done').length + 1
+  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done').length + 1
 }
 
 /** Another log of the same show-season that's still open: a duplicate, not a rewatch. */
-export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'status'>): Watch | null {
+export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'status' | 'kind'>): Watch | null {
   return (
-    all.find((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && (x.status === 'watching' || w.status === 'watching')) ?? null
+    all.find((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && (x.status === 'watching' || w.status === 'watching')) ?? null
   )
 }
 
@@ -305,14 +305,14 @@ export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'se
  * A log marked as a rewatch next to an earlier finished log of the same season. Usually a real rewatch,
  * but the old duplicate bug produced these too, so the show page offers "Only watched once? Merge".
  */
-export function rewatchPair(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'isRewatch'>): Watch | null {
+export function rewatchPair(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'isRewatch' | 'kind'>): Watch | null {
   if (!w.isRewatch) return null
-  return all.filter((x) => x.id !== w.id && x.showId === w.showId && x.season === w.season && x.status === 'done').sort(byUpdatedDesc)[0] ?? null
+  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done').sort(byUpdatedDesc)[0] ?? null
 }
 
 /** The show you're already in the middle of (any season), so re-adding it opens that log instead of a copy. */
-export function inProgressFor(all: Watch[], showId: number): Watch | null {
-  return all.filter((w) => w.showId === showId && w.status === 'watching').sort(byUpdatedDesc)[0] ?? null
+export function inProgressFor(all: Watch[], showId: number, kind: Kind = 'tv'): Watch | null {
+  return all.filter((w) => w.showId === showId && kindOf(w) === kind && w.status === 'watching').sort(byUpdatedDesc)[0] ?? null
 }
 
 /** Combine two logs of the same show-season into one: furthest progress, everyone who watched, all ratings and months. */
@@ -795,4 +795,111 @@ export function threads(all: Comment[], lastRead: Record<string, string>, me: st
 
 export function totalUnread(all: Comment[], lastRead: Record<string, string>, me: string | null): number {
   return threads(all, lastRead, me).reduce((s, t) => s + t.unread, 0)
+}
+
+// ---- Movies and TV ----
+
+export const kindOf = (w: Pick<Watch, 'kind'>): Kind => w.kind ?? 'tv'
+
+/** Same show or movie (TVmaze and TMDB ids can collide, so the kind matters). */
+export function sameTitle(a: Pick<Watch, 'showId' | 'kind'>, b: Pick<Watch, 'showId' | 'kind'>): boolean {
+  return a.showId === b.showId && kindOf(a) === kindOf(b)
+}
+
+/** A log as a Title (for lists and recommendations). */
+export function titleOf(w: Watch): Title {
+  return { kind: kindOf(w), extId: w.showId, title: w.showName, poster: w.poster, year: w.year, genres: w.genres, runtime: w.runtime, network: w.network }
+}
+
+/** A movie watch is one sitting: 1 "episode" of its full length. */
+export function movieWatch(w: Watch): Watch {
+  return { ...w, kind: 'movie', season: 1, totalEpisodes: 1, episodesWatched: w.status === 'done' ? 1 : 0 }
+}
+
+// ---- Households and the family circle ----
+
+/** One household's log. No households yet (single phone, old data): everything is "ours". */
+export function householdWatches(all: Watch[], householdId: string | null | undefined): Watch[] {
+  if (!householdId) return all
+  return all.filter((w) => !w.householdId || w.householdId === householdId)
+}
+
+/** People who can be marked "Who watched?" on a household's log. */
+export function householdMembers(people: Person[], householdId: string | null | undefined): Person[] {
+  const members = people.filter((p) => !p.isViewer)
+  if (!householdId) return members
+  const mine = members.filter((p) => p.householdId === householdId)
+  return mine.length ? mine : members
+}
+
+/** "Leandro & Ana" from its people, when a household has no name yet. */
+export function householdLabel(h: Household | undefined, people: Person[]): string {
+  if (h?.name) return h.name
+  const names = people.filter((p) => p.householdId === h?.id).map((p) => p.name)
+  return names.length ? names.join(' & ') : 'Household'
+}
+
+// ---- Lists ----
+
+/** Same rule as the database: your household's lists, lists shared with you, and family-wide lists. */
+export function canSeeList(l: WatchList, me: Person | undefined): boolean {
+  if (!me) return true
+  return l.householdId === me.householdId || l.visibility === 'circle' || (l.visibility === 'people' && l.sharedWith.includes(me.id))
+}
+
+export function canEditList(l: WatchList, me: Person | undefined): boolean {
+  if (!me) return true
+  return !me.isViewer && l.householdId === me.householdId
+}
+
+/** Most votes first, then newest. */
+export function rankedItems(items: ListItem[], listId: string): ListItem[] {
+  return items
+    .filter((i) => i.listId === listId)
+    .sort((a, b) => b.votes.length - a.votes.length || b.createdAt.localeCompare(a.createdAt))
+}
+
+/** One vote per person per item: voting again takes it back. */
+export function toggleVote(item: ListItem, personId: string): ListItem {
+  return { ...item, votes: item.votes.includes(personId) ? item.votes.filter((v) => v !== personId) : [...item.votes, personId] }
+}
+
+export function visibilityLabel(l: Pick<WatchList, 'visibility' | 'sharedWith'>, people: Person[]): string {
+  if (l.visibility === 'household') return 'Only us'
+  if (l.visibility === 'circle') return 'Whole family'
+  const names = people.filter((p) => l.sharedWith.includes(p.id)).map((p) => p.name)
+  return names.length ? `Us + ${names.join(', ')}` : 'Only us'
+}
+
+// ---- Family activity ----
+
+export type FeedEvent =
+  | { kind: 'finished'; at: string; watch: Watch; avg: number | null }
+  | { kind: 'rec'; at: string; rec: Recommendation }
+  | { kind: 'votes'; at: string; list: WatchList }
+
+/**
+ * What's happening in the circle: recommendations to you, "help us pick" lists, and what other
+ * households finished in the last 30 days (their averages only once everyone there has rated).
+ */
+export function familyFeed(
+  watches: Watch[],
+  lists: WatchList[],
+  recs: Recommendation[],
+  me: Person | undefined,
+  now = new Date(),
+): FeedEvent[] {
+  const since = new Date(now.getTime() - 30 * 86_400_000).toISOString()
+  const events: FeedEvent[] = []
+  for (const r of recs) if (me && r.to === me.id && r.status === 'new') events.push({ kind: 'rec', at: r.createdAt, rec: r })
+  // Other households asking for votes (yours you already see in Lists)
+  for (const l of lists) if (l.askVotes && canSeeList(l, me) && l.householdId !== me?.householdId) events.push({ kind: 'votes', at: l.createdAt, list: l })
+  for (const w of watches) {
+    if (w.status !== 'done' || w.updatedAt < since) continue
+    if (me?.householdId && (!w.householdId || w.householdId === me.householdId)) continue
+    events.push({ kind: 'finished', at: w.updatedAt, watch: w, avg: averageRating(w) })
+  }
+  // Things for you first, then newest
+  const weight = (e: FeedEvent) => (e.kind === 'rec' ? 2 : e.kind === 'votes' ? 1 : 0)
+  return events.sort((a, b) => weight(b) - weight(a) || b.at.localeCompare(a.at))
 }

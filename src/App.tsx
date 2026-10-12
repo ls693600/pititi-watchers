@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, chatLocked, mentionsIn, threadKey, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, toggleWant, canDelete, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
+import { addEpisode, averageRating, chatLocked, mentionsIn, threadKey, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, familyBadges, inProgressFor, newlyEarned, reconcileMonths, setOwnRating, toggleReaction, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals, unseenComments } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -15,24 +15,28 @@ import { Help } from './screens/Help'
 import { Messages } from './screens/Messages'
 import { disablePush, enablePush, pushState, type PushState } from './push'
 import { Stats } from './screens/Stats'
-import { UpNext } from './screens/UpNext'
+import { Lists, ListEditor } from './screens/Lists'
+import { Family } from './screens/Family'
+import { TitleSheet } from './components/TitleSheet'
+import { MovieLog } from './components/MovieLog'
+import { useCircle } from './circle'
+import { t, useLang } from './i18n'
 import { cloudStore, currentSession, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
-import type { ShowResult } from './tvmaze'
-import type { Comment, Person, Reaction, UpNextItem, Watch } from './types'
+import type { Comment, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
 
 const store = CLOUD_ENABLED ? cloudStore : localStore
 
-type Tab = 'home' | 'upnext' | 'search' | 'messages' | 'stats' | 'family' | 'settings' | 'help'
+type Tab = 'home' | 'lists' | 'search' | 'family' | 'stats' | 'members' | 'settings' | 'help'
 // Settings lives behind your avatar (Home) and the gear on Family
 const SIDE_TABS: { id: Tab; icon: IconName; label: string }[][] = [
   [
     { id: 'home', icon: 'home', label: 'Home' },
-    { id: 'upnext', icon: 'list', label: 'Up Next' },
+    { id: 'lists', icon: 'list', label: 'Lists' },
   ],
   [
-    { id: 'messages', icon: 'chat', label: 'Messages' },
+    { id: 'family', icon: 'users', label: 'Family' },
     { id: 'stats', icon: 'chart', label: 'Stats' },
   ],
 ]
@@ -84,12 +88,14 @@ function writeSeen(seen: Set<string>) {
 type Auth = { state: 'checking' } | { state: 'signedOut'; error?: string } | { state: 'ready'; session: Session | null }
 
 
-function draftFrom(show: ShowResult, month: string, watchedBy: string[], createdBy: string | null): Watch {
+function draftFrom(show: Title, month: string, watchedBy: string[], createdBy: string | null, householdId: string | null): Watch {
   const now = new Date().toISOString()
   return {
     id: newId(),
-    showId: show.showId,
-    showName: show.showName,
+    kind: show.kind,
+    householdId,
+    showId: show.extId,
+    showName: show.title,
     poster: show.poster,
     network: show.network,
     genres: show.genres,
@@ -114,15 +120,25 @@ export default function App() {
   const [auth, setAuth] = useState<Auth>(CLOUD_ENABLED ? { state: 'checking' } : { state: 'ready', session: null })
   const [watches, setWatches] = useState<Watch[]>([])
   const [people, setPeople] = useState<Person[]>([])
-  const [upNext, setUpNext] = useState<UpNextItem[]>([])
+  useLang()
   const [reactions, setReactions] = useState<Reaction[]>([])
   const [comments, setComments] = useState<Comment[]>([])
   /** Reactions and chat need migration 006; hidden until it's run */
   const [social, setSocial] = useState(false)
   /** Show in the press-and-hold quick menu */
   const [actionsFor, setActionsFor] = useState<string | null>(null)
-  /** Up Next item being logged via Quick log; removed from the list once logged */
-  const [fromUpNext, setFromUpNext] = useState<string | null>(null)
+  /** List item being logged; it leaves Up Next once logged */
+  const [fromItem, setFromItem] = useState<ListItem | null>(null)
+  /** Save to a list / Recommend sheet */
+  const [titleSheet, setTitleSheet] = useState<{ title: Title; mode: 'save' | 'recommend' } | null>(null)
+  /** New list from the Save sheet: the title goes in once the list exists */
+  const [newListFor, setNewListFor] = useState<Title | null>(null)
+  const [movieDraft, setMovieDraft] = useState<Watch | null>(null)
+  const [listOpen, setListOpen] = useState<string | null>(null)
+  /** Search adds to this list instead of logging */
+  const [searchTarget, setSearchTarget] = useState<WatchList | null>(null)
+  const [familyView, setFamilyView] = useState<'activity' | 'chats'>('activity')
+  const [householdOpen, setHouseholdOpen] = useState<string | null>(null)
   const [filter, setFilter] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
   const [tab, setTabState] = useState<Tab>('home')
@@ -185,6 +201,13 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), undo || msg.length > 60 ? 6000 : 3500)
   }, [])
 
+  // Who's using the app (single-phone mode: the admin), as early as hooks need it
+  const sessionPersonId = auth.state === 'ready' ? (auth.session?.personId ?? DEV_VIEWER) : null
+  const mePerson = people.find((p) => p.id === (sessionPersonId ?? people.find((x) => x.isAdmin)?.id))
+  const myHousehold = mePerson?.householdId ?? null
+  const circle = useCircle(store, mePerson, flash)
+  const takeCircle = circle.take
+
   // Restore an existing session on launch
   useEffect(() => {
     if (!CLOUD_ENABLED) return
@@ -242,7 +265,8 @@ export default function App() {
     setActionsFor(null)
     setDetail(null)
     setThread(watchId)
-    setTabState('messages')
+    setFamilyView('chats')
+    setTabState('family')
   }, [])
 
   const [push, setPush] = useState<PushState>('off')
@@ -338,7 +362,7 @@ export default function App() {
       const snap = await store.load()
       setWatches(snap.watches)
       setPeople(snap.people)
-      setUpNext(snap.upNext)
+      takeCircle(snap)
       setReactions(snap.reactions)
       setComments(snap.comments)
       setSocial(snap.social)
@@ -352,12 +376,12 @@ export default function App() {
       const snap = cache.read()
       setWatches(snap.watches)
       setPeople(snap.people)
-      setUpNext(snap.upNext ?? [])
+      takeCircle(snap)
       setReactions(snap.reactions ?? [])
       setComments(snap.comments ?? [])
       setOffline(true)
     }
-  }, [queueReveals, checkBadges, announce])
+  }, [queueReveals, checkBadges, announce, takeCircle])
 
   useEffect(() => {
     if (auth.state !== 'ready') return
@@ -390,6 +414,13 @@ export default function App() {
     window.history.replaceState(null, '', window.location.pathname)
     const [kind, id] = open.split(':')
     if (kind === 'thread') openThread(id === 'family' ? null : id)
+    else if (kind === 'list') {
+      setListOpen(id)
+      setTab('lists')
+    } else if (kind === 'recs') {
+      setFamilyView('activity')
+      setTab('family')
+    }
     else if (kind === 'show') {
       const w = watches.find((x) => x.id === id)
       if (w) openShow(w)
@@ -507,87 +538,43 @@ export default function App() {
 
   async function handleSave(w: Watch, isNew = detail?.isNew ?? false) {
     setSaving(true)
-    const queued = isNew ? upNext.find((i) => i.id === fromUpNext || i.showId === w.showId) : undefined
+    // Logged from a list: it's being watched now, so it leaves that list
+    const item = isNew ? fromItem : null
     const before = watchesRef.current.find((x) => x.id === w.id) ?? null
-    const ok = await persist(w, isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved')
+    const ok = await persist(w, isNew ? t('{title} added to {month}', { title: w.showName, month: monthLabel(w.month) }) : t('Saved'))
     setSaving(false)
     if (ok) {
-      // Undo: a new log goes away (and back into Up Next if it came from there); an edit goes back
-      flash(isNew ? `${w.showName} added to ${monthLabel(w.month)}` : 'Saved', async () => {
+      // Undo: a new log goes away (and back on its list); an edit goes back
+      flash(isNew ? t('{title} added to {month}', { title: w.showName, month: monthLabel(w.month) }) : t('Saved'), async () => {
         if (!before) {
-          await removeLog(w, 'Undone')
-          if (queued) restoreQueued(queued)
-        } else persist(before, 'Undone', { exact: true })
+          await removeLog(w, t('Undone'))
+          if (item) circle.addToList(item, item.listId, true)
+        } else persist(before, t('Undone'), { exact: true })
       })
-      // Logged from Up Next: it's being watched now, so it leaves the queue
-      if (queued) removeQueued(queued, true)
-      setFromUpNext(null)
+      if (item) circle.removeItem(item, true)
+      setFromItem(null)
       setDetail(null)
       setQuick(null)
+      setMovieDraft(null)
       setMonth(w.month)
       setTab('home')
     }
   }
 
-  async function queueShow(show: ShowResult) {
-    if (upNext.some((i) => i.showId === show.showId)) return
-    const item: UpNextItem = {
-      id: newId(),
-      showId: show.showId,
-      showName: show.showName,
-      poster: show.poster,
-      network: show.network,
-      genres: show.genres,
-      year: show.year,
-      runtime: show.runtime,
-      addedBy: viewerRef.current ?? me,
-      // Saving a show counts as wanting it
-      wantedBy: me ? [me] : [],
-      createdAt: new Date().toISOString(),
+  /** Start logging a show or movie (a show you're already watching opens instead of making a copy). */
+  function startLog(title: Title, item: ListItem | null = null, month = addMonth) {
+    const open = inProgressFor(homeWatches, title.extId, title.kind)
+    if (open) {
+      setDetail({ watch: open, isNew: false })
+      flash(t("You're already watching {title}. Mark episodes here.", { title: open.showName }))
+      return
     }
-    setUpNext((list) => [...list, item])
-    try {
-      await store.addUpNext(item)
-      flash(`${show.showName} saved to Up Next`)
-    } catch (e) {
-      setUpNext((list) => list.filter((x) => x.id !== item.id))
-      flash((e as Error).message || "Couldn't save it. Check your connection.")
-    }
-  }
-
-  async function toggleHeart(item: UpNextItem) {
-    if (!me) return
-    const prev = upNext
-    setUpNext((list) => list.map((x) => (x.id === item.id ? toggleWant(x, me) : x)))
-    try {
-      const wantedBy = await store.toggleWant(item.id, me)
-      setUpNext((list) => list.map((x) => (x.id === item.id ? { ...x, wantedBy } : x)))
-    } catch {
-      setUpNext(prev)
-      flash("Couldn't save your heart. Check your connection.")
-    }
-  }
-
-  async function removeQueued(item: UpNextItem, quiet = false) {
-    const prev = upNext
-    setUpNext((list) => list.filter((x) => x.id !== item.id))
-    try {
-      await store.removeUpNext(item.id)
-      if (!quiet) flash(`${item.showName} removed from Up Next`, () => restoreQueued(item))
-    } catch (e) {
-      setUpNext(prev)
-      if (!quiet) flash((e as Error).message || "Couldn't remove it. Check your connection.")
-    }
-  }
-
-  async function restoreQueued(item: UpNextItem) {
-    setUpNext((list) => [...list.filter((x) => x.showId !== item.showId), item])
-    try {
-      await store.addUpNext(item)
-    } catch {
-      setUpNext((list) => list.filter((x) => x.id !== item.id))
-      flash("Couldn't put it back in Up Next. Check your connection.")
-    }
+    setFromItem(item)
+    // Everyone who voted for it in your household is probably watching together
+    const voters = item?.votes.filter((id) => members.some((p) => p.id === id)) ?? []
+    const draft = draftFrom(title, month, voters.length ? voters : defaultWatchersFor(me, members), me, myHousehold)
+    if (title.kind === 'movie') setMovieDraft(movieWatch({ ...draft, status: 'done' }))
+    else setQuick(draft)
   }
 
   async function handleDelete(w: Watch) {
@@ -636,12 +623,22 @@ export default function App() {
   // Single-phone mode has no login: the phone belongs to the admin
   const viewer = auth.session?.personId ?? DEV_VIEWER
   const me = viewer ?? people.find((p) => p.isAdmin)?.id ?? null
-  // Viewers see and chat, but aren't part of "Who watched?", Stats or Taste match
-  const members = people.filter((p) => !p.isViewer)
+  // Your household: its people are "Who watched?", Stats and Taste match (viewers never are)
+  const members = householdMembers(people, myHousehold)
+  const homeWatches = householdWatches(watches, myHousehold)
+  const detailHousehold = detail?.watch.householdId ?? myHousehold
   const readOnly = auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false
   const isAdmin = auth.session ? auth.session.isAdmin : true
   const who = auth.session ? { personId: auth.session.personId, isAdmin: auth.session.isAdmin } : null
   const unread = social ? totalUnread(comments, lastRead, me) : 0
+  const newRecs = circle.recs.filter((r) => r.to === me && r.status === 'new').length
+  const familyBadge = unread + newRecs
+  function readOnlyFor(w: Watch | undefined): boolean {
+    if (readOnly) return true
+    return Boolean(w?.householdId && myHousehold && w.householdId !== myHousehold)
+  }
+  // Another household's show: look, chat and react, but it's their log
+  const detailReadOnly = readOnlyFor(detail?.watch)
 
   return (
     <div className="app">
@@ -655,9 +652,11 @@ export default function App() {
             initial={detail.watch}
             isNew={detail.isNew}
             watches={watches}
-            people={members}
+            people={householdMembers(people, detailHousehold)}
             everyone={people}
-            readOnly={readOnly}
+            readOnly={detailReadOnly}
+            owner={detailReadOnly && !readOnly ? householdLabel(circle.households.find((h) => h.id === detail.watch.householdId), people) : null}
+            onMore={(title) => setTitleSheet({ title, mode: 'save' })}
             me={me}
             viewer={viewer}
             saving={saving}
@@ -705,7 +704,7 @@ export default function App() {
           />
         ) : tab === 'home' ? (
           <Home
-            watches={watches}
+            watches={homeWatches}
             people={members}
             me={me}
             viewer={viewer}
@@ -729,64 +728,89 @@ export default function App() {
           />
         ) : tab === 'search' ? (
           <Search
-            watches={watches}
+            watches={homeWatches}
             month={addMonth}
             onMonth={setAddMonth}
-            queued={new Set(upNext.map((i) => i.showId))}
-            onQueue={queueShow}
-            onPick={(show) => {
-              // Already watching it: open that log instead of starting a duplicate
-              const open = inProgressFor(watches, show.showId)
-              if (open) {
-                setDetail({ watch: open, isNew: false })
-                flash(`You're already watching ${open.showName}. Mark episodes here.`)
-                return
-              }
-              setQuick(draftFrom(show, addMonth, defaultWatchersFor(me, people), me))
-            }}
+            target={searchTarget}
+            onCancelTarget={() => setSearchTarget(null)}
+            onTarget={new Set(circle.items.filter((i) => i.listId === searchTarget?.id).map((i) => `${i.kind}:${i.extId}`))}
+            onPick={(title) => startLog(title)}
+            onAddToList={(title) => searchTarget && circle.addToList(title, searchTarget.id)}
+            onMore={(title) => setTitleSheet({ title, mode: 'save' })}
+            readOnly={readOnly}
           />
         ) : tab === 'help' ? (
           <Help key={helpTopic ?? 'all'} topic={helpTopic} onBack={() => setTab(prevTab.current)} />
-        ) : tab === 'upnext' ? (
-          <UpNext
-            items={upNext}
-            people={members}
-            me={me}
-            readOnly={readOnly}
-            canRemove={(item) => isAdmin || item.addedBy === me}
-            onToggle={toggleHeart}
-            onRemove={(item) => removeQueued(item)}
-            onFind={() => {
-              setAddMonth(currentMonth())
+        ) : tab === 'lists' ? (
+          <Lists
+            lists={circle.lists}
+            items={circle.items}
+            people={people}
+            households={circle.households}
+            me={mePerson}
+            open={listOpen}
+            onOpen={setListOpen}
+            onVote={circle.vote}
+            onRemove={(item) => circle.removeItem(item)}
+            onWatch={(item) => startLog(item, item, currentMonth())}
+            onAdd={(list) => {
+              setSearchTarget(list)
               setTab('search')
             }}
-            onLog={(item) => {
-              setFromUpNext(item.id)
-              // Everyone who hearted it is probably watching together
-              const watchers = item.wantedBy.length ? item.wantedBy : defaultWatchersFor(me, people)
-              setQuick(draftFrom(item, currentMonth(), watchers, me))
+            onSave={circle.saveList}
+            onDelete={(l) => {
+              circle.deleteList(l)
+              setListOpen(null)
             }}
+            onMore={(item) => setTitleSheet({ title: item, mode: 'recommend' })}
           />
-        ) : tab === 'messages' ? (
-          <Messages
-            comments={comments}
+        ) : tab === 'family' ? (
+          <Family
+            view={familyView}
+            onView={(v) => {
+              setFamilyView(v)
+              setThread(undefined)
+            }}
+            unread={unread}
             watches={watches}
+            lists={circle.lists}
+            recs={circle.recs}
             people={people}
-            me={me}
-            lastRead={lastRead}
-            thread={thread}
-            onThread={setThread}
-            onSend={sendComment}
-            onRemove={deleteComment}
-            onSeen={markRead}
-            onOpenShow={openShow}
-            notify={(store.mode === 'cloud' || import.meta.env.DEV) && social ? { state: push, onEnable: turnOnPush } : null}
+            households={circle.households}
+            me={mePerson}
+            household={householdOpen}
+            onHousehold={setHouseholdOpen}
+            onOpenWatch={(w) => setDetail({ watch: w, isNew: false })}
+            onOpenList={(id) => {
+              setListOpen(id)
+              setTab('lists')
+            }}
+            onAnswer={circle.answer}
+            chats={
+              <Messages
+                embedded
+                comments={comments}
+                watches={watches}
+                people={people}
+                me={me}
+                lastRead={lastRead}
+                thread={thread}
+                onThread={setThread}
+                onSend={sendComment}
+                onRemove={deleteComment}
+                onSeen={markRead}
+                onOpenShow={openShow}
+                mutes={circle.mutes}
+                onMute={circle.mute}
+                notify={(store.mode === 'cloud' || import.meta.env.DEV) && social ? { state: push, onEnable: turnOnPush } : null}
+              />
+            }
           />
         ) : tab === 'stats' ? (
           <Stats
             onHelp={openHelp}
             onFlash={flash}
-            watches={watches}
+            watches={homeWatches}
             people={members}
             filter={filter}
             onFilter={setFilter}
@@ -795,10 +819,52 @@ export default function App() {
         ) : (
           <Settings
             key={tab}
-            view={tab === 'family' ? 'family' : 'account'}
+            view={tab === 'members' ? 'family' : 'account'}
             onOpenSettings={() => setTab('settings')}
-            onOpenFamily={() => setTab('family')}
+            onOpenFamily={() => setTab('members')}
             loadViewerInvite={store.mode === 'cloud' ? getViewerCode : null}
+            households={circle.households}
+            meId={me}
+            admin={{
+              onAddHousehold: async (name) => {
+                try {
+                  const { code } = await store.addHousehold(name)
+                  await reload()
+                  flash(t('{name} created. Send them the invite.', { name }))
+                  return code
+                } catch (e) {
+                  flash((e as Error).message || t("Couldn't create it. Check your connection."))
+                  return null
+                }
+              },
+              onUpdateHousehold: async (h) => {
+                try {
+                  await store.updateHousehold(h)
+                  await reload()
+                } catch (e) {
+                  flash((e as Error).message || t("Couldn't save that. Check your connection."))
+                }
+              },
+              onMovePerson: async (personId, householdId) => {
+                try {
+                  await store.movePerson(personId, householdId)
+                  await reload()
+                  flash(t('Moved'))
+                } catch (e) {
+                  flash((e as Error).message || t("Couldn't move them. Check your connection."))
+                }
+              },
+              onAddPerson: async (name, householdId) => {
+                try {
+                  await store.addPerson(name, householdId)
+                  await reload()
+                  flash(t('{name} added', { name }))
+                } catch (e) {
+                  flash((e as Error).message || t("Couldn't add them. Check your connection."))
+                }
+              },
+              householdCode: (id) => store.householdCode(id),
+            }}
             onSetViewer={async (id, viewer) => {
               const prev = people
               setPeople((list) => list.map((p) => (p.id === id ? { ...p, isViewer: viewer } : p)))
@@ -850,8 +916,62 @@ export default function App() {
           }}
           onClose={() => {
             setQuick(null)
-            setFromUpNext(null)
+            setFromItem(null)
           }}
+        />
+      )}
+
+      {movieDraft && (
+        <MovieLog
+          key={movieDraft.id}
+          draft={movieDraft}
+          watches={homeWatches}
+          people={members}
+          me={me}
+          saving={saving}
+          onLog={(w) => handleSave(w, true)}
+          onSaveForLater={async (w) => {
+            setMovieDraft(null)
+            await circle.addToList({ kind: 'movie', extId: w.showId, title: w.showName, poster: w.poster, year: w.year, genres: w.genres, runtime: w.runtime, network: w.network })
+          }}
+          onClose={() => {
+            setMovieDraft(null)
+            setFromItem(null)
+          }}
+        />
+      )}
+
+      {titleSheet && (
+        <TitleSheet
+          title={titleSheet.title}
+          mode={titleSheet.mode}
+          lists={circle.lists}
+          items={circle.items}
+          people={people}
+          households={circle.households}
+          me={mePerson}
+          onSave={(listId) => circle.addToList(titleSheet.title, listId)}
+          onRecommend={(to, note) => circle.recommend(titleSheet.title, to, note)}
+          onNewList={() => {
+            setNewListFor(titleSheet.title)
+            setTitleSheet(null)
+          }}
+          onClose={() => setTitleSheet(null)}
+        />
+      )}
+
+      {newListFor && (
+        <ListEditor
+          list={null}
+          people={people}
+          me={mePerson}
+          onSave={async (l, msg) => {
+            const ok = await circle.saveList(l, msg)
+            if (ok) await circle.addToList(newListFor, l.id, true)
+            return ok
+          }}
+          onDelete={() => undefined}
+          onClose={() => setNewListFor(null)}
         />
       )}
 
@@ -930,12 +1050,16 @@ export default function App() {
                   className={`tab ${tab === t.id ? 'on' : ''}`}
                   aria-current={tab === t.id ? 'page' : undefined}
                   onClick={() => {
-                    if (t.id === 'messages') setThread(undefined)
+                    if (t.id === 'family') {
+                      setThread(undefined)
+                      setHouseholdOpen(null)
+                    }
+                    if (t.id === 'lists') setListOpen(null)
                     setTab(t.id)
                   }}
                 >
                   <Icon name={t.icon} size={23} />
-                  {t.id === 'messages' && unread > 0 && <i className="tab-badge" aria-label={`${unread} unread`}>{unread > 9 ? '9+' : unread}</i>}
+                  {t.id === 'family' && familyBadge > 0 && <i className="tab-badge" aria-label={`${familyBadge} new`}>{familyBadge > 9 ? '9+' : familyBadge}</i>}
                   <span>{t.label}</span>
                 </button>
               ))}

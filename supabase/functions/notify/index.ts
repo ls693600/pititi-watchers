@@ -37,23 +37,49 @@ async function deliver(subs: Sub[], noteFor: (personId: string) => Note | null):
   return sent
 }
 
+interface Member { id: string; name: string; household_id: string | null; notify_level: string | null }
+
+async function circle(): Promise<{ people: Member[]; mutes: Set<string> }> {
+  const [{ data: people }, { data: mutes }] = await Promise.all([
+    db.from('people').select('*'),
+    db.from('chat_mutes').select('person_id, thread'),
+  ])
+  return {
+    people: ((people ?? []) as Member[]).map((p) => ({ ...p, notify_level: p.notify_level ?? 'all' })),
+    mutes: new Set(((mutes ?? []) as { person_id: string; thread: string }[]).map((m) => `${m.person_id}:${m.thread}`)),
+  }
+}
+
+async function subsFor(ids: string[]): Promise<Sub[]> {
+  if (!ids.length) return []
+  const { data } = await db.from('push_subscriptions').select('endpoint, person_id, p256dh, auth').in('person_id', ids)
+  return (data ?? []) as Sub[]
+}
+
 async function onComment(id: string) {
   const { data: c } = await db.from('comments').select('id, watch_id, person_id, body').eq('id', id).single()
   if (!c) return { sent: 0 }
-  const [{ data: people }, { data: subs }, watchRes] = await Promise.all([
-    db.from('people').select('id, name'),
-    db.from('push_subscriptions').select('endpoint, person_id, p256dh, auth').neq('person_id', c.person_id),
-    c.watch_id ? db.from('watches').select('id, show_name, status, watched_by').eq('id', c.watch_id).single() : Promise.resolve({ data: null }),
+  const [{ people, mutes }, watchRes] = await Promise.all([
+    circle(),
+    c.watch_id ? db.from('watches').select('id, show_name, status, watched_by, household_id').eq('id', c.watch_id).single() : Promise.resolve({ data: null }),
   ])
-  const w = watchRes.data as { id: string; show_name: string; status: string; watched_by: string[] } | null
+  const w = watchRes.data as { id: string; show_name: string; status: string; watched_by: string[]; household_id: string } | null
+  const { data: home } = w ? await db.from('households').select('share_log').eq('id', w.household_id).single() : { data: null }
   const { data: ratings } = w ? await db.from('ratings').select('person_id').eq('watch_id', w.id) : { data: [] }
   const rated = new Set((ratings ?? []).map((r: { person_id: string }) => r.person_id))
-  const all = (people ?? []) as Person[]
-  const author = all.find((p) => p.id === c.person_id)?.name ?? 'Someone'
-  const tagged = new Set(mentions(c.body, all))
+  const author = people.find((p) => p.id === c.person_id)?.name ?? 'Someone'
+  const tagged = new Set(mentions(c.body, people))
+  const thread = c.watch_id ?? 'family'
+  // Who may see this chat: everyone for the Family chat; for a show, its household (and the circle if it shares its log)
+  const recipients = people.filter((p) => {
+    if (p.id === c.person_id || p.notify_level === 'off') return false
+    if (w && p.household_id !== w.household_id && !home?.share_log) return false
+    if (tagged.has(p.id)) return true
+    return p.notify_level === 'all' && !mutes.has(`${p.id}:${thread}`)
+  })
   const where = w ? w.show_name : 'Family chat'
-  const open = `thread:${c.watch_id ?? 'family'}`
-  const sent = await deliver((subs ?? []) as Sub[], (personId) => {
+  const open = `thread:${thread}`
+  const sent = await deliver(await subsFor(recipients.map((p) => p.id)), (personId) => {
     // Same rule as the app: a finished show you haven't rated yet doesn't show the words
     const hidden = w && w.status === 'done' && w.watched_by.includes(personId) && !rated.has(personId)
     const title = tagged.has(personId) ? `${author} mentioned you · ${where}` : where
@@ -62,11 +88,47 @@ async function onComment(id: string) {
   return { sent }
 }
 
+async function onRecommendation(id: string) {
+  const { data: r } = await db.from('recommendations').select('*').eq('id', id).single()
+  if (!r) return { sent: 0 }
+  const { people } = await circle()
+  const to = people.find((p) => p.id === r.to_person)
+  if (!to || to.notify_level === 'off') return { sent: 0 }
+  const from = people.find((p) => p.id === r.from_person)?.name ?? 'Someone'
+  const sent = await deliver(await subsFor([to.id]), () => ({
+    title: `${from} recommends a ${r.kind === 'movie' ? 'movie' : 'show'}`,
+    body: `${r.title}${r.year ? ` (${r.year})` : ''}${r.note ? ` · “${short(r.note, 80)}”` : ''}`,
+    open: 'recs',
+    tag: `rec:${r.id}`,
+  }))
+  return { sent }
+}
+
+async function onVoteRequest(id: string) {
+  const { data: l } = await db.from('lists').select('*').eq('id', id).single()
+  if (!l || !l.ask_votes) return { sent: 0 }
+  const { people } = await circle()
+  const asker = people.find((p) => p.id === l.created_by)
+  const recipients = people.filter((p) => {
+    if (p.id === l.created_by || p.notify_level === 'off') return false
+    if (l.visibility === 'circle') return true
+    if (l.visibility === 'people') return (l.shared_with as string[]).includes(p.id) || p.household_id === l.household_id
+    return p.household_id === l.household_id
+  })
+  const sent = await deliver(await subsFor(recipients.map((p) => p.id)), () => ({
+    title: `Help pick ${l.emoji}`,
+    body: `${asker?.name ?? 'Someone'} asks: ${short(l.name, 60)}. Tap to vote.`,
+    open: `list:${l.id}`,
+    tag: `votes:${l.id}`,
+  }))
+  return { sent }
+}
+
 /** Shows you're watching with a new episode out today (TVmaze dates, Eastern time). */
 async function reminders() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date())
   const [{ data: watches }, { data: subs }] = await Promise.all([
-    db.from('watches').select('id, show_id, show_name, watched_by, updated_at').eq('status', 'watching'),
+    db.from('watches').select('id, show_id, show_name, watched_by, updated_at').eq('status', 'watching').eq('kind', 'tv'),
     db.from('push_subscriptions').select('endpoint, person_id, p256dh, auth'),
   ])
   // One log per show (the latest), so a show never pings twice
@@ -99,7 +161,13 @@ Deno.serve(async (req) => {
   if (!SECRET || req.headers.get('x-pititi-secret') !== SECRET) return new Response('Unauthorized', { status: 401 })
   try {
     const body = await req.json()
-    const result = body.type === 'comment' && typeof body.id === 'string' ? await onComment(body.id) : body.type === 'reminders' ? await reminders() : null
+    const id = typeof body.id === 'string' ? body.id : null
+    const result =
+      body.type === 'comment' && id ? await onComment(id)
+      : body.type === 'recommendation' && id ? await onRecommendation(id)
+      : body.type === 'votes' && id ? await onVoteRequest(id)
+      : body.type === 'reminders' ? await reminders()
+      : null
     if (!result) return new Response('Unknown request', { status: 400 })
     return Response.json(result)
   } catch (e) {
