@@ -157,6 +157,52 @@ async function reminders() {
   return { checked: byShow.size, due: due.length, sent }
 }
 
+interface EveningPerson { id: string; household_id: string | null; evening_hour: number | null; tz: string | null; notify_level: string | null; lang: string | null }
+
+/** Local hour and date for a person (their phone's time zone; Eastern if unknown). */
+function localNow(tz: string | null): { hour: number; date: string } {
+  const zone = tz || 'America/Toronto'
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false }).formatToParts(new Date())
+    const get = (k: string) => parts.find((p) => p.type === k)?.value ?? ''
+    return { hour: Number(get('hour')) % 24, date: `${get('year')}-${get('month')}-${get('day')}` }
+  } catch {
+    return localNow('America/Toronto')
+  }
+}
+
+/** "Did you watch something today?": only at each person's chosen hour, only if they're mid-show and marked nothing today. */
+async function evening() {
+  const { data: people } = await db.from('people').select('id, household_id, evening_hour, tz, notify_level, lang').not('evening_hour', 'is', null)
+  const due = ((people ?? []) as EveningPerson[]).filter((p) => p.notify_level !== 'off' && p.household_id && localNow(p.tz).hour === p.evening_hour)
+  if (!due.length) return { due: 0, sent: 0 }
+  const { data: watches } = await db
+    .from('watches')
+    .select('id, show_name, household_id, watched_by, status, updated_at')
+    .in('household_id', [...new Set(due.map((p) => p.household_id!))])
+  let sent = 0
+  for (const p of due) {
+    const mine = ((watches ?? []) as { show_name: string; household_id: string; watched_by: string[]; status: string; updated_at: string }[]).filter(
+      (w) => w.household_id === p.household_id && w.watched_by.includes(p.id),
+    )
+    const watching = mine.filter((w) => w.status === 'watching').sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    if (!watching.length) continue
+    // Already marked something today (their date): no reminder
+    const today = localNow(p.tz).date
+    const zone = p.tz || 'America/Toronto'
+    const markedToday = mine.some((w) => new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date(w.updated_at)) === today)
+    if (markedToday) continue
+    const names = watching.slice(0, 2).map((w) => w.show_name).join(', ') + (watching.length > 2 ? '…' : '')
+    sent += await deliver(await subsFor([p.id]), () => ({
+      title: p.lang === 'pt' ? 'Assistiram algo hoje? 📺' : 'Watched something today? 📺',
+      body: p.lang === 'pt' ? `${names} · toque para marcar` : `${names} · tap to mark it`,
+      open: 'quickmark',
+      tag: 'evening',
+    }))
+  }
+  return { due: due.length, sent }
+}
+
 Deno.serve(async (req) => {
   if (!SECRET || req.headers.get('x-pititi-secret') !== SECRET) return new Response('Unauthorized', { status: 401 })
   try {
@@ -167,6 +213,7 @@ Deno.serve(async (req) => {
       : body.type === 'recommendation' && id ? await onRecommendation(id)
       : body.type === 'votes' && id ? await onVoteRequest(id)
       : body.type === 'reminders' ? await reminders()
+      : body.type === 'evening' ? await evening()
       : null
     if (!result) return new Response('Unknown request', { status: 400 })
     return Response.json(result)

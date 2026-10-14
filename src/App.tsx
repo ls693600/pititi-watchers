@@ -21,6 +21,8 @@ import { MovieLog } from './components/MovieLog'
 import { useCircle } from './circle'
 import { t, useLang } from './i18n'
 import { useFestive } from './useFestive'
+import { QuickMark } from './components/QuickMark'
+import { hourLabel } from './lib/hours'
 import { useToast } from './hooks/useToast'
 import { usePush } from './hooks/usePush'
 import { useReadState } from './hooks/useReadState'
@@ -95,7 +97,9 @@ export default function App() {
   const [auth, setAuth] = useState<Auth>(CLOUD_ENABLED ? { state: 'checking' } : { state: 'ready', session: null })
   const [watches, setWatches] = useState<Watch[]>([])
   const [people, setPeople] = useState<Person[]>([])
-  useLang()
+  const lang = useLang()
+  /** "What did you watch today?" (evening reminder, Android shortcut) */
+  const [quickMark, setQuickMark] = useState(false)
   const festive = useFestive()
   /** Show in the press-and-hold quick menu */
   const [actionsFor, setActionsFor] = useState<string | null>(null)
@@ -287,12 +291,23 @@ export default function App() {
     } else if (kind === 'recs') {
       setFamilyView('activity')
       setTab('family')
+    } else if (kind === 'quickmark') setQuickMark(true)
+    else if (kind === 'add') {
+      setAddMonth(currentMonth())
+      setTab('search')
     }
     else if (kind === 'show') {
       const w = watches.find((x) => x.id === id)
       if (w) openShow(w)
     }
   }, [watches, openThread, openShow])
+
+  // Notifications follow the phone's language
+  const eveningHour = mePerson?.eveningHour ?? null
+  const meId = mePerson?.id ?? null
+  useEffect(() => {
+    if (meId && eveningHour != null && store.mode === 'cloud') store.setEvening(meId, eveningHour, lang).catch(() => undefined)
+  }, [lang, meId, eveningHour])
 
   // Problem reports say where it happened
   useEffect(() => setErrorScreen(detail ? (detail.isNew ? 'new log' : 'show page') : tab), [tab, detail])
@@ -666,6 +681,22 @@ export default function App() {
               }
             }}
             notify={store.mode === 'cloud' || import.meta.env.DEV ? { state: push, onEnable: turnOnPush, onDisable: turnOffPush } : null}
+            evening={
+              me && !readOnly
+                ? {
+                    hour: mePerson?.eveningHour ?? null,
+                    onChange: async (hour) => {
+                      setPeople((list) => list.map((p) => (p.id === me ? { ...p, eveningHour: hour } : p)))
+                      try {
+                        await store.setEvening(me, hour, lang)
+                        flash(hour == null ? t('Evening reminder off') : t("Evening reminder at {time}, only on days you haven't marked anything", { time: hourLabel(hour) }))
+                      } catch {
+                        flash(t("Couldn't save that. Check your connection."))
+                      }
+                    },
+                  }
+                : null
+            }
             onOpenHelp={() => openHelp()}
             onBack={() => setTab(prevTab.current)}
             mode={store.mode}
@@ -712,6 +743,22 @@ export default function App() {
             setQuick(null)
             setFromItem(null)
           }}
+        />
+      )}
+
+      {quickMark && (
+        <QuickMark
+          watching={homeWatches.filter((w) => w.status === 'watching').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))}
+          onNext={(w) => {
+            const next = addEpisode(w)
+            quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Episode {n} logged', { n: next.episodesWatched }))
+          }}
+          onOther={() => {
+            setQuickMark(false)
+            setAddMonth(currentMonth())
+            setTab('search')
+          }}
+          onClose={() => setQuickMark(false)}
         />
       )}
 

@@ -178,6 +178,9 @@ export const localStore: Store = {
   async setNotifyLevel(personId, level) {
     update((s) => ({ people: s.people.map((p) => (p.id === personId ? { ...p, notifyLevel: level } : p)) }))
   },
+  async setEvening(personId, hour) {
+    update((s) => ({ people: s.people.map((p) => (p.id === personId ? { ...p, eveningHour: hour } : p)) }))
+  },
   async setReaction(r) {
     update((s) => {
       const rest = s.reactions.filter((x) => !(x.watchId === r.watchId && x.personId === r.personId && x.targetId === r.targetId))

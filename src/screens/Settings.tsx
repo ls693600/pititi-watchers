@@ -6,6 +6,7 @@ import type { Session } from '../store/store'
 import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Household, Person, Watch } from '../types'
 import { FamilyAdmin } from '../components/FamilyAdmin'
+import { hourLabel } from '../lib/hours'
 import { Problems } from '../components/Problems'
 import type { ProblemReport } from '../store/cloud'
 import { setFestivePref, useFestivePref } from '../useFestive'
@@ -37,6 +38,8 @@ interface Props {
   households?: Household[]
   /** Who's using the app (works in single-phone mode too) */
   meId?: string | null
+  /** Your evening reminder hour (null = off) */
+  evening?: { hour: number | null; onChange: (hour: number | null) => void } | null
   /** Admin: problems reported from family phones */
   problems?: { load: () => Promise<ProblemReport[]>; clear: () => Promise<void> } | null
   admin?: {
@@ -53,7 +56,7 @@ interface Props {
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, evening }: Props) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -318,6 +321,29 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
               <Icon name="right" size={20} />
             </span>
           </button>
+          {evening && (
+            <label className="field">
+              <span>
+                {t('Evening reminder')}
+                <small className="muted" style={{ display: 'block', fontSize: 12.5 }}>
+                  {t("Only on days you haven't marked anything")}
+                </small>
+              </span>
+              <select
+                className="move-select"
+                value={evening.hour ?? ''}
+                aria-label={t('Evening reminder')}
+                onChange={(e) => evening.onChange(e.target.value === '' ? null : Number(e.target.value))}
+              >
+                <option value="">{t('Off')}</option>
+                {[19, 20, 21, 22, 23].map((h) => (
+                  <option key={h} value={h}>
+                    {hourLabel(h)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {notify && (
             <div className="field">
               <span>

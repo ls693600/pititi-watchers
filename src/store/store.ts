@@ -43,6 +43,8 @@ export interface Store {
   // Notification preferences
   setMute(personId: string, thread: string, muted: boolean): Promise<void>
   setNotifyLevel(personId: string, level: 'all' | 'mine' | 'off'): Promise<void>
+  /** Your evening reminder: an hour in your time zone, or null for off (also saves your language for notifications) */
+  setEvening(personId: string, hour: number | null, lang: 'en' | 'pt'): Promise<void>
   /** Sets your reaction on someone's rating (null removes it) */
   setReaction(r: Omit<Reaction, 'emoji'> & { emoji: string | null }): Promise<void>
   addComment(c: Comment): Promise<void>

@@ -12,6 +12,8 @@ export interface Person {
   householdId?: string | null
   /** Phone notifications: all · mine (only @mentions, recommendations, votes) · off */
   notifyLevel?: 'all' | 'mine' | 'off'
+  /** Evening reminder hour (0–23, their own time zone), or null when off */
+  eveningHour?: number | null
 }
 
 /** One show-season logged in a given month. A show lands in the month you last watched it. */

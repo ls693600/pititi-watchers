@@ -334,7 +334,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .fab { justify-self: center; width: 54px; height: 54px; border-radius: 20px; background: var(--grad); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(255, 77, 109, 0.42); margin-top: -26px; transition: transform .12s; }
 .fab:active { transform: scale(0.94); }
 .fab.on { box-shadow: 0 0 0 4px var(--brand-soft), 0 10px 22px rgba(255, 77, 109, 0.42); }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(104px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; background: var(--toast-bg); color: var(--toast-fg); padding: 12px 18px; border-radius: 999px; font-size: 14.5px; font-weight: 550; z-index: 20; width: max-content; max-width: min(520px, calc(100vw - 40px)); box-shadow: var(--shadow-lg); animation: rise .25s; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(104px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; background: var(--toast-bg); color: var(--toast-fg); padding: 12px 18px; border-radius: 999px; font-size: 14.5px; font-weight: 550; z-index: 55; width: max-content; max-width: min(520px, calc(100vw - 40px)); box-shadow: var(--shadow-lg); animation: rise .25s; }
 .toast svg { color: #7ee2a1; flex: none; }
 .banner { padding: 10px 20px; font-size: 13.5px; text-align: center; font-weight: 550; }
 .banner.warn { background: var(--warn-bg); color: var(--warn-fg); }
@@ -820,3 +820,12 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .problems li { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; overflow-wrap: anywhere; }
 
 .link-btn.inline { padding: 0; font-size: inherit; text-decoration: underline; }
+
+/* Quick mark ("What did you watch today?") */
+.quickmark { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.quickmark li { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 10px; border-radius: 18px; background: var(--surface-2); }
+.qm-btn { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 800; font-size: 15px; }
+.qm-btn:disabled { opacity: .4; }
+.qm-btn:active:not(:disabled) { transform: scale(.96); }
+/* With a sheet open, the message moves to the top so it never covers the sheet's buttons */
+body:has(.sheet-wrap) .toast { bottom: auto; top: calc(14px + env(safe-area-inset-top)); }

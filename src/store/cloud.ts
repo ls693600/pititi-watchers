@@ -44,6 +44,7 @@ interface PersonRow {
   is_viewer?: boolean
   household_id?: string | null
   notify_level?: 'all' | 'mine' | 'off'
+  evening_hour?: number | null
 }
 
 const toRow = (w: Watch): WatchRow => ({
@@ -206,6 +207,7 @@ const toPerson = (r: PersonRow): Person => ({
   isViewer: Boolean(r.is_viewer),
   householdId: r.household_id ?? null,
   notifyLevel: r.notify_level ?? 'all',
+  eveningHour: r.evening_hour ?? null,
 })
 
 let client: SupabaseClient | null = null
@@ -503,6 +505,11 @@ export const cloudStore: Store = {
     const { error } = muted
       ? await supabase().from('chat_mutes').upsert({ thread })
       : await supabase().from('chat_mutes').delete().eq('thread', thread)
+    if (error) throw error
+  },
+  async setEvening(_personId, hour, lang) {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const { error } = await supabase().rpc('set_evening', { hour, zone, language: lang })
     if (error) throw error
   },
   async setNotifyLevel(personId, level) {
