@@ -44,6 +44,15 @@ const SECTIONS: Section[] = [
           'Nobody can sign up without the code.',
         ],
       },
+      {
+        id: 'password',
+        q: 'How do I change or reset my password?',
+        a: [
+          'Change it: tap your avatar → Settings → Change password. Type your current password once and the new one twice.',
+          'Forgot it: on the sign-in screen, type your email and tap Forgot password?. Open the email and tap the link to choose a new password.',
+          'On iPhone the link opens in Safari. After saving, open Pititi from the home screen icon and sign in with the new password.',
+        ],
+      },
     ],
   },
   {

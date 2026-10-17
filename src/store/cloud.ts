@@ -283,6 +283,36 @@ export async function signUp(email: string, password: string, code: string, as: 
   return currentSession()
 }
 
+/** Changing your password while signed in: the current one is checked first, so a phone left unlocked can't lock you out. */
+export async function changePassword(current: string, next: string): Promise<void> {
+  const { data } = await supabase().auth.getUser()
+  const email = data.user?.email
+  if (!email) throw new Error(t('Sign in again, then try once more.'))
+  const check = await supabase().auth.signInWithPassword({ email, password: current })
+  if (check.error) throw new Error(/invalid login/i.test(check.error.message) ? t("That's not your current password.") : friendly(check.error.message))
+  await setNewPassword(next)
+}
+
+/** Sets the password for whoever is signed in (also used after opening a reset link). */
+export async function setNewPassword(next: string): Promise<void> {
+  const { error } = await supabase().auth.updateUser({ password: next })
+  if (error) throw new Error(/should be different|same.*password/i.test(error.message) ? t('Pick a password different from the old one.') : friendly(error.message))
+}
+
+/** Forgot password: emails a link that opens the app on "Choose a new password". */
+export async function sendPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase().auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split(/[?#]/)[0] })
+  if (error) throw new Error(friendly(error.message))
+}
+
+/** The reset link signs you in for one purpose: choosing a new password. */
+const OPENED_FROM_RESET = typeof window !== 'undefined' && /type=recovery/.test(window.location.hash)
+export function onPasswordRecovery(fn: () => void): () => void {
+  if (OPENED_FROM_RESET) queueMicrotask(fn)
+  const { data } = supabase().auth.onAuthStateChange((event) => event === 'PASSWORD_RECOVERY' && fn())
+  return () => data.subscription.unsubscribe()
+}
+
 export async function signOut() {
   await supabase().auth.signOut()
 }

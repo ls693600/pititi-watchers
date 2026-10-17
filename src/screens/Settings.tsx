@@ -8,6 +8,7 @@ import type { Household, Person, Watch } from '../types'
 import { FamilyAdmin } from '../components/FamilyAdmin'
 import { hourLabel } from '../lib/hours'
 import { Problems } from '../components/Problems'
+import { PasswordSheet } from '../components/PasswordSheet'
 import type { ProblemReport } from '../store/cloud'
 import { setFestivePref, useFestivePref } from '../useFestive'
 import { getLang, setLang, t } from '../i18n'
@@ -52,11 +53,14 @@ interface Props {
   /** Settings has no tab of its own; this returns to where you came from */
   onBack?: () => void
   onOpenHelp?: () => void
+  /** Signed in with an account: change your own password (checks the current one first) */
+  onChangePassword?: ((current: string, next: string) => Promise<void>) | null
 }
 
 const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, evening }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, evening, onChangePassword }: Props) {
+  const [pwOpen, setPwOpen] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -308,6 +312,27 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
 
       {view === 'account' && (
       <>
+      {session && onChangePassword && (
+        <section className="card">
+          <button className="field" onClick={() => setPwOpen(true)} style={{ width: '100%' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon name="lock" size={18} /> {t('Change password')}
+            </span>
+            <span className="chev"><Icon name="right" size={20} /></span>
+          </button>
+        </section>
+      )}
+      {pwOpen && session && onChangePassword && (
+        <PasswordSheet
+          mode="change"
+          email={session.email}
+          onClose={() => setPwOpen(false)}
+          onSave={async (current, next) => {
+            await onChangePassword(current, next)
+            setPwOpen(false)
+          }}
+        />
+      )}
       {onOpenFamily && (
         <section className="card">
           <button className="field" onClick={onOpenFamily} style={{ width: '100%' }}>

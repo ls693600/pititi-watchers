@@ -10,6 +10,8 @@ interface Props {
   /** Resolves false when the account needs email confirmation before signing in. */
   onSignUp: (email: string, password: string, code: string, as: JoinAs) => Promise<boolean>
   loadOptions: (code: string) => Promise<JoinOptions>
+  /** Forgot password: emails a link to choose a new one */
+  onForgot?: (email: string) => Promise<void>
 }
 
 const NEW = '__new__'
@@ -32,7 +34,7 @@ const INVITE = fromUrl || (() => {
 })()
 
 
-export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
+export function Login({ onSignIn, onSignUp, loadOptions, onForgot }: Props) {
   const [mode, setMode] = useState<'signin' | 'signup'>(INVITE ? 'signup' : 'signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -100,6 +102,26 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
       }
     } catch (err) {
       setError((err as Error).message || t("Couldn't sign in. Try again."))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function forgot() {
+    if (!onForgot) return
+    const address = email.trim()
+    if (!/^\S+@\S+\.\S+$/.test(address)) {
+      setNotice(null)
+      return setError(t('Type your email above first, then tap "Forgot password?" again.'))
+    }
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      await onForgot(address)
+      setNotice(t('If {email} has an account, a link to choose a new password is on its way. Check your inbox (and spam).', { email: address }))
+    } catch (err) {
+      setError((err as Error).message || t("Couldn't send the email. Try again."))
     } finally {
       setBusy(false)
     }
@@ -237,6 +259,11 @@ export function Login({ onSignIn, onSignUp, loadOptions }: Props) {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
+      {mode === 'signin' && onForgot && (
+        <button type="button" className="link-btn forgot" onClick={forgot} disabled={busy}>
+          {t('Forgot password?')}
+        </button>
+      )}
       {notice && <p className="ok" role="status">{notice}</p>}
       {error && <p className="error" role="alert">{error}</p>}
       <button className="btn primary block" type="submit" disabled={busy}>

@@ -9,6 +9,7 @@ import { Reveal } from './components/Reveal'
 import { Detail } from './screens/Detail'
 import { Home } from './screens/Home'
 import { Login } from './screens/Login'
+import { PasswordSheet } from './components/PasswordSheet'
 import { Search } from './screens/Search'
 import { Settings } from './screens/Settings'
 import { Help } from './screens/Help'
@@ -34,7 +35,7 @@ import { Toast } from './components/Toast'
 import { SEEN_KEY, readSet, writeSet } from './lib/seen'
 import { announceNew, celebrateBadges } from './lib/announce'
 import { FestiveRain } from './components/Festive'
-import { clearProblems, cloudStore, currentSession, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
+import { changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { Comment, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
@@ -183,12 +184,17 @@ export default function App() {
   const { comments, reactions, social } = chat
   const takeChat = chat.take
 
+  /** Opened from a "Forgot password?" email: ask for the new password once signed in */
+  const [recovering, setRecovering] = useState(false)
+
   // Restore an existing session on launch
   useEffect(() => {
     if (!CLOUD_ENABLED) return
+    const stopRecovery = onPasswordRecovery(() => setRecovering(true))
     currentSession()
       .then((session) => setAuth(session ? { state: 'ready', session } : { state: 'signedOut' }))
       .catch((e: Error) => setAuth({ state: 'signedOut', error: e.message }))
+    return stopRecovery
   }, [])
 
   const checkBadges = useCallback((list: Watch[]) => celebrateBadges(list, flash), [flash])
@@ -438,6 +444,7 @@ export default function App() {
         {auth.error && <p className="error banner" role="alert">{auth.error}</p>}
         <Login
           loadOptions={joinOptions}
+          onForgot={sendPasswordReset}
           onSignIn={async (email, password) => {
             const session = await signIn(email, password)
             setAuth({ state: 'ready', session })
@@ -711,10 +718,16 @@ export default function App() {
               setPeople((list) => [...list, person])
               flash(t('{name} added to the family', { name }))
             }}
+            onChangePassword={auth.session ? async (current, next) => {
+              await changePassword(current, next)
+              flash(t('Password changed. Use the new one next time you sign in.'))
+            } : null}
             onSignOut={async () => {
               await signOut()
               setWatches([])
               setPeople([])
+              // Whoever signs in next starts on Home, not on the last person's Settings
+              setTabState('home')
               setAuth({ state: 'signedOut' })
             }}
           />
@@ -742,6 +755,21 @@ export default function App() {
           onClose={() => {
             setQuick(null)
             setFromItem(null)
+          }}
+        />
+      )}
+
+      {recovering && auth.session && (
+        <PasswordSheet
+          mode="reset"
+          email={auth.session.email}
+          onClose={() => setRecovering(false)}
+          onSave={async (_current, next) => {
+            await setNewPassword(next)
+            setRecovering(false)
+            // The link's one-time token stays out of the address bar (and out of shared links)
+            history.replaceState(null, '', window.location.pathname + window.location.search)
+            flash(t('New password saved. Use it next time you sign in, also in the installed app.'))
           }}
         />
       )}
