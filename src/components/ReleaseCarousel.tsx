@@ -6,6 +6,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { LongPress } from './LongPress'
 import { PosterFill } from './Poster'
+import { PosterPlay } from './TrailerSheet'
 import { locale, t } from '../i18n'
 
 interface Props {
@@ -94,16 +95,17 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                   </button>
                 )}
                 {w.poster && <img src={bigPoster(w.poster)!} alt="" className="hero-bg" />}
-                <button onClick={() => onOpen(w)} aria-label={t('Open {name}', { name: w.showName })} style={{ flex: 'none' }}>
+                {/* Poster plays the trailer (the title opens the show) */}
+                <PosterPlay kind="tv" extId={w.showId} title={w.showName} year={w.year} season={w.season} chip>
                   <span className="hero-poster" style={{ display: 'block', overflow: 'hidden' }}>
                     <PosterFill src={w.poster} name={w.showName} />
                   </span>
-                </button>
+                </PosterPlay>
                 <div className="hero-body">
                   <span className={`kicker-pill ${k.tone}`}>
                     <Icon name={k.tone === 'ready' ? 'play' : k.tone === 'soon' ? 'calendar' : 'play'} size={12} stroke={2.6} /> {k.text}
                   </span>
-                  <button className="hero-title" style={{ textAlign: 'left' }} onClick={() => onOpen(w)}>
+                  <button className="hero-title" style={{ textAlign: 'left' }} onClick={() => onOpen(w)} aria-label={t('Open {name}', { name: w.showName })}>
                     {w.showName}
                   </button>
                   <span className="hero-sub">

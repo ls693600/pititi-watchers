@@ -19,6 +19,16 @@ test.describe('Trailers', () => {
     await expect(player(page)).toBeVisible()
   })
 
+  test('Currently watching card: the poster says Trailer and plays it right from Home', async ({ page }) => {
+    await openAs(page)
+    await page.getByRole('button', { name: 'Watch the trailer of Lioness' }).first().click()
+    await expect(player(page)).toHaveAttribute('src', /embed\/yt-tv-101-s2\?/)
+    await page.keyboard.press('Escape')
+    // The title still opens the show page
+    await page.getByRole('button', { name: 'Open Lioness' }).first().click()
+    await expect(page.getByRole('button', { name: 'Trailer', exact: true })).toBeVisible()
+  })
+
   test('no trailer on file: says so and offers a YouTube search', async ({ page }) => {
     await openAs(page)
     await page.getByRole('button', { name: 'Open Last Seen' }).first().click()

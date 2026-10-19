@@ -148,7 +148,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <PosterPlay kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} badge={30}>
+          <PosterPlay kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} chip compact>
             <Poster src={w.poster} name={w.showName} w={64} />
           </PosterPlay>
           <div style={{ minWidth: 0, flex: 1 }}>

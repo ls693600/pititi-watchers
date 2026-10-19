@@ -235,6 +235,8 @@ a.btn { text-decoration: none; }
 .poster-play:active { transform: scale(0.96); }
 .poster-play:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
 .play-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; pointer-events: none; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(20, 16, 28, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); padding-left: 3px; }
+.play-chip { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px 4px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 750; letter-spacing: .01em; color: #fff; background: rgba(20, 16, 28, 0.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); white-space: nowrap; line-height: 1.2; pointer-events: none; }
+.play-chip.compact { bottom: 5px; padding: 3px 7px 3px 5px; font-size: 10.5px; gap: 3px; }
 .trailer-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 700; font-size: 13.5px; box-shadow: 0 6px 16px rgba(255, 77, 109, 0.32); }
 .trailer-pill:active { transform: scale(0.96); }
 

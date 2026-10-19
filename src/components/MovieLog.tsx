@@ -57,7 +57,7 @@ export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForL
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <PosterPlay kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} badge={30}>
+          <PosterPlay kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} chip compact>
             <Poster src={w.poster} name={w.showName} w={72} />
           </PosterPlay>
           <div style={{ flex: 1, minWidth: 0 }}>

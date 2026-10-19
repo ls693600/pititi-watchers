@@ -83,7 +83,8 @@ Deno.serve(async (req) => {
       const id = Number(u.searchParams.get('id'))
       if (!(id > 0)) return json({ error: 'bad_request' }, 400, 'no-store')
       const v = await trailer(kind, id, Number(u.searchParams.get('season')) || 0, lang === 'pt-BR' ? 'pt' : 'en')
-      return json(v ? { key: v.key, name: v.name } : { key: null }, 200, 'public, max-age=86400')
+      // "None" is re-checked sooner: TMDB adds trailers for new seasons
+      return json(v ? { key: v.key, name: v.name } : { key: null }, 200, v ? 'public, max-age=86400' : 'public, max-age=3600')
     }
     const q = u.searchParams.get('q')?.trim()
     if (q) {

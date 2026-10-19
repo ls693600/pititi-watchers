@@ -108,15 +108,21 @@ export function TrailerSheet({ kind, extId, title, year, season = 0, onClose }: 
 }
 
 /** A poster that plays the trailer when tapped (log sheets and the show page). */
-export function PosterPlay({ kind, extId, title, year, season, children, badge = 34 }: Omit<Props, 'onClose'> & { children: ReactNode; badge?: number }) {
+export function PosterPlay({ kind, extId, title, year, season, children, badge = 34, chip = false, compact = false }: Omit<Props, 'onClose'> & { children: ReactNode; badge?: number; /** A "▶ Trailer" label on the poster instead of a round button */ chip?: boolean; /** Smaller label for small posters */ compact?: boolean }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button type="button" className="poster-play" onClick={() => setOpen(true)} aria-label={t('Watch the trailer of {title}', { title })}>
         {children}
-        <span className="play-badge" aria-hidden="true" style={{ width: badge, height: badge }}>
-          <Icon name="play" size={Math.round(badge * 0.42)} stroke={2.6} />
-        </span>
+        {chip ? (
+          <span className={compact ? 'play-chip compact' : 'play-chip'} aria-hidden="true">
+            <Icon name="play" size={11} stroke={3} /> {t('Trailer')}
+          </span>
+        ) : (
+          <span className="play-badge" aria-hidden="true" style={{ width: badge, height: badge }}>
+            <Icon name="play" size={Math.round(badge * 0.42)} stroke={2.6} />
+          </span>
+        )}
       </button>
       {open && <TrailerSheet kind={kind} extId={extId} title={title} year={year} season={season} onClose={() => setOpen(false)} />}
     </>
