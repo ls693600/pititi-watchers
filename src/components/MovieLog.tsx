@@ -5,7 +5,7 @@ import { t } from '../i18n'
 import type { Person, Watch } from '../types'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
-import { PosterPlay } from './TrailerSheet'
+import { PosterPlay, TrailerButton } from './TrailerSheet'
 import { Stars } from './Stars'
 
 interface Props {
@@ -57,7 +57,7 @@ export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForL
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <PosterPlay kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} chip compact>
+          <PosterPlay kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} bare>
             <Poster src={w.poster} name={w.showName} w={72} />
           </PosterPlay>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -71,6 +71,7 @@ export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForL
             </p>
             <h2 className="sheet-title">{w.showName}</h2>
             <p className="sheet-meta">{[w.year, w.runtime ? `${Math.floor(w.runtime / 60)}h ${w.runtime % 60}m` : null, w.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</p>
+            <TrailerButton kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} />
           </div>
           <button className="icon-btn" aria-label={t('Close')} onClick={onClose} style={{ alignSelf: 'flex-start' }}>
             <Icon name="close" size={18} />

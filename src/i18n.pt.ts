@@ -893,4 +893,5 @@ export const PT: Record<string, string> = {
   "Try again": "Tentar de novo",
   "Open in YouTube": "Abrir no YouTube",
   "Search on YouTube": "Procurar no YouTube",
+  "Watch trailer": "Ver trailer",
 }

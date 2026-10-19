@@ -5,7 +5,7 @@ import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
-import { PosterPlay } from './TrailerSheet'
+import { PosterPlay, TrailerButton } from './TrailerSheet'
 import { Stars } from './Stars'
 import { t } from '../i18n'
 
@@ -148,7 +148,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <PosterPlay kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} chip compact>
+          <PosterPlay kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} bare>
             <Poster src={w.poster} name={w.showName} w={64} />
           </PosterPlay>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -188,6 +188,7 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
               )}
               {total ? <span> · {t('{n} episodes', { n: total })}</span> : null}
             </div>
+            <TrailerButton kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} />
             {monthNote && <p className="month-note">{monthNote}</p>}
             {(() => {
               const existing = logForSeason(watches, w, w.season)

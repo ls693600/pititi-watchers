@@ -108,13 +108,13 @@ export function TrailerSheet({ kind, extId, title, year, season = 0, onClose }: 
 }
 
 /** A poster that plays the trailer when tapped (log sheets and the show page). */
-export function PosterPlay({ kind, extId, title, year, season, children, badge = 34, chip = false, compact = false }: Omit<Props, 'onClose'> & { children: ReactNode; badge?: number; /** A "▶ Trailer" label on the poster instead of a round button */ chip?: boolean; /** Smaller label for small posters */ compact?: boolean }) {
+export function PosterPlay({ kind, extId, title, year, season, children, badge = 34, chip = false, compact = false, bare = false }: Omit<Props, 'onClose'> & { children: ReactNode; badge?: number; /** A "▶ Trailer" label on the poster instead of a round button */ chip?: boolean; /** Smaller label for small posters */ compact?: boolean; /** No overlay (a Trailer button sits next to it) */ bare?: boolean }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button type="button" className="poster-play" onClick={() => setOpen(true)} aria-label={t('Watch the trailer of {title}', { title })}>
         {children}
-        {chip ? (
+        {bare ? null : chip ? (
           <span className={compact ? 'play-chip compact' : 'play-chip'} aria-hidden="true">
             <Icon name="play" size={11} stroke={3} /> {t('Trailer')}
           </span>
@@ -128,3 +128,17 @@ export function PosterPlay({ kind, extId, title, year, season, children, badge =
     </>
   )
 }
+
+/** A clear "▶ Trailer" button (log sheets): its own pop-up, so it works anywhere. */
+export function TrailerButton({ kind, extId, title, year, season }: Omit<Props, 'onClose'>) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" className="trailer-pill soft" onClick={() => setOpen(true)} aria-label={t('Watch the trailer of {title}', { title })}>
+        <Icon name="play" size={13} stroke={2.8} /> {t('Watch trailer')}
+      </button>
+      {open && <TrailerSheet kind={kind} extId={extId} title={title} year={year} season={season} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+

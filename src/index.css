@@ -242,6 +242,7 @@ a.btn { text-decoration: none; }
 .play-chip.compact { bottom: 5px; padding: 3px 7px 3px 5px; font-size: 10.5px; gap: 3px; }
 .trailer-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 700; font-size: 13.5px; box-shadow: 0 6px 16px rgba(255, 77, 109, 0.32); }
 .trailer-pill:active { transform: scale(0.96); }
+.trailer-pill.soft { margin-top: 8px; min-height: 34px; padding: 0 13px; background: var(--brand-soft); color: var(--brand-ink); box-shadow: none; font-size: 13.5px; }
 
 .trailer-name { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trailer-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0f0d14; color: #f4f1ee; }
