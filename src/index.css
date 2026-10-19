@@ -237,7 +237,7 @@ a.btn { text-decoration: none; }
 .play-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; pointer-events: none; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(20, 16, 28, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); padding-left: 3px; }
 .trailer-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 700; font-size: 13.5px; box-shadow: 0 6px 16px rgba(255, 77, 109, 0.32); }
 .trailer-pill:active { transform: scale(0.96); }
-.sheet-wrap.trailer-wrap { z-index: 60; }
+
 .trailer-name { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trailer-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0f0d14; color: #f4f1ee; }
 .trailer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
@@ -848,3 +848,22 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .qm-btn:active:not(:disabled) { transform: scale(.96); }
 /* With a sheet open, the message moves to the top so it never covers the sheet's buttons */
 body:has(.sheet-wrap) .toast { bottom: auto; top: calc(14px + env(safe-area-inset-top)); }
+
+/* Trailer: a centered "cinema" pop-up over a dark, blurred page (same in light and dark themes) */
+.sheet-wrap.trailer-wrap { z-index: 60; justify-content: center; align-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.trailer-wrap .sheet-dim { background: rgba(10, 8, 14, 0.62); backdrop-filter: blur(16px) saturate(1.1); -webkit-backdrop-filter: blur(16px) saturate(1.1); }
+.trailer-wrap .sheet.trailer-sheet { width: 100%; max-width: 760px; max-height: 100%; border-radius: 26px; padding: 18px 18px 14px; gap: 14px; background: #17141d; color: #f4f1ee; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06); animation: trailer-in .28s cubic-bezier(.2, .9, .2, 1); }
+.trailer-sheet .grabber { display: none; }
+.trailer-sheet .label-sm, .trailer-sheet .muted { color: rgba(244, 241, 238, 0.62); }
+.trailer-sheet .sheet-title { color: #fff; }
+.trailer-sheet .icon-btn { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: none; }
+.trailer-sheet .btn.ghost { color: #ff8fa3; min-height: 44px; }
+.trailer-sheet .trailer-frame { border-radius: 16px; background: #000; }
+@keyframes trailer-in { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .trailer-wrap .sheet.trailer-sheet { animation: fade-in .2s; } }
+/* Phone turned sideways: the video gets as big as the screen allows */
+@media (orientation: landscape) and (max-height: 500px) { .trailer-wrap .sheet.trailer-sheet { max-width: min(760px, calc((100dvh - 120px) * 16 / 9 + 36px)); padding-top: 10px; } }
+
+/* Blur the page itself behind the trailer (backdrop-filter alone is too faint on some phones) */
+body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: filter .25s; }
+@media (prefers-reduced-motion: reduce) { body:has(.trailer-wrap) #root { transition: none; } }
