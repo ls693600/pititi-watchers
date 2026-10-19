@@ -6,7 +6,7 @@ import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { LongPress } from './LongPress'
 import { PosterFill } from './Poster'
-import { PosterPlay } from './TrailerSheet'
+import { TrailerSheet } from './TrailerSheet'
 import { locale, t } from '../i18n'
 
 interface Props {
@@ -54,6 +54,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
   const cards = [...watching].sort((a, b) => outlookOrder(outlooks[a.id], outlooks[b.id]))
   const track = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
+  const [trailerFor, setTrailerFor] = useState<Watch | null>(null)
   // "Coming up" looks a month ahead; fixed while the screen is open
   const [horizon] = useState(() => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10))
 
@@ -95,12 +96,12 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                   </button>
                 )}
                 {w.poster && <img src={bigPoster(w.poster)!} alt="" className="hero-bg" />}
-                {/* Poster plays the trailer (the title opens the show) */}
-                <PosterPlay kind="tv" extId={w.showId} title={w.showName} year={w.year} season={w.season} chip>
+                {/* Poster plays the trailer too (the title opens the show) */}
+                <button type="button" className="poster-play" onClick={() => setTrailerFor(w)} aria-label={t('Watch the trailer of {title}', { title: w.showName })}>
                   <span className="hero-poster" style={{ display: 'block', overflow: 'hidden' }}>
                     <PosterFill src={w.poster} name={w.showName} />
                   </span>
-                </PosterPlay>
+                </button>
                 <div className="hero-body">
                   <span className={`kicker-pill ${k.tone}`}>
                     <Icon name={k.tone === 'ready' ? 'play' : k.tone === 'soon' ? 'calendar' : 'play'} size={12} stroke={2.6} /> {k.text}
@@ -109,7 +110,12 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                     {w.showName}
                   </button>
                   <span className="hero-sub">
-                    {t('Season {n}', { n: w.season })} · {w.totalEpisodes ? t('{n} of {total}', { n: w.episodesWatched, total: w.totalEpisodes }) : t('{n} eps', { n: w.episodesWatched })}
+                    <span>{t('Season {n}', { n: w.season })} · {w.totalEpisodes ? t('{n} of {total}', { n: w.episodesWatched, total: w.totalEpisodes }) : t('{n} eps', { n: w.episodesWatched })}</span>
+                    <span className="stack">
+                      {w.watchedBy.slice(0, 3).map((id) => (
+                        <Avatar key={id} people={people} id={id} size={20} />
+                      ))}
+                    </span>
                   </span>
                   {w.totalEpisodes ? (
                     <div className="bar">
@@ -118,17 +124,15 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
                   ) : (
                     <div style={{ height: 8 }} />
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="hero-actions">
                     {!readOnly && (
                       <button className="hero-plus" onClick={() => onAddEpisode(w)}>
                         <Icon name="plus" size={16} stroke={2.6} /> {t('Watched next')}
                       </button>
                     )}
-                    <span className="stack">
-                      {w.watchedBy.slice(0, 3).map((id) => (
-                        <Avatar key={id} people={people} id={id} size={22} />
-                      ))}
-                    </span>
+                    <button className="hero-plus ghost" onClick={() => setTrailerFor(w)} aria-label={t('Watch the trailer of {title}', { title: w.showName })}>
+                      <Icon name="play" size={14} stroke={2.6} /> {t('Trailer')}
+                    </button>
                   </div>
                 </div>
               </LongPress>
@@ -136,6 +140,10 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
           )
         })}
       </div>
+
+      {trailerFor && (
+        <TrailerSheet kind="tv" extId={trailerFor.showId} title={trailerFor.showName} year={trailerFor.year} season={trailerFor.season} onClose={() => setTrailerFor(null)} />
+      )}
 
       {cards.length > 1 && (
         <div className="dots" role="tablist" aria-label={t('Shows')}>
