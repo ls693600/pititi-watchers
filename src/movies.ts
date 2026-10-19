@@ -62,3 +62,26 @@ export function getMovie(id: number): Promise<MovieInfo> {
   memo.set(id, p)
   return p
 }
+
+export interface Trailer {
+  /** YouTube video id, or null when TMDB has none */
+  key: string | null
+  name?: string
+}
+
+const trailerMemo = new Map<string, Promise<Trailer>>()
+
+/** Trailer for a movie (TMDB id) or a show (TVmaze id; your season's trailer when there is one). Cached for the session. */
+export function getTrailer(kind: 'movie' | 'tv', id: number, season = 0): Promise<Trailer> {
+  const k = `${kind}:${id}:${season}:${lang()}`
+  const hit = trailerMemo.get(k)
+  if (hit) return hit
+  const p = call<Trailer>({ trailer: kind, id: String(id), ...(kind === 'tv' && season > 0 ? { season: String(season) } : {}) })
+  p.catch(() => trailerMemo.delete(k))
+  trailerMemo.set(k, p)
+  return p
+}
+
+/** A YouTube search for when there's no trailer on file */
+export const youtubeSearch = (title: string, year: string | null) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent([title, year, 'trailer'].filter(Boolean).join(' '))}`

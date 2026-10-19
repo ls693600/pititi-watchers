@@ -5,6 +5,7 @@ import type { Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
+import { PosterPlay } from './TrailerSheet'
 import { Stars } from './Stars'
 import { t } from '../i18n'
 
@@ -147,7 +148,9 @@ export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, on
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <Poster src={w.poster} name={w.showName} w={64} />
+          <PosterPlay kind={'tv'} extId={w.showId} title={w.showName} year={w.year} season={w.season} badge={30}>
+            <Poster src={w.poster} name={w.showName} w={64} />
+          </PosterPlay>
           <div style={{ minWidth: 0, flex: 1 }}>
             <p className="label-sm">
               {t('Quick log')} · {monthLabel(w.month, 'long').split(' ')[0]}

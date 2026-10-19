@@ -227,6 +227,8 @@ export default function App() {
     [flash, openShow, openThread],
   )
 
+  /** First load finished: until then Home shows nothing rather than a misleading "nothing logged yet" */
+  const [loaded, setLoaded] = useState(false)
   const reload = useCallback(async () => {
     try {
       // Send what waited offline first, so the fresh copy already includes it
@@ -253,6 +255,8 @@ export default function App() {
       takeCircle(snap)
       takeChat({ comments: snap.comments, reactions: snap.reactions })
       setOffline(true)
+    } finally {
+      setLoaded(true)
     }
   }, [queueReveals, checkBadges, announce, takeCircle, takeChat, flash])
   const familyAdmin = useFamilyAdmin(store, reload, flash)
@@ -552,6 +556,7 @@ export default function App() {
           />
         ) : tab === 'home' ? (
           <Home
+            loading={!loaded}
             watches={homeWatches}
             people={members}
             me={me}

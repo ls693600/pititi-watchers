@@ -107,12 +107,22 @@ export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt
   })
   await page.route('**/functions/v1/tmdb**', (route) => {
     const url = new URL(route.request().url())
+    // Trailers: Last Seen (102) has none, everything else gets one named after what was asked
+    const trailer = url.searchParams.get('trailer')
+    if (trailer) {
+      const id = url.searchParams.get('id')
+      if (id === '102') return route.fulfill({ json: { key: null } })
+      const season = url.searchParams.get('season')
+      return route.fulfill({ json: { key: `yt-${trailer}-${id}${season ? `-s${season}` : ''}`, name: `Official Trailer${season ? ` · Season ${season}` : ''}` } })
+    }
     if (url.searchParams.get('q'))
       return route.fulfill({ json: [{ id: 693134, title: 'Dune: Part Two', year: '2024', poster: null, genres: ['Science-Fiction'], overview: 'Paul joins the Fremen.', rating: 8.1 }] })
     return route.fulfill({
       json: { id: 693134, title: 'Dune: Part Two', year: '2024', poster: null, backdrop: null, genres: ['Science-Fiction'], runtime: 167, overview: 'Paul joins the Fremen.', rating: 8.1, tagline: null, providers: [{ name: 'Apple TV Store', how: 'rent' }], link: 'https://example.com' },
     })
   })
+  // The YouTube player: a stand-in page, so tests never load YouTube
+  await page.route('https://www.youtube-nocookie.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>player</title><p>Trailer playing</p>' }))
   // Posters: a tiny blank image so nothing waits on the network
   await page.route('https://static.tvmaze.com/**', (route) => route.fulfill({ status: 404, body: '' }))
   await page.goto(`${opts.path ?? '/'}?as=${personId}`)

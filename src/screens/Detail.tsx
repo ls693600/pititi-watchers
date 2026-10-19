@@ -11,6 +11,7 @@ import type { Comment, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
 import { getMovie, type MovieInfo } from '../movies'
 import { t } from '../i18n'
+import { TrailerSheet } from '../components/TrailerSheet'
 
 interface Props {
   initial: Watch
@@ -62,6 +63,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
   const [moreSynopsis, setMoreSynopsis] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [trailer, setTrailer] = useState(false)
   // Fixed for the life of the page; used to fade episodes that haven't aired
   const [today] = useState(() => new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
@@ -226,14 +228,34 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           </button>
         )}
         <div className="dhead-id">
-          <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
+          {/* The banner's poster plays the trailer */}
+          <button type="button" className="poster-play" onClick={() => setTrailer(true)} aria-label={t('Watch the trailer of {title}', { title: w.showName })}>
+            <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
+            <span className="play-badge" aria-hidden="true">
+              <Icon name="play" size={18} stroke={2.6} />
+            </span>
+          </button>
           <div style={{ minWidth: 0, paddingBottom: 4 }}>
             {isNew && <span className="badge admin" style={{ marginBottom: 8 }}>{t('New log')}</span>}
             <h1>{w.showName}</h1>
             <p className="dhead-meta">{[w.year, w.network, w.genres.slice(0, 2).join(', ')].filter(Boolean).join(' · ')}</p>
+            <button type="button" className="trailer-pill" onClick={() => setTrailer(true)}>
+              <Icon name="play" size={14} stroke={2.6} /> {t('Trailer')}
+            </button>
           </div>
         </div>
       </div>
+
+      {trailer && (
+        <TrailerSheet
+          kind={w.kind ?? 'tv'}
+          extId={w.showId}
+          title={w.showName}
+          year={w.year}
+          season={(w.kind ?? 'tv') === 'tv' ? w.season : 0}
+          onClose={() => setTrailer(false)}
+        />
+      )}
 
       {!readOnly && duplicate && (
         <div className="health-card" role="alert">

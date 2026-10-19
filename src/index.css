@@ -119,6 +119,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 22px; border-radius: 16px; font-weight: 650; font-size: 16px; background: var(--surface-2); transition: transform .12s, filter .15s; }
+a.btn { text-decoration: none; }
 .btn:active { transform: scale(0.98); }
 .btn.primary { background: var(--grad); color: #fff; box-shadow: 0 8px 20px rgba(255, 77, 109, 0.32); }
 .btn.dark { background: var(--text); color: var(--bg); }
@@ -230,6 +231,21 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .dhead-id .poster { box-shadow: 0 14px 30px rgba(26, 23, 32, 0.28); border-radius: 16px; }
 .dhead-id h1 { font-family: var(--display); font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
 .dhead-meta { font-size: 13.5px; color: var(--text-2); margin-top: 6px; }
+.poster-play { position: relative; display: block; flex: none; line-height: 0; border-radius: 16px; padding: 0; transition: transform .12s; }
+.poster-play:active { transform: scale(0.96); }
+.poster-play:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.play-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; pointer-events: none; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(20, 16, 28, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); padding-left: 3px; }
+.trailer-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 700; font-size: 13.5px; box-shadow: 0 6px 16px rgba(255, 77, 109, 0.32); }
+.trailer-pill:active { transform: scale(0.96); }
+.sheet-wrap.trailer-wrap { z-index: 60; }
+.trailer-name { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trailer-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0f0d14; color: #f4f1ee; }
+.trailer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.trailer-msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px; text-align: center; font-size: 14.5px; }
+.trailer-msg .muted { color: rgba(244, 241, 238, 0.7); }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.2); border-top-color: #fff; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; border-bottom: 1px solid var(--line); font-size: 15.5px; }
 .card > .field:last-child { border-bottom: 0; }
 .field select, .field input { max-width: 58%; }

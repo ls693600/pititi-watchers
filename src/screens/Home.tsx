@@ -36,6 +36,8 @@ interface Props {
   onActions: (w: Watch) => void
   /** Viewer: browse only (no quick actions, no adding) */
   readOnly?: boolean
+  /** The family's shows are still loading */
+  loading?: boolean
   onAdd: () => void
   onProfile: () => void
   /** Everyone incl. viewers, for your own name and avatar in the header */
@@ -60,7 +62,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, everyone = props.people, festive = null } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   const hideTip = () => {
     setShowTip(false)
@@ -164,7 +166,7 @@ export function Home(props: Props) {
         </div>
       </div>
 
-      {list.length === 0 && !(isCurrent && watching.length) ? (
+      {loading ? null : list.length === 0 && !(isCurrent && watching.length) ? (
         <div className="empty">
           <div className="empty-icon"><Icon name="tv" size={30} /></div>
           <p className="empty-title">

@@ -1,5 +1,6 @@
 // Pititi Watchers movie data (Supabase Edge Function "tmdb").
 // Proxies TMDB so the API key stays a server secret. GET ?q=search text  |  GET ?id=123&region=CA
+// GET ?trailer=movie&id=TMDB_ID  |  GET ?trailer=tv&id=TVMAZE_ID&season=2  → { key, name } (YouTube) or { key: null }
 const TOKEN = Deno.env.get('TMDB_TOKEN') ?? '' // v4 "API Read Access Token"
 const KEY = Deno.env.get('TMDB_KEY') ?? '' // or the v3 "API Key"
 const IMG = 'https://image.tmdb.org/t/p/'
@@ -25,6 +26,49 @@ async function tmdb(path: string, params: Record<string, string> = {}) {
   return res.json()
 }
 
+type Video = { key: string; name: string; site: string; type: string; official?: boolean; iso_639_1?: string | null; published_at?: string }
+
+/** Best YouTube trailer: your language first, then official, then newest; teasers only if there's no trailer. */
+export function pickTrailer(videos: Video[], lang: 'pt' | 'en'): Video | null {
+  const yt = videos.filter((v) => v.site === 'YouTube' && v.key)
+  const score = (v: Video) =>
+    (v.type === 'Trailer' ? 100 : v.type === 'Teaser' ? 50 : 0) + (v.iso_639_1 === lang ? 20 : v.iso_639_1 === 'en' ? 10 : 0) + (v.official ? 5 : 0)
+  const ranked = yt
+    .filter((v) => v.type === 'Trailer' || v.type === 'Teaser')
+    .sort((a, b) => score(b) - score(a) || String(b.published_at ?? '').localeCompare(String(a.published_at ?? '')))
+  return ranked[0] ?? null
+}
+
+async function videosOf(path: string, lang: 'pt' | 'en'): Promise<Video[]> {
+  const r = await tmdb(`${path}/videos`, { include_video_language: `${lang},en,null` }).catch(() => null)
+  return (r?.results as Video[]) ?? []
+}
+
+/** TVmaze ids (the app's shows) → TMDB tv id, through IMDb, then TheTVDB, then name + year. */
+async function tvIdFromTvmaze(tvmazeId: number): Promise<number | null> {
+  const res = await fetch(`https://api.tvmaze.com/shows/${tvmazeId}`)
+  if (!res.ok) return null
+  const s = await res.json()
+  const ext = s.externals ?? {}
+  for (const [id, source] of [[ext.imdb, 'imdb_id'], [ext.thetvdb, 'tvdb_id']] as const) {
+    if (!id) continue
+    const f = await tmdb(`/find/${id}`, { external_source: source }).catch(() => null)
+    if (f?.tv_results?.[0]?.id) return f.tv_results[0].id
+  }
+  const year = typeof s.premiered === 'string' ? s.premiered.slice(0, 4) : ''
+  const r = await tmdb('/search/tv', { query: String(s.name ?? '').slice(0, 100), ...(year ? { first_air_date_year: year } : {}) }).catch(() => null)
+  return r?.results?.[0]?.id ?? null
+}
+
+async function trailer(kind: string, id: number, season: number, lang: 'pt' | 'en'): Promise<Video | null> {
+  if (kind === 'movie') return pickTrailer(await videosOf(`/movie/${id}`, lang), lang)
+  const tv = await tvIdFromTvmaze(id)
+  if (!tv) return null
+  // Your season's trailer when there is one, otherwise the show's
+  const bySeason = season > 0 ? pickTrailer(await videosOf(`/tv/${tv}/season/${season}`, lang), lang) : null
+  return bySeason ?? pickTrailer(await videosOf(`/tv/${tv}`, lang), lang)
+}
+
 const json = (body: unknown, status = 200, cache = 'public, max-age=3600') =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': cache } })
 
@@ -34,6 +78,13 @@ Deno.serve(async (req) => {
   const u = new URL(req.url)
   const lang = u.searchParams.get('lang') === 'pt' ? 'pt-BR' : 'en-US'
   try {
+    const kind = u.searchParams.get('trailer')
+    if (kind === 'movie' || kind === 'tv') {
+      const id = Number(u.searchParams.get('id'))
+      if (!(id > 0)) return json({ error: 'bad_request' }, 400, 'no-store')
+      const v = await trailer(kind, id, Number(u.searchParams.get('season')) || 0, lang === 'pt-BR' ? 'pt' : 'en')
+      return json(v ? { key: v.key, name: v.name } : { key: null }, 200, 'public, max-age=86400')
+    }
     const q = u.searchParams.get('q')?.trim()
     if (q) {
       const r = await tmdb('/search/movie', { query: q.slice(0, 100), include_adult: 'false', language: lang })

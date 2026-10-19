@@ -5,6 +5,7 @@ import { t } from '../i18n'
 import type { Person, Watch } from '../types'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
+import { PosterPlay } from './TrailerSheet'
 import { Stars } from './Stars'
 
 interface Props {
@@ -56,7 +57,9 @@ export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForL
       <div className="sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="sheet-show">
-          <Poster src={w.poster} name={w.showName} w={72} />
+          <PosterPlay kind={'movie'} extId={w.showId} title={w.showName} year={w.year} season={0} badge={30}>
+            <Poster src={w.poster} name={w.showName} w={72} />
+          </PosterPlay>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p className="label-sm">
               {t('Movie')} · {monthLabel(w.month, 'long').split(' ')[0]}
