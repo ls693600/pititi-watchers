@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -575,6 +575,8 @@ export default function App() {
             readOnly={readOnly}
             everyone={people}
             festive={festive}
+            familyChat={social ? familyChatSummary(comments, lastRead, me) : null}
+            onFamilyChat={() => openThread(null)}
             onAdd={() => {
               setAddMonth(month)
               setTab('search')

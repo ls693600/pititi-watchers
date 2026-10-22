@@ -366,6 +366,8 @@ export const PT: Record<string, string> = {
   // Family chat and messages
   'Chat about {show}': 'Chat sobre {show}',
   'Family chat': 'Chat da família',
+  'Open the Family chat': 'Abrir o chat da família',
+  'Family chat, {n} unread. Open it': 'Chat da família, mensagens novas: {n}. Abrir',
   '1 message from {names}.': '1 mensagem de {names}.',
   '{n} messages from {names}.': '{n} mensagens de {names}.',
   '1 message.': '1 mensagem.',
@@ -794,7 +796,7 @@ export const PT: Record<string, string> = {
   "Can I log movies?": "Dá para registrar filmes?",
   "Yes. Tap +, switch to Movies, and tap the movie. A movie is one sitting: say who watched and give your stars.": "Sim. Toque em +, mude para Filmes e toque no filme. Filme é de uma vez só: diga quem viu e dê suas estrelas.",
   "Movie pages show where to watch it in your country.": "A página do filme mostra onde assistir no seu país.",
-  "Tap Family at the bottom, then Chats. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.": "Toque em Família lá embaixo e depois em Chats. O Chat da família é para qualquer assunto (planos para hoje, uma série que todos deviam ver). Abaixo, cada série que tem conversa.",
+  "Tap Family chat on Home, or Family at the bottom and then Chats. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.": "Toque em Chat da família no Início, ou em Família lá embaixo e depois em Chats. O Chat da família é para qualquer assunto (planos para hoje, uma série que todos deviam ver). Abaixo, cada série que tem conversa.",
   "A red number means new messages. Open a chat to read them, and tap the bell to mute a chat (you still hear @mentions).": "Um número vermelho são mensagens novas. Abra o chat para ler, e toque no sino para silenciar um chat (as @menções continuam chegando).",
   "Open Pititi from your home screen icon, then Family → Chats → Turn on (or your avatar → Notifications) and allow it.": "Abra o Pititi pelo ícone da tela de início, depois Família → Chats → Ativar (ou seu avatar → Notificações) e permita.",
   "You get one for new messages, @mentions, recommendations, vote requests, and when a show you're watching has a new episode out today.": "Você recebe uma para mensagens novas, @menções, recomendações, pedidos de voto e quando uma série que você está vendo tem episódio novo hoje.",

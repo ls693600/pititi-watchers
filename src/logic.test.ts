@@ -13,6 +13,7 @@ import {
   rankedItems,
   familyFeed,
   movieWatch,
+  familyChatSummary,
   threads,
   totalUnread,
   unreadIn,
@@ -760,6 +761,21 @@ describe('messages inbox', () => {
     expect(unreadIn(all, 'sev', {}, 'l')).toBe(1)
     expect(unreadIn(all, 'sev', { sev: '2026-10-11T11:30:00Z' }, 'l')).toBe(0)
     expect(totalUnread(all, { family: '2026-10-11T10:00:00Z' }, 'l')).toBe(2)
+  })
+  it('family chat summary for the Home strip', () => {
+    const fam = [
+      c('f1', null, 'a', '2026-10-11T08:00:00Z'),
+      c('f2', null, 'f', '2026-10-11T09:00:00Z'),
+      c('f3', null, 'a', '2026-10-11T10:00:00Z'),
+      c('f4', null, 'l', '2026-10-11T11:00:00Z'),
+      c('f5', null, 'm', '2026-10-11T12:00:00Z'),
+      c('s1', 'sev', 'z', '2026-10-11T13:00:00Z'),
+    ]
+    const s = familyChatSummary(fam, { family: '2026-10-11T09:30:00Z' }, 'l')
+    expect(s.last?.id).toBe('f5')
+    expect(s.unread).toBe(2)
+    expect(s.recent).toEqual(['m', 'l', 'a'])
+    expect(familyChatSummary([], {}, 'l')).toEqual({ last: null, unread: 0, recent: [] })
   })
 })
 

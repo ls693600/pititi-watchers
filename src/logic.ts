@@ -794,6 +794,14 @@ export function threads(all: Comment[], lastRead: Record<string, string>, me: st
   return [family, ...shows]
 }
 
+/** Home strip: the Family chat's last message, unread count and up to 3 recent writers (newest first). */
+export function familyChatSummary(all: Comment[], lastRead: Record<string, string>, me: string | null) {
+  const msgs = commentsFor(all, null)
+  const recent: string[] = []
+  for (let i = msgs.length - 1; i >= 0 && recent.length < 3; i--) if (!recent.includes(msgs[i].personId)) recent.push(msgs[i].personId)
+  return { last: msgs[msgs.length - 1] ?? null, unread: unreadIn(all, null, lastRead, me), recent }
+}
+
 export function totalUnread(all: Comment[], lastRead: Record<string, string>, me: string | null): number {
   return threads(all, lastRead, me).reduce((s, t) => s + t.unread, 0)
 }

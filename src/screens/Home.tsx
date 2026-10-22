@@ -19,7 +19,7 @@ import {
   watchesInMonth,
 } from '../logic'
 import { getLang, setLang, t } from '../i18n'
-import type { Person, Watch } from '../types'
+import type { Comment, Person, Watch } from '../types'
 import type { Festive } from '../festive'
 
 interface Props {
@@ -46,6 +46,9 @@ interface Props {
   everyone?: Person[]
   /** Today's festive look: greeting card at the top */
   festive?: Festive | null
+  /** Family chat strip under the header (null when chat isn't available) */
+  familyChat?: { last: Comment | null; unread: number; recent: string[] } | null
+  onFamilyChat?: () => void
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -64,7 +67,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
@@ -116,6 +119,8 @@ export function Home(props: Props) {
           )}
         </div>
       </header>
+
+      {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
 
       {festive && (
         <div className="festive-card" role="note">
@@ -271,5 +276,38 @@ export function Home(props: Props) {
         </>
       )}
     </div>
+  )
+}
+
+/** Home shortcut to the Family chat: recent faces, the last message and what's unread. */
+function FamilyChatStrip({ chat, people, onOpen }: { chat: NonNullable<Props['familyChat']>; people: Person[]; onOpen: () => void }) {
+  const { last, unread, recent } = chat
+  const sender = last ? (people.find((p) => p.id === last.personId)?.name ?? '?') : null
+  return (
+    <button
+      className={`chat-strip ${unread ? 'unread' : ''}`}
+      onClick={onOpen}
+      aria-label={unread ? t('Family chat, {n} unread. Open it', { n: unread }) : t('Open the Family chat')}
+    >
+      {recent.length ? (
+        <span className="chat-faces" aria-hidden="true">
+          {recent.map((id) => <Avatar key={id} people={people} id={id} size={30} />)}
+        </span>
+      ) : (
+        <span className="family-badge" aria-hidden="true">
+          <Icon name="chat" size={20} />
+        </span>
+      )}
+      <span className="chat-strip-text" aria-hidden="true">
+        <span className="chat-strip-top">
+          <b>{t('Family chat')}</b>
+          {unread > 0 && <span className="badge-count">{unread}</span>}
+        </span>
+        <span className="chat-strip-last">
+          {last ? <><b>{sender}:</b> {last.text}</> : t('Everyone in the family, any topic')}
+        </span>
+      </span>
+      <Icon name="right" size={18} />
+    </button>
   )
 }

@@ -257,7 +257,7 @@ const SECTIONS: Section[] = [
         id: 'messages',
         q: 'Where are all the messages?',
         a: [
-          'Tap Family at the bottom, then Chats. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.',
+          'Tap Family chat on Home, or Family at the bottom and then Chats. The Family chat is for anything (plans for tonight, a show everyone should see). Below it, every show that has a conversation.',
           'A red number means new messages. Open a chat to read them, and tap the bell to mute a chat (you still hear @mentions).',
           'Tap @Name under the message box to mention someone.',
         ],
