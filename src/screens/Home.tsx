@@ -4,6 +4,8 @@ import { LongPress } from '../components/LongPress'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { ReleaseCarousel } from '../components/ReleaseCarousel'
+import { WatchedSheet } from '../components/WatchedSheet'
+import type { MonthSort } from '../logic'
 import {
   averageRating,
   currentMonth,
@@ -64,6 +66,8 @@ function greeting(now = new Date()): string {
 export function Home(props: Props) {
   const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
+  /** Tapped a tile: the month's shows, sorted by what was tapped */
+  const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
   const hideTip = () => {
     setShowTip(false)
     try {
@@ -149,22 +153,34 @@ export function Home(props: Props) {
       <PersonFilter people={people} value={filter} onChange={onFilter} />
 
       <div className="tiles">
-        <div className="tile">
-          <span className="tile-icon"><Icon name="tv" size={17} /></span>
-          <strong>{sum.shows}</strong>
-          <span>{sum.shows === 1 ? t('show') : t('shows')}</span>
-        </div>
-        <div className="tile">
-          <span className="tile-icon"><Icon name="play" size={15} /></span>
-          <strong>{sum.episodes}</strong>
-          <span>{t('episodes')}</span>
-        </div>
-        <div className="tile">
-          <span className="tile-icon"><Icon name="clock" size={17} /></span>
-          <strong>{sum.hours}h</strong>
-          <span>{t('watched')}</span>
-        </div>
+        {(
+          [
+            ['episodes', 'tv', 17, String(sum.shows), sum.shows === 1 ? t('show') : t('shows'), t('See the {n} shows watched in {month}', { n: sum.shows, month: monthName })],
+            ['episodes', 'play', 15, String(sum.episodes), t('episodes'), t('See episodes by show for {month}', { month: monthName })],
+            ['hours', 'clock', 17, `${sum.hours}h`, t('watched'), t('See time by show for {month}', { month: monthName })],
+          ] as const
+        ).map(([sort, icon, size, value, label, aria]) => (
+          <button key={icon} className="tile tile-btn" onClick={() => setBreakdown(sort)} aria-label={`${value} ${label}. ${aria}`} disabled={list.length === 0}>
+            <span className="tile-icon"><Icon name={icon} size={size} /></span>
+            <span className="tile-more" aria-hidden="true"><Icon name="right" size={15} stroke={2.4} /></span>
+            <strong>{value}</strong>
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
+      {breakdown && (
+        <WatchedSheet
+          list={list}
+          month={month}
+          who={who?.name ?? null}
+          sort={breakdown}
+          onOpen={(w) => {
+            setBreakdown(null)
+            onOpen(w)
+          }}
+          onClose={() => setBreakdown(null)}
+        />
+      )}
 
       {loading ? null : list.length === 0 && !(isCurrent && watching.length) ? (
         <div className="empty">

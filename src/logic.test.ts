@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  monthBreakdown,
+  sortMonthRows,
   addEpisode,
   logForSeason,
   nextSeasonDraft,
@@ -829,5 +831,40 @@ describe('seasons are separate logs', () => {
     expect(d).toMatchObject({ id: 'new', season: 1, status: 'watching', episodesWatched: 0, ratings: {}, month: '2026-10' })
     expect(s1.status).toBe('done')
     expect(s1.episodesWatched).toBe(8)
+  })
+})
+
+describe('monthBreakdown', () => {
+  const m = '2026-10'
+  it('groups seasons of a show into one row and adds their episodes and time', () => {
+    const rows = monthBreakdown(
+      [
+        watch({ showId: 7, showName: 'The Tunnel', season: 1, episodesWatched: 10, totalEpisodes: 10, runtime: 60 }),
+        watch({ showId: 7, showName: 'The Tunnel', season: 3, episodesWatched: 6, totalEpisodes: 6, runtime: 60, updatedAt: '2026-10-09T00:00:00.000Z' }),
+        watch({ showId: 7, showName: 'The Tunnel', season: 2, episodesWatched: 8, totalEpisodes: 8, runtime: 60 }),
+      ],
+      m,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ title: 'The Tunnel', seasons: [1, 2, 3], episodes: 24, minutes: 1440, finished: true })
+    expect(rows[0].open.season).toBe(3)
+  })
+  it('only counts episodes watched in that month', () => {
+    const w = watch({ episodesWatched: 9, episodesByMonth: { '2026-09': 5, '2026-10': 4 } })
+    expect(monthBreakdown([w], m)[0].episodes).toBe(4)
+  })
+  it('keeps a movie and a show with the same id apart, and marks in-progress shows', () => {
+    const rows = monthBreakdown([watch({ showId: 5, status: 'watching', episodesWatched: 2 }), watch({ showId: 5, kind: 'movie', showName: 'Dune', episodesWatched: 1, totalEpisodes: 1, runtime: 166 })], m)
+    expect(rows).toHaveLength(2)
+    expect(rows.find((r) => r.kind === 'tv')!.finished).toBe(false)
+  })
+  it('sorts by episodes, by hours, or A–Z', () => {
+    const rows = monthBreakdown([watch({ showId: 1, showName: 'B', episodesWatched: 2, runtime: 120 }), watch({ showId: 2, showName: 'A', episodesWatched: 6, runtime: 20 })], m)
+    expect(sortMonthRows(rows, 'episodes').map((r) => r.title)).toEqual(['A', 'B'])
+    expect(sortMonthRows(rows, 'hours').map((r) => r.title)).toEqual(['B', 'A'])
+    expect(sortMonthRows(rows, 'az').map((r) => r.title)).toEqual(['A', 'B'])
+  })
+  it('is empty for an empty month', () => {
+    expect(monthBreakdown([], m)).toEqual([])
   })
 })

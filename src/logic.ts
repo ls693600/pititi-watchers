@@ -935,3 +935,48 @@ export function nextSeasonDraft(from: Watch, id: string, me: string | null, now 
     updatedAt: at,
   }
 }
+
+export interface MonthRow {
+  key: string
+  title: string
+  poster: string | null
+  kind: Kind
+  /** Seasons watched that month, in order */
+  seasons: number[]
+  episodes: number
+  minutes: number
+  /** Every log of it that month is finished */
+  finished: boolean
+  /** The log to open (the latest season) */
+  open: Watch
+}
+
+/** What was watched in a month, one row per show or movie (its seasons together), behind the Home tiles. */
+export function monthBreakdown(list: Watch[], month: string): MonthRow[] {
+  const rows = new Map<string, MonthRow>()
+  for (const w of list) {
+    const key = `${kindOf(w)}:${w.showId}`
+    const eps = episodesIn(w, month)
+    const row = rows.get(key)
+    if (!row) {
+      rows.set(key, { key, title: w.showName, poster: w.poster, kind: kindOf(w), seasons: [w.season], episodes: eps, minutes: eps * (w.runtime ?? 0), finished: w.status === 'done', open: w })
+      continue
+    }
+    if (!row.seasons.includes(w.season)) row.seasons = [...row.seasons, w.season].sort((a, b) => a - b)
+    row.episodes += eps
+    row.minutes += eps * (w.runtime ?? 0)
+    row.finished = row.finished && w.status === 'done'
+    if (w.season > row.open.season || (w.season === row.open.season && w.updatedAt > row.open.updatedAt)) {
+      row.open = w
+      row.poster = w.poster ?? row.poster
+    }
+  }
+  return [...rows.values()]
+}
+
+export type MonthSort = 'episodes' | 'hours' | 'az'
+
+export function sortMonthRows(rows: MonthRow[], by: MonthSort): MonthRow[] {
+  const az = (a: MonthRow, b: MonthRow) => a.title.localeCompare(b.title)
+  return [...rows].sort((a, b) => (by === 'az' ? az(a, b) : by === 'hours' ? b.minutes - a.minutes || az(a, b) : b.episodes - a.episodes || az(a, b)))
+}
