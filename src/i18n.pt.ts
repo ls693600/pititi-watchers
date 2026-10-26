@@ -366,6 +366,7 @@ export const PT: Record<string, string> = {
   // Family chat and messages
   'Chat about {show}': 'Chat sobre {show}',
   'Family chat': 'Chat da família',
+  '{title} S{season} was already logged. Added to that log.': '{title} T{season} já estava registrada. Juntamos ao registro que já existia.',
   '{name} picks': 'Seleção de {name}',
   'We picked a few movies and shows for the occasion. Tap a poster to watch the trailer.': 'Selecionamos alguns filmes e séries para a ocasião. Toque no pôster para ver o trailer.',
   '{name}: see our picks for today': '{name}: veja nossa seleção para hoje',

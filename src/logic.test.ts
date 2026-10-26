@@ -14,6 +14,7 @@ import {
   familyFeed,
   movieWatch,
   familyChatSummary,
+  openTwin,
   threads,
   totalUnread,
   unreadIn,
@@ -738,6 +739,18 @@ describe('merging two finished copies', () => {
       expect(m.episodesByMonth).toEqual({ '2026-10': 6 })
       expect(m.isRewatch).toBe(false)
     }
+  })
+})
+
+describe('open twin (no duplicate season logs)', () => {
+  it('finds the household\'s open log of the same season only', () => {
+    const open = watch({ id: 'a', showId: 7, season: 1, status: 'watching', householdId: 'h1' })
+    const draft = watch({ id: 'new', showId: 7, season: 1, status: 'watching', householdId: 'h1' })
+    expect(openTwin([open], draft)?.id).toBe('a')
+    expect(openTwin([{ ...open, status: 'done' }], draft)).toBeNull()
+    expect(openTwin([{ ...open, householdId: 'h2' }], draft)).toBeNull()
+    expect(openTwin([{ ...open, season: 2 }], draft)).toBeNull()
+    expect(openTwin([{ ...open, kind: 'movie' }], { ...draft, kind: 'movie' })).toBeNull()
   })
 })
 

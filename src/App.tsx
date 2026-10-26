@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -380,6 +380,21 @@ export default function App() {
   }
 
   async function handleSave(w: Watch, isNew = detail?.isNew ?? false) {
+    // Two phones adding the same season, or a tap that slipped past "already watching": join the open log, never a copy
+    const twin = isNew ? openTwin(watchesRef.current, w) : null
+    if (twin) {
+      const merged = { ...mergeLogs(twin, w), updatedAt: new Date().toISOString() }
+      const ok = await persist(merged, t('{title} S{season} was already logged. Added to that log.', { title: w.showName, season: w.season }), { exact: true, undo: true })
+      if (ok) {
+        if (fromItem) circle.removeItem(fromItem, true)
+        setFromItem(null)
+        setDetail(null)
+        setQuick(null)
+        setMonth(merged.month)
+        setTab('home')
+      }
+      return
+    }
     setSaving(true)
     // Logged from a list: it's being watched now, so it leaves that list
     const item = isNew ? fromItem : null

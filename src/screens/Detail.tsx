@@ -207,7 +207,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         return v != null ? [[id, v]] : []
       }),
     )
-    onSave({ ...w, ratings, updatedAt: new Date().toISOString() })
+    // A new log can't be filed before its season premiered: it goes to the premiere month
+    const month = isNew && earlyMonth ? earlyMonth : w.month
+    onSave({ ...w, month, ratings, updatedAt: new Date().toISOString() })
   }
 
   return (

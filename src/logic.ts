@@ -302,6 +302,16 @@ export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'se
   )
 }
 
+/** A new log about to be saved while this household already has that season open: the open one it should merge into. */
+export function openTwin(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'kind' | 'householdId'>): Watch | null {
+  if (kindOf(w) === 'movie') return null
+  return (
+    all
+      .filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'watching' && (x.householdId ?? null) === (w.householdId ?? null))
+      .sort(byUpdatedDesc)[0] ?? null
+  )
+}
+
 /**
  * A log marked as a rewatch next to an earlier finished log of the same season. Usually a real rewatch,
  * but the old duplicate bug produced these too, so the show page offers "Only watched once? Merge".
