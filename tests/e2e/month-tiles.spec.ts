@@ -5,7 +5,7 @@ test.describe('Home tiles show what was watched', () => {
   test('tap "shows": every show of the month with its episodes, sortable, opens the show', async ({ page }) => {
     await openAs(page)
     await page.getByRole('button', { name: /^2 shows\. See the 2 shows watched in October/ }).click()
-    const sheet = page.getByRole('dialog', { name: 'What you watched in October' })
+    const sheet = page.getByRole('dialog', { name: 'What you watched together in October' })
     const rows = sheet.getByRole('listitem')
     await expect(rows).toHaveCount(2)
     // Most episodes first
@@ -26,19 +26,19 @@ test.describe('Home tiles show what was watched', () => {
   test('tap "hours": sorted by time; Escape closes', async ({ page }) => {
     await openAs(page)
     await page.getByRole('button', { name: /See time by show for October/ }).click()
-    const sheet = page.getByRole('dialog', { name: 'What you watched in October' })
+    const sheet = page.getByRole('dialog', { name: 'What you watched together in October' })
     await expect(sheet.getByRole('radio', { name: 'Time' })).toHaveAttribute('aria-checked', 'true')
     await expect(sheet.getByRole('listitem').first()).toContainText('5h')
     await page.keyboard.press('Escape')
     await expect(sheet).toBeHidden()
   })
 
-  test('follows the person filter and is off for an empty month', async ({ page }) => {
+  test('follows the person filter (what they watched alone) and is off for an empty month', async ({ page }) => {
     await openAs(page)
-    await page.getByRole('radiogroup', { name: 'Whose shows' }).getByRole('radio', { name: /Ana/ }).click()
-    await page.getByRole('button', { name: /See episodes by show for October/ }).click()
-    await expect(page.getByRole('dialog', { name: 'What Ana watched in October' })).toBeVisible()
-    await page.keyboard.press('Escape')
+    // Everything in the test family was watched together: Ana alone has nothing yet
+    await page.getByRole('radiogroup', { name: 'Whose shows' }).getByRole('radio', { name: 'Ana alone' }).click()
+    await expect(page.getByRole('button', { name: /See the 0 shows/ })).toBeDisabled()
+    await page.getByRole('radiogroup', { name: 'Whose shows' }).getByRole('radio', { name: 'Together' }).click()
     await page.getByRole('button', { name: 'Previous month' }).click()
     await expect(page.getByRole('button', { name: /See the 0 shows/ })).toBeDisabled()
   })
@@ -46,6 +46,6 @@ test.describe('Home tiles show what was watched', () => {
   test('Portuguese', async ({ page }) => {
     await openAs(page, undefined, { lang: 'pt' })
     await page.getByRole('button', { name: /Ver as 2 séries vistas em outubro/ }).click()
-    await expect(page.getByRole('dialog', { name: 'O que vocês viram em outubro' }).getByText('Terminada')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'O que vocês viram juntos em outubro' }).getByText('Terminada')).toBeVisible()
   })
 })

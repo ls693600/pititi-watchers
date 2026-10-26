@@ -108,6 +108,36 @@ export function watchedByPerson(list: Watch[], personId: string | null): Watch[]
   return personId ? list.filter((w) => w.watchedBy.includes(personId)) : list
 }
 
+/** Home's month view: null = what you watched together (2+ people); a person = what they watched alone. */
+export function homeSlice(list: Watch[], personId: string | null): Watch[] {
+  return personId ? list.filter((w) => w.watchedBy.length === 1 && w.watchedBy[0] === personId) : list.filter((w) => w.watchedBy.length !== 1)
+}
+
+export interface ShowGroup {
+  key: string
+  /** Latest season: its poster, rating and quick actions stand for the show */
+  head: Watch
+  /** Every season log, first season first */
+  logs: Watch[]
+}
+
+/** One card per show: its seasons together (movies stay one card per log). Order follows each show's first log. */
+export function groupSeasons(list: Watch[]): ShowGroup[] {
+  const groups = new Map<string, Watch[]>()
+  for (const w of list) groups.set(showKey(w), [...(groups.get(showKey(w)) ?? []), w])
+  return [...groups.entries()].map(([key, logs]) => {
+    const sorted = [...logs].sort((a, b) => a.season - b.season || a.updatedAt.localeCompare(b.updatedAt))
+    return { key, head: showHeads(sorted)[0], logs: sorted }
+  })
+}
+
+/** "S1–S3" for a run of seasons, "S1, S3" otherwise. */
+export function seasonRange(seasons: number[]): string {
+  const s = [...new Set(seasons)].sort((a, b) => a - b)
+  if (s.length > 2 && s[s.length - 1] - s[0] === s.length - 1) return t('S{a}–S{b}', { a: s[0], b: s[s.length - 1] })
+  return s.map((n) => t('S{season}', { season: n })).join(', ')
+}
+
 /** Each person's average rating across the given logs. */
 export function personAverages(list: Watch[], personIds: string[]): Record<string, number | null> {
   return Object.fromEntries(

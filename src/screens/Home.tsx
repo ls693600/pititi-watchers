@@ -5,11 +5,16 @@ import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { ReleaseCarousel } from '../components/ReleaseCarousel'
 import { WatchedSheet } from '../components/WatchedSheet'
+import { SeasonsSheet } from '../components/SeasonsSheet'
+import { WhatsNewCard } from '../components/WhatsNew'
 import { FestivePicks } from '../components/FestivePicks'
 import { FestiveDeco } from '../components/Festive'
-import type { MonthSort } from '../logic'
+import type { MonthSort, ShowGroup } from '../logic'
 import {
   averageRating,
+  groupSeasons,
+  homeSlice,
+  seasonRange,
   isShowHead,
   currentMonth,
   currentlyWatching,
@@ -78,6 +83,8 @@ export function Home(props: Props) {
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
   const [picks, setPicks] = useState(false)
+  /** A show with several seasons this month: its seasons */
+  const [seasonsFor, setSeasonsFor] = useState<ShowGroup | null>(null)
   const hideTip = () => {
     setShowTip(false)
     try {
@@ -91,14 +98,18 @@ export function Home(props: Props) {
     hideTip()
     onActions(w)
   }
-  const mine = watchedByPerson(watches, filter)
+  // The month: what you watched together, or what one person watched alone (they add up to the household)
+  const mine = people.length < 2 ? watches : homeSlice(watches, filter)
   const list = watchesInMonth(mine, month)
   // Only episodes watched this month count toward this month's numbers
   const sum = summarize(list, month)
   const isCurrent = month === currentMonth()
-  const watching = currentlyWatching(mine)
+  // Currently watching is your remote: everything you're in, together or alone
+  const watching = currentlyWatching(viewer ? watchedByPerson(watches, viewer) : watches)
   // This month: in-progress shows live on the shelf above, so the grid shows what was finished
   const grid = isCurrent ? list.filter((w) => w.status === 'done') : list
+  // One card per show: several seasons fold into one poster that opens them
+  const cards = groupSeasons(grid)
   const monthName = monthLabel(month, 'long').split(' ')[0]
   const who = people.find((p) => p.id === filter)
   const meName = everyone.find((p) => p.id === me)?.name
@@ -127,6 +138,8 @@ export function Home(props: Props) {
         </div>
       </header>
 
+      {!loading && <WhatsNewCard />}
+
       {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
 
       {festive && (
@@ -141,6 +154,17 @@ export function Home(props: Props) {
             </span>
           </span>
         </button>
+      )}
+      {seasonsFor && (
+        <SeasonsSheet
+          group={seasonsFor}
+          month={month}
+          onOpen={(w) => {
+            setSeasonsFor(null)
+            onOpen(w)
+          }}
+          onClose={() => setSeasonsFor(null)}
+        />
       )}
       {festive && picks && (
         <FestivePicks festive={festive} watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} onClose={() => setPicks(false)} />
@@ -169,7 +193,7 @@ export function Home(props: Props) {
         </button>
       </div>
 
-      <PersonFilter people={people} value={filter} onChange={onFilter} />
+      <PersonFilter people={people} value={filter} onChange={onFilter} allLabel={t('Together')} soloHint />
 
       <div className="tiles">
         {(
@@ -192,6 +216,7 @@ export function Home(props: Props) {
           list={list}
           month={month}
           who={who?.name ?? null}
+          together={people.length > 1}
           sort={breakdown}
           onOpen={(w) => {
             setBreakdown(null)
@@ -205,7 +230,7 @@ export function Home(props: Props) {
         <div className="empty">
           <div className="empty-icon"><Icon name="tv" size={30} /></div>
           <p className="empty-title">
-            {who ? t("{name} hasn't logged anything yet", { name: who.name }) : isCurrent ? t('Your month starts here') : t('Nothing in {month}', { month: monthLabel(month) })}
+            {who ? t('Nothing {name} watched alone in {month}', { name: who.name, month: monthName }) : isCurrent ? t('Your month starts here') : t('Nothing in {month}', { month: monthLabel(month) })}
           </p>
           <p className="muted" style={{ fontSize: 15 }}>
             {isCurrent ? t('Add what you watched this month and rate it together.') : t('Add what you watched in {month} and rate it together.', { month: monthLabel(month) })}
@@ -233,7 +258,7 @@ export function Home(props: Props) {
           )}
           <h2 className="h2">
             {isCurrent ? t('Watched this month') : t('Watched in {month}', { month: monthName })}
-            <small>{isCurrent ? t('{n} finished', { n: grid.length }) : grid.length === 1 ? t('{n} show', { n: grid.length }) : t('{n} shows', { n: grid.length })}</small>
+            <small>{isCurrent ? (cards.length === 1 ? t('1 finished') : t('{n} finished', { n: cards.length })) : cards.length === 1 ? t('{n} show', { n: cards.length }) : t('{n} shows', { n: cards.length })}</small>
           </h2>
           {grid.length === 0 && (
             <p className="muted" style={{ fontSize: 14.5, marginTop: -8 }}>
@@ -241,24 +266,28 @@ export function Home(props: Props) {
             </p>
           )}
           <div className="grid">
-            {grid.map((w, i) => {
+            {cards.map((g, i) => {
+              const w = g.head
+              const many = g.logs.length > 1
+              const open = () => (many ? setSeasonsFor(g) : onOpen(w))
+              const watchers = [...new Set(g.logs.flatMap((x) => x.watchedBy))]
               const avg = averageRating(w)
               // One rating per show: only its latest season asks for it
               const asks = avg == null && isShowHead(watches, w)
               return (
                 <LongPress key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} onLong={() => actions(w)}>
-                  <div className="pcard-img">
-                    <button className="pcard-hit" onClick={() => onOpen(w)} aria-label={t('Open {name}', { name: w.showName })}>
+                  <div className={`pcard-img ${many ? 'stacked' : ''}`}>
+                    <button className="pcard-hit" onClick={open} aria-label={many ? t('{name}: see its {n} seasons', { name: w.showName, n: g.logs.length }) : t('Open {name}', { name: w.showName })}>
                       <PosterFill src={w.poster} name={w.showName} />
                     </button>
-                    {w.isRewatch && (
+                    {g.logs.some((x) => x.isRewatch) && (
                       <span className="pcard-badge" title={t('Rewatch')} aria-label={t('Rewatch')}>
                         <Icon name="repeat" size={12} stroke={2.6} />
                       </span>
                     )}
-                    {w.watchedBy.length > 0 && (
+                    {watchers.length > 0 && (
                       <span className="pcard-watchers stack" aria-label={t('Watched by')}>
-                        {w.watchedBy.slice(0, 3).map((id) => (
+                        {watchers.slice(0, 3).map((id) => (
                           <Avatar key={id} people={people} id={id} size={22} />
                         ))}
                       </span>
@@ -271,7 +300,7 @@ export function Home(props: Props) {
                       <span className="pcard-progress"><i style={{ width: `${(w.episodesWatched / w.totalEpisodes) * 100}%` }} /></span>
                     ) : null}
                   </div>
-                  <button onClick={() => onOpen(w)} style={{ textAlign: 'left' }}>
+                  <button onClick={open} style={{ textAlign: 'left' }}>
                     <span className="pcard-title">{w.showName}</span>
                   </button>
                   <span className={`pcard-sub ${asks && viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
@@ -280,7 +309,7 @@ export function Home(props: Props) {
                         ? t('S{season} · {n} eps', { season: w.season, n: `${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''}` })
                         : t('S{season} · {n} eps in {month}', { season: w.season, n: episodesIn(w, month), month: monthName })
                       : !asks
-                        ? t('S{season}', { season: w.season })
+                        ? seasonRange(g.logs.map((x) => x.season))
                         : viewer && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
                           ? t('Your turn to rate')
                           : t('Waiting for {names}', { names: pendingRaters(w).map((id) => people.find((p) => p.id === id)?.name ?? t('someone')).join(', ') })}

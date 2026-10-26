@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { checkForUpdate, versionLabel } from '../updates'
+import { versionLabel } from '../updates'
+import { WhatsNewSheet } from '../components/WhatsNew'
 import type { Session } from '../store/store'
 import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Household, Person, Watch } from '../types'
@@ -69,12 +70,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
   const [theme, setTheme] = useState<ThemePref>(getThemePref)
   const [viewerCode, setViewerCode] = useState<string | null>(null)
   const festiveOn = useFestivePref()
-  const [update, setUpdate] = useState<'idle' | 'checking' | 'latest' | 'updating' | 'offline'>('idle')
-
-  async function checkUpdates() {
-    setUpdate('checking')
-    setUpdate(await checkForUpdate())
-  }
+  // Updates arrive on their own (banner on top); this lists what changed
+  const [whatsNew, setWhatsNew] = useState(false)
 
   useEffect(() => {
     if (!isAdmin || !loadViewerInvite) return
@@ -465,16 +462,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
               {versionLabel()} · {__APP_SHA__}
             </small>
           </span>
-          <button className="btn sm ghost-dark" onClick={checkUpdates} disabled={update === 'checking' || update === 'updating'}>
-            {update === 'checking'
-              ? t('Checking…')
-              : update === 'updating'
-                ? t('Updating…')
-                : update === 'latest'
-                  ? `✓ ${t('Up to date')}`
-                  : update === 'offline'
-                    ? t('Offline · try again')
-                    : t('Check for updates')}
+          <button className="btn sm ghost-dark" onClick={() => setWhatsNew(true)}>
+            {t("What's new")}
           </button>
         </div>
         <button className="field" onClick={exportBackup} disabled={watches.length === 0} style={{ width: '100%' }}>
@@ -482,6 +471,8 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
           <span className="chev"><Icon name="download" size={20} /></span>
         </button>
       </section>
+
+      {whatsNew && <WhatsNewSheet onClose={() => setWhatsNew(false)} />}
 
       {isAdmin && problems && <Problems load={problems.load} clear={problems.clear} people={people} />}
 

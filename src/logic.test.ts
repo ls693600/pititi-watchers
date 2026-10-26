@@ -15,6 +15,9 @@ import {
   movieWatch,
   familyChatSummary,
   openTwin,
+  homeSlice,
+  groupSeasons,
+  seasonRange,
   ratedShows,
   ratingLogs,
   ratingTarget,
@@ -784,6 +787,31 @@ describe('one rating per show, out of 10', () => {
     expect(revealKey(a)).toBe(revealKey(b))
     expect(revealKey({ ...b, ratings: { L: 9, A: 8 } })).toBe(revealKey(a))
     expect(revealKey({ ...b, watchedBy: ['L', 'A', 'M'] })).not.toBe(revealKey(a))
+  })
+})
+
+describe('Home: together vs alone, one card per show', () => {
+  const together = watch({ id: 'tog', showId: 1, watchedBy: ['L', 'A'] })
+  const mine = watch({ id: 'mine', showId: 2, watchedBy: ['L'] })
+  const hers = watch({ id: 'hers', showId: 3, watchedBy: ['A'] })
+  it('together shows only shared logs; a person only what they watched alone', () => {
+    expect(homeSlice([together, mine, hers], null).map((w) => w.id)).toEqual(['tog'])
+    expect(homeSlice([together, mine, hers], 'L').map((w) => w.id)).toEqual(['mine'])
+    expect(homeSlice([together, mine, hers], 'A').map((w) => w.id)).toEqual(['hers'])
+  })
+  it('groups seasons of a show into one card headed by the latest season', () => {
+    const s2 = watch({ id: 't2', showId: 7, season: 2 })
+    const s1 = watch({ id: 't1', showId: 7, season: 1 })
+    const s3 = watch({ id: 't3', showId: 7, season: 3 })
+    const other = watch({ id: 'o', showId: 8 })
+    const g = groupSeasons([s2, other, s1, s3])
+    expect(g.map((x) => x.head.id)).toEqual(['t3', 'o'])
+    expect(g[0].logs.map((w) => w.id)).toEqual(['t1', 't2', 't3'])
+  })
+  it('names the seasons', () => {
+    expect(seasonRange([3, 1, 2])).toBe('S1–S3')
+    expect(seasonRange([1, 3])).toBe('S1, S3')
+    expect(seasonRange([2])).toBe('S2')
   })
 })
 

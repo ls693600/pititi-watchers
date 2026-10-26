@@ -12,6 +12,8 @@ interface Props {
   /** Whose month it is (null = everyone) */
   who: string | null
   sort: MonthSort
+  /** Home's month view: no person = what you watched together, a person = what they watched alone */
+  together?: boolean
   onOpen: (w: Watch) => void
   onClose: () => void
 }
@@ -23,11 +25,17 @@ const hm = (minutes: number) => {
 }
 
 /** Behind the Home tiles: every show and movie of the month, with its episodes and time. */
-export function WatchedSheet({ list, month, who, sort: initial, onOpen, onClose }: Props) {
+export function WatchedSheet({ list, month, who, sort: initial, together = false, onOpen, onClose }: Props) {
   const [sort, setSort] = useState<MonthSort>(initial)
   const rows = sortMonthRows(monthBreakdown(list, month), sort)
   const monthName = monthLabel(month, 'long').split(' ')[0]
-  const title = who ? t('What {name} watched in {month}', { name: who, month: monthName }) : t('What you watched in {month}', { month: monthName })
+  const title = together
+    ? who
+      ? t('What {name} watched alone in {month}', { name: who, month: monthName })
+      : t('What you watched together in {month}', { month: monthName })
+    : who
+      ? t('What {name} watched in {month}', { name: who, month: monthName })
+      : t('What you watched in {month}', { month: monthName })
   const totalEps = rows.reduce((n, r) => n + r.episodes, 0)
   const totalMin = rows.reduce((n, r) => n + r.minutes, 0)
 
@@ -50,7 +58,7 @@ export function WatchedSheet({ list, month, who, sort: initial, onOpen, onClose 
         <div className="grabber" aria-hidden="true" />
         <div className="topbar" style={{ paddingTop: 0 }}>
           <div style={{ minWidth: 0 }}>
-            <p className="label-sm">{who ? who : t('Everyone')} · {monthLabel(month)}</p>
+            <p className="label-sm">{who ? who : together ? t('Together') : t('Everyone')} · {monthLabel(month)}</p>
             <h2 className="sheet-title">{title}</h2>
           </div>
           <button className="icon-btn" aria-label={t('Close')} onClick={onClose}>

@@ -1,3 +1,4 @@
+import { RELEASE_NOTES } from '../../src/releaseNotes'
 import type { Page } from '@playwright/test'
 
 // A test family shaped like the real one: 4 households, shows, a movie, lists, recommendations.
@@ -68,6 +69,8 @@ export const seed = {
   'pititi.badges.v1': ['explorer', 'roll', 'family', 'soulmates', 'disagree', 'binge', 'rewatch', 'night', 'centurion'],
   'pititi.chatseen.v1': [],
   'pititi.festive': 'off',
+  // The What's new card is tested on its own
+  'pititi.whatsnew.seen': RELEASE_NOTES[0].id,
 }
 
 /** Loads the app as a person (?as=), with the test family and fixed answers for TVmaze and movies. */

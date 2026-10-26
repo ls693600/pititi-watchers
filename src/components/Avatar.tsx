@@ -28,10 +28,16 @@ export function PersonFilter({
   people,
   value,
   onChange,
+  allLabel,
+  soloHint = false,
 }: {
   people: Person[]
   value: string | null
   onChange: (id: string | null) => void
+  /** First chip's name: "Everyone" (Stats) or "Together" (Home) */
+  allLabel?: string
+  /** Person chips mean "watched alone" (Home), said to screen readers */
+  soloHint?: boolean
 }) {
   if (people.length < 2) return null
   return (
@@ -42,7 +48,7 @@ export function PersonFilter({
         className={`everyone ${value === null ? 'on' : ''}`}
         onClick={() => onChange(null)}
       >
-        {t('Everyone')}
+        {allLabel ?? t('Everyone')}
       </button>
       {people.map((p) => (
         <button
@@ -51,6 +57,7 @@ export function PersonFilter({
           aria-checked={value === p.id}
           className={value === p.id ? 'on' : ''}
           onClick={() => onChange(p.id)}
+          aria-label={soloHint ? t('{name} alone', { name: p.name }) : undefined}
         >
           <Avatar people={people} id={p.id} size={24} /> {p.name}
         </button>

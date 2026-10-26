@@ -25,17 +25,6 @@ export async function applyUpdate(): Promise<void> {
   window.location.reload()
 }
 
-/** "Check for updates": installs right away when there's something new. */
-export async function checkForUpdate(): Promise<'updating' | 'latest' | 'offline'> {
-  const running = runningBuild()
-  const latest = await latestBuild()
-  if (!latest) return 'offline'
-  // Dev previews have no built script to compare: treat as up to date
-  if (!running || latest === running) return 'latest'
-  await applyUpdate()
-  return 'updating'
-}
-
 /** "Oct 11, 2:40 PM", when this version was built. */
 export function versionLabel(): string {
   const d = new Date(__APP_BUILT__)
