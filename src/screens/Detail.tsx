@@ -463,6 +463,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             </button>
           ))}
         </div>
+        {!isMovie && watchers.length > 0 && <p className="rate-note">{t('One rating for the whole show, out of 10. Change it anytime.')}</p>}
         {watchers.map((p) => {
           const stars = w.ratings[p.id] ?? null
           const editable = !readOnly && canEditRating(p, viewer)
@@ -471,7 +472,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           const reactable = social && savedComplete && stored.ratings[p.id] != null
           return (
             <Fragment key={p.id}>
-            <div className="field">
+            <div className="field rate-field">
               <span className="who">
                 <Avatar people={people} id={p.id} />
                 {p.name}
@@ -506,10 +507,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           <div className="avg-row">
             <span className="label">
               {scoreLabel(w, nameOf)}
-              {avg != null && !blind && <span className="big grad-text">{avg.toFixed(1)}</span>}
             </span>
             {avg != null && !blind ? (
-              <AvgStars value={avg} size={24} />
+              <AvgStars value={avg} size={30} />
             ) : avg != null ? (
               <span className="save-to-reveal">
                 <Icon name="sparkle" size={16} stroke={2.2} /> {t('Save to reveal')}

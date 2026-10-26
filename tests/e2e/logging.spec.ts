@@ -23,7 +23,7 @@ test.describe('Logging shows and movies', () => {
     const sheet = page.getByRole('dialog', { name: 'Log Dune: Part Two' })
     await expect(sheet.getByText('2h 47m')).toBeVisible()
     await sheet.getByRole('radio', { name: /Together/ }).click()
-    await sheet.getByRole('radio', { name: '5 stars' }).click()
+    await sheet.getByRole('radio', { name: '9 out of 10' }).click()
     await sheet.getByRole('button', { name: 'We watched it' }).click()
     await expect(page.getByText('Dune: Part Two added to October 2026')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Open Dune: Part Two' })).toBeVisible()

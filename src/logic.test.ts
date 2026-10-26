@@ -15,6 +15,12 @@ import {
   movieWatch,
   familyChatSummary,
   openTwin,
+  ratedShows,
+  ratingLogs,
+  ratingTarget,
+  revealKey,
+  showHeads,
+  withShowRatings,
   threads,
   totalUnread,
   unreadIn,
@@ -147,8 +153,11 @@ describe('family filter', () => {
     expect(watchedByPerson(all, 'X')).toHaveLength(0)
   })
   it("computes each person's average rating", () => {
-    const all = [watch({ ratings: { L: 5, A: 2 } }), watch({ ratings: { L: 3 } })]
-    expect(personAverages(all, ['L', 'A', 'M'])).toEqual({ L: 4, A: 2, M: null })
+    const all = [watch({ ratings: { L: 10, A: 4 } }), watch({ showId: 2, ratings: { L: 6 } })]
+    expect(personAverages(all, ['L', 'A', 'M'])).toEqual({ L: 8, A: 4, M: null })
+    // Two seasons of one show are one rating, not two
+    const seasons = [watch({ ratings: { L: 10 } }), watch({ season: 2, ratings: { L: 6 } })]
+    expect(personAverages(seasons, ['L'])).toEqual({ L: 6 })
   })
 })
 
@@ -215,11 +224,11 @@ describe('stats', () => {
   it('builds the year recap', () => {
     const now = new Date(2026, 9, 5)
     const all = [
-      watch({ showId: 1, showName: 'A', ratings: { L: 5, A: 4 }, month: '2026-03' }),
-      watch({ showId: 2, showName: 'B', ratings: { L: 5, A: 2 }, month: '2026-03' }),
+      watch({ showId: 1, showName: 'A', ratings: { L: 10, A: 8 }, month: '2026-03' }),
+      watch({ showId: 2, showName: 'B', ratings: { L: 10, A: 4 }, month: '2026-03' }),
       watch({ showId: 2, showName: 'B', season: 2, month: '2026-03' }),
-      watch({ showId: 3, showName: 'C', ratings: { L: 3 }, month: '2026-10' }),
-      watch({ showId: 4, showName: 'Old', ratings: { L: 5, A: 5 }, month: '2025-03' }),
+      watch({ showId: 3, showName: 'C', ratings: { L: 6 }, month: '2026-10' }),
+      watch({ showId: 4, showName: 'Old', ratings: { L: 10, A: 10 }, month: '2025-03' }),
     ]
     const y = yearStats(all, 2026, now)
     expect(y.shows).toBe(3)
@@ -228,11 +237,11 @@ describe('stats', () => {
     expect(y.avgPerMonth).toBeCloseTo(3 / 10)
     expect(y.busiest?.month).toBe('2026-03')
     expect(y.topRated.map((t) => t.watch.showName)).toEqual(['A', 'B'])
-    expect(y.disagreements.map((d) => [d.watch.showName, d.diff])).toEqual([['B', 3]])
+    expect(y.disagreements.map((d) => [d.watch.showName, d.diff])).toEqual([['B', 6]])
   })
   it('measures disagreement as the gap between the highest and lowest rating', () => {
-    const w = watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 4, M: 2 } })
-    expect(yearStats([w], 2026, new Date(2026, 9, 5)).disagreements.map((d) => d.diff)).toEqual([3])
+    const w = watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 10, A: 8, M: 4 } })
+    expect(yearStats([w], 2026, new Date(2026, 9, 5)).disagreements.map((d) => d.diff)).toEqual([6])
   })
   it('averages a past year over all 12 months', () => {
     const y = yearStats([watch({ month: '2025-06' }), watch({ showId: 2, month: '2025-07' })], 2025, new Date(2026, 9, 5))
@@ -272,17 +281,17 @@ describe('blind rating', () => {
 describe('reveal', () => {
   it('measures spread and names the verdict', () => {
     expect(ratingSpread(watch({ ratings: { L: 4, A: 4 } }))).toBe(0)
-    expect(ratingSpread(watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 5, A: 2, M: 4 } }))).toBe(3)
+    expect(ratingSpread(watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 10, A: 4, M: 8 } }))).toBe(6)
     expect(ratingSpread(watch({ ratings: {} }))).toBe(0)
-    expect([0, 1, 2, 3, 4].map(verdict)).toEqual(['Perfect match', 'Almost a perfect match', 'Mixed feelings', 'Big debate', 'Big debate'])
+    expect([0, 1, 2, 3, 4, 5, 9].map(verdict)).toEqual(['Perfect match', 'Almost a perfect match', 'Almost a perfect match', 'Mixed feelings', 'Mixed feelings', 'Big debate', 'Big debate'])
   })
   it('queues only complete group logs the viewer watched and has not seen', () => {
-    const a = watch({ id: 'a', ratings: { L: 4, A: 5 } })
-    const b = watch({ id: 'b', ratings: { L: 4 } })
-    const solo = watch({ id: 'c', watchedBy: ['L'], ratings: { L: 3 } })
-    const notMine = watch({ id: 'd', watchedBy: ['A', 'M'], ratings: { A: 3, M: 3 } })
-    const seen = watch({ id: 'e', ratings: { L: 2, A: 2 } })
-    expect(pendingReveals([a, b, solo, notMine, seen], 'L', new Set(['e'])).map((w) => w.id)).toEqual(['a'])
+    const a = watch({ id: 'a', showId: 1, ratings: { L: 8, A: 10 } })
+    const b = watch({ id: 'b', showId: 2, ratings: { L: 8 } })
+    const solo = watch({ id: 'c', showId: 3, watchedBy: ['L'], ratings: { L: 6 } })
+    const notMine = watch({ id: 'd', showId: 4, watchedBy: ['A', 'M'], ratings: { A: 6, M: 6 } })
+    const seen = watch({ id: 'e', showId: 5, ratings: { L: 4, A: 4 } })
+    expect(pendingReveals([a, b, solo, notMine, seen], 'L', new Set([revealKey(seen)])).map((w) => w.id)).toEqual(['a'])
     expect(pendingReveals([a], null, new Set())).toEqual([])
   })
 })
@@ -354,24 +363,24 @@ describe('show page', () => {
 describe('taste match', () => {
   it('scores how close two people rate, on shows both rated', () => {
     const list = [
-      watch({ ratings: { L: 5, A: 5 } }),
-      watch({ ratings: { L: 4, A: 5 } }),
-      watch({ ratings: { L: 5, A: 1 }, showName: 'The Office' }),
-      watch({ ratings: { L: 3 } }),
+      watch({ showId: 1, ratings: { L: 10, A: 10 } }),
+      watch({ showId: 2, ratings: { L: 8, A: 10 } }),
+      watch({ showId: 3, ratings: { L: 10, A: 2 }, showName: 'The Office' }),
+      watch({ showId: 4, ratings: { L: 6 } }),
     ]
     const [m] = tasteMatches(list, ['L', 'A'])
-    // closeness: 1, 0.75, 0 -> 58%
-    expect(m.score).toBe(58)
+    // closeness out of 10: 1, 1 - 2/9, 1 - 8/9 -> 63%
+    expect(m.score).toBe(63)
     expect(m.shared).toBe(3)
     expect(m.agreed).toBe(2)
     expect(m.clash?.watch.showName).toBe('The Office')
-    expect(m.clash?.diff).toBe(4)
+    expect(m.clash?.diff).toBe(8)
   })
   it('leaves out pairs who never rated together and orders by shared shows', () => {
     const list = [
-      watch({ watchedBy: ['L', 'A'], ratings: { L: 4, A: 4 } }),
-      watch({ watchedBy: ['L', 'A'], ratings: { L: 3, A: 3 } }),
-      watch({ watchedBy: ['A', 'M'], ratings: { A: 2, M: 2 } }),
+      watch({ showId: 1, watchedBy: ['L', 'A'], ratings: { L: 8, A: 8 } }),
+      watch({ showId: 2, watchedBy: ['L', 'A'], ratings: { L: 6, A: 6 } }),
+      watch({ showId: 3, watchedBy: ['A', 'M'], ratings: { A: 4, M: 4 } }),
     ]
     const pairs = tasteMatches(list, ['L', 'A', 'M']).map((m) => `${m.a}${m.b}:${m.score}:${m.clash ? 'x' : '-'}`)
     expect(pairs).toEqual(['LA:100:-', 'AM:100:-'])
@@ -387,8 +396,8 @@ describe('badges', () => {
   })
   it('earns badges from logged data and tracks progress', () => {
     const list = [
-      watch({ showId: 1, month: '2026-08', ratings: { L: 5, A: 5 }, genres: ['Drama'] }),
-      watch({ showId: 2, month: '2026-09', ratings: { L: 5, A: 1 }, genres: ['Comedy'] }),
+      watch({ showId: 1, month: '2026-08', ratings: { L: 10, A: 10 }, genres: ['Drama'] }),
+      watch({ showId: 2, month: '2026-09', ratings: { L: 10, A: 2 }, genres: ['Comedy'] }),
       watch({ showId: 3, month: '2026-10', watchedBy: ['L', 'A', 'M'], ratings: {}, isRewatch: true, genres: ['Drama'] }),
     ]
     const b = Object.fromEntries(familyBadges(list).map((x) => [x.id, x]))
@@ -560,11 +569,11 @@ describe('family feedback fixes (Oct 11)', () => {
 describe('personal stats', () => {
   it("ranks a person's own stars, not the family average", () => {
     const list = [
-      watch({ id: 'st', showName: 'Stranger Things', watchedBy: ['L'], ratings: { L: 5 } }),
-      watch({ id: 'b', showName: 'Bluey', watchedBy: ['A'], ratings: { A: 5 } }),
-      watch({ id: 'o', showName: 'The Office', ratings: { L: 3, A: 5 } }),
+      watch({ id: 'st', showId: 1, showName: 'Stranger Things', watchedBy: ['L'], ratings: { L: 10 } }),
+      watch({ id: 'b', showId: 2, showName: 'Bluey', watchedBy: ['A'], ratings: { A: 10 } }),
+      watch({ id: 'o', showId: 3, showName: 'The Office', ratings: { L: 6, A: 10 } }),
     ]
-    expect(personalTop(list, 'L').map((t) => [t.watch.showName, t.avg])).toEqual([['Stranger Things', 5], ['The Office', 3]])
+    expect(personalTop(list, 'L').map((t) => [t.watch.showName, t.avg])).toEqual([['Stranger Things', 10], ['The Office', 6]])
     expect(personalTop(list, 'A').map((t) => t.watch.showName)).toEqual(['Bluey', 'The Office'])
     expect(personalTop(list, 'M')).toEqual([])
   })
@@ -739,6 +748,42 @@ describe('merging two finished copies', () => {
       expect(m.episodesByMonth).toEqual({ '2026-10': 6 })
       expect(m.isRewatch).toBe(false)
     }
+  })
+})
+
+describe('one rating per show, out of 10', () => {
+  const s1 = watch({ id: 's1', showId: 9, season: 1, ratings: { L: 6, A: 8 }, updatedAt: '2026-08-01T00:00:00Z' })
+  const s2 = watch({ id: 's2', showId: 9, season: 2, ratings: { L: 9 }, updatedAt: '2026-09-01T00:00:00Z' })
+  const s3 = watch({ id: 's3', showId: 9, season: 3, ratings: {}, status: 'watching', updatedAt: '2026-10-01T00:00:00Z' })
+  const movie = watch({ id: 'm', showId: 9, kind: 'movie', ratings: { L: 3 } })
+  it('every season shows the latest rating each person gave the show', () => {
+    const out = Object.fromEntries(withShowRatings([s1, s2, s3, movie]).map((w) => [w.id, w.ratings]))
+    expect(out.s1).toEqual({ L: 9, A: 8 })
+    expect(out.s2).toEqual({ L: 9, A: 8 })
+    expect(out.s3).toEqual({ L: 9, A: 8 })
+    // A movie with the same id is its own title
+    expect(out.m).toEqual({ L: 3 })
+  })
+  it("another household's log of the show keeps its own ratings", () => {
+    const theirs = watch({ id: 'h2', showId: 9, householdId: 'h2', ratings: { F: 4 } })
+    expect(withShowRatings([s2, theirs]).find((w) => w.id === 'h2')?.ratings).toEqual({ F: 4 })
+  })
+  it('counts the show once, on its latest season', () => {
+    expect(showHeads([s1, s2, s3, movie]).map((w) => w.id)).toEqual(['s3', 'm'])
+    expect(ratedShows([s1, s2, s3])[0].ratings).toEqual({ L: 9, A: 8 })
+  })
+  it('saves your rating on the latest season you watched; clearing hits every season holding it', () => {
+    const notMine = { ...s3, watchedBy: ['A'] }
+    expect(ratingTarget([s1, s2, notMine], s1, 'L').id).toBe('s2')
+    expect(ratingTarget([s1, s2, notMine], s1, 'A').id).toBe('s3')
+    expect(ratingLogs(withShowRatings([s1, s2, s3]), s1, 'L').map((w) => w.id)).toEqual(['s1', 's2', 's3'])
+    expect(ratingTarget([movie], movie, 'L').id).toBe('m')
+  })
+  it('a new season or a changed score is not a new reveal; a new rater is', () => {
+    const [a, b] = withShowRatings([{ ...s1, ratings: { L: 8, A: 8 } }, { ...s2, ratings: {} }])
+    expect(revealKey(a)).toBe(revealKey(b))
+    expect(revealKey({ ...b, ratings: { L: 9, A: 8 } })).toBe(revealKey(a))
+    expect(revealKey({ ...b, watchedBy: ['L', 'A', 'M'] })).not.toBe(revealKey(a))
   })
 })
 

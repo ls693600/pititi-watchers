@@ -10,6 +10,7 @@ import { FestiveDeco } from '../components/Festive'
 import type { MonthSort } from '../logic'
 import {
   averageRating,
+  isShowHead,
   currentMonth,
   currentlyWatching,
   episodesIn,
@@ -242,6 +243,8 @@ export function Home(props: Props) {
           <div className="grid">
             {grid.map((w, i) => {
               const avg = averageRating(w)
+              // One rating per show: only its latest season asks for it
+              const asks = avg == null && isShowHead(watches, w)
               return (
                 <LongPress key={w.id} className="pcard" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} onLong={() => actions(w)}>
                   <div className="pcard-img">
@@ -271,12 +274,12 @@ export function Home(props: Props) {
                   <button onClick={() => onOpen(w)} style={{ textAlign: 'left' }}>
                     <span className="pcard-title">{w.showName}</span>
                   </button>
-                  <span className={`pcard-sub ${viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
+                  <span className={`pcard-sub ${asks && viewer && w.status === 'done' && w.watchedBy.includes(viewer) && w.ratings[viewer] == null ? 'turn' : ''}`}>
                     {w.status === 'watching'
                       ? isCurrent
                         ? t('S{season} · {n} eps', { season: w.season, n: `${w.episodesWatched}${w.totalEpisodes ? `/${w.totalEpisodes}` : ''}` })
                         : t('S{season} · {n} eps in {month}', { season: w.season, n: episodesIn(w, month), month: monthName })
-                      : avg != null
+                      : !asks
                         ? t('S{season}', { season: w.season })
                         : viewer && w.watchedBy.includes(viewer) && w.ratings[viewer] == null
                           ? t('Your turn to rate')

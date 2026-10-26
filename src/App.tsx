@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, reconcileMonths, setOwnRating, canDelete, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -96,7 +96,9 @@ function draftFrom(show: Title, month: string, watchedBy: string[], createdBy: s
 
 export default function App() {
   const [auth, setAuth] = useState<Auth>(CLOUD_ENABLED ? { state: 'checking' } : { state: 'ready', session: null })
-  const [watches, setWatches] = useState<Watch[]>([])
+  const [storedWatches, setWatches] = useState<Watch[]>([])
+  // One rating per show: every season shows the latest rating each person gave the show
+  const watches = useMemo(() => withShowRatings(storedWatches), [storedWatches])
   const [people, setPeople] = useState<Person[]>([])
   const lang = useLang()
   /** "What did you watch today?" (evening reminder, Android shortcut) */
@@ -157,21 +159,23 @@ export default function App() {
     const seen = readSeen()
     if (!seen) {
       // First run on this phone: don't replay history, only future reveals
-      writeSeen(new Set(list.filter((w) => averageRating(w) != null).map((w) => w.id)))
+      writeSeen(new Set(ratedShows(list).filter((w) => averageRating(w) != null).map(revealKey)))
       return
     }
-    const ids = pendingReveals(list, viewerRef.current, seen).map((w) => w.id)
+    const ids = pendingReveals(withShowRatings(list), viewerRef.current, seen).map((w) => w.id)
     if (ids.length) setReveals((q) => [...q, ...ids.filter((id) => !q.includes(id))])
   }, [])
 
   function closeReveal() {
     setReveals(([done, ...rest]) => {
       const seen = readSeen() ?? new Set<string>()
-      if (done) seen.add(done)
+      const w = watchesRef.current.find((x) => x.id === done)
+      if (w) seen.add(revealKey(w))
       writeSeen(seen)
       return rest
     })
   }
+
 
 
   // Who's using the app (single-phone mode: the admin), as early as hooks need it
@@ -349,6 +353,16 @@ export default function App() {
       flash(t("Couldn't save. Check your connection and try again."))
       return false
     }
+  }
+
+  /** One rating per show: saved on the latest season the person watched; clearing removes it from every season. */
+  async function rateShow(w: Watch, personId: string, stars: number | null, savedMsg: string) {
+    const list = watchesRef.current
+    if (stars != null) {
+      await persist(setOwnRating(ratingTarget(list, w, personId), personId, stars), savedMsg, { exact: true, undo: true })
+      return
+    }
+    for (const x of ratingLogs(list, w, personId)) await persist(setOwnRating(x, personId, null), t('Rating cleared'), { exact: true })
   }
 
   /** Removes a log; Undo brings it back with its chat and reactions. */
@@ -543,7 +557,7 @@ export default function App() {
               const saved = watchesRef.current.find((x) => x.id === detail.watch.id)
               if (!saved) return
               const name = people.find((p) => p.id === personId)?.name
-              persist(setOwnRating(saved, personId, stars), stars ? (personId === me ? t('Your {stars}★ saved', { stars }) : t("{name}'s {stars}★ saved", { name: name ?? '', stars })) : t('Rating cleared'), { exact: true, undo: true })
+              rateShow(saved, personId, stars, personId === me ? t('Your {n}/10 saved', { n: stars ?? 0 }) : t("{name}'s {n}/10 saved", { name: name ?? '', n: stars ?? 0 }))
             }}
             onMerge={async (keep, drop) => {
               if (!canDelete(drop, who)) {
@@ -894,7 +908,7 @@ export default function App() {
             quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Caught up on {show}', { show: w.showName }))
           }}
           onJoin={(w) => me && persist(joinWatchers(w, me), t("You're on {show} now", { show: w.showName }), { undo: true })}
-          onRate={(w, stars) => me && persist(setOwnRating(w, me, stars), stars ? t('{stars}★ for {show}', { stars, show: w.showName }) : t('Rating cleared'), { undo: true })}
+          onRate={(w, stars) => me && rateShow(w, me, stars, t('{n}/10 for {show}', { n: stars ?? 0, show: w.showName }))}
           onOpen={(w) => {
             setActionsFor(null)
             setDetail({ watch: w, isNew: false })

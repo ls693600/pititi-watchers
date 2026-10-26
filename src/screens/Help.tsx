@@ -172,6 +172,15 @@ const SECTIONS: Section[] = [
     title: 'Ratings and the reveal',
     items: [
       {
+        id: 'scale',
+        q: 'How do ratings work?',
+        a: [
+          'You rate out of 10, like IMDb: tap the stars, tap the same star again to clear it.',
+          'A show gets one rating from you, not one per season. Rate it when you\'re caught up, and change it anytime (after a new season, for example). Every season of the show shows that rating.',
+          'Ratings from before this change were doubled: 4 stars became 8, 5 became 10.',
+        ],
+      },
+      {
         id: 'blind',
         q: 'Why can\'t I see Ana\'s stars?',
         a: [
@@ -314,7 +323,7 @@ const SECTIONS: Section[] = [
           'Binge mode: 50 episodes in one month.',
           'Soulmates: 5 shows where everyone gave the same stars.',
           'Family night: a show watched by 3 or more people.',
-          'Agree to disagree: a show rated 3+ stars apart.',
+          'Agree to disagree: a show rated 5+ points apart.',
           'Rewatch royalty: 5 rewatches.',
           'Explorer: shows from 6 genres.',
           'Night owl: log a show between 1 and 5 AM.',

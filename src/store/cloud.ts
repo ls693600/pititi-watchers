@@ -34,7 +34,12 @@ interface RatingRow {
   watch_id: string
   person_id: string
   stars: number
+  /** 1–10 (migration 012); older databases only have 1–5 stars */
+  score?: number | null
 }
+
+/** Whether the ratings table has the 1–10 score column yet (migration 012) */
+let hasScore = true
 
 interface PersonRow {
   id: string
@@ -370,7 +375,15 @@ export const cloudStore: Store = {
     }
     const [w, r, p, rx, cm, hh, ls, li, rc, mu] = await Promise.all([
       supabase().from('watches').select('*'),
-      supabase().from('ratings').select('watch_id, person_id, stars'),
+      supabase()
+        .from('ratings')
+        .select('watch_id, person_id, stars, score')
+        .then(async (res) => {
+          if (!res.error || !/score/.test(res.error.message)) return res
+          // Not migrated yet: read the 1–5 stars and show them out of 10
+          hasScore = false
+          return supabase().from('ratings').select('watch_id, person_id, stars')
+        }),
       supabase().from('people').select('*').order('created_at'),
       supabase().from('reactions').select('watch_id, person_id, target_id, emoji'),
       supabase().from('comments').select('id, watch_id, person_id, body, created_at').order('created_at'),
@@ -388,7 +401,7 @@ export const cloudStore: Store = {
     if (!social) console.warn('Reactions/chat unavailable:', (rx.error ?? cm.error)?.message)
     const byWatch = new Map<string, Record<string, number>>()
     for (const row of r.data as RatingRow[]) {
-      byWatch.set(row.watch_id, { ...byWatch.get(row.watch_id), [row.person_id]: row.stars })
+      byWatch.set(row.watch_id, { ...byWatch.get(row.watch_id), [row.person_id]: row.score ?? row.stars * 2 })
     }
     const snap = {
       watches: (w.data as WatchRow[]).map((row) => fromRow(row, byWatch.get(row.id) ?? {})),
@@ -424,7 +437,8 @@ export const cloudStore: Store = {
       const now = new Date().toISOString()
       const { error: rErr } = await supabase()
         .from('ratings')
-        .upsert(rated.map(([person_id, stars]) => ({ watch_id: w.id, person_id, stars, updated_at: now })))
+        // stars (1–5) stays filled for phones still on the old app; score holds the real 1–10
+        .upsert(rated.map(([person_id, score]) => ({ watch_id: w.id, person_id, stars: Math.max(1, Math.ceil(score / 2)), ...(hasScore ? { score } : {}), updated_at: now })))
       if (rErr) throw rErr
     }
   },

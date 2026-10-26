@@ -62,10 +62,24 @@ function migrateUpNext(lists: WatchList[], items: ListItem[]): { lists: WatchLis
   return { lists: [up, ...lists], items: [...items, ...moved] }
 }
 
+/** Ratings moved from 1–5 stars to 1–10 (IMDb style): double what this phone saved before, once. */
+const SCALE10 = 'pititi.scale10'
+function migrateScale(watches: Watch[]): Watch[] {
+  try {
+    if (localStorage.getItem(SCALE10)) return watches
+    const doubled = watches.map((w) => ({ ...w, ratings: Object.fromEntries(Object.entries(w.ratings).map(([id, v]) => [id, Math.min(10, v * 2)])) }))
+    localStorage.setItem(WATCHES, JSON.stringify(doubled))
+    localStorage.setItem(SCALE10, '1')
+    return doubled
+  } catch {
+    return watches
+  }
+}
+
 function read(): Snapshot {
   const { lists, items } = migrateUpNext(readJson<WatchList[]>(LISTS, []), readJson<ListItem[]>(ITEMS, []))
   return {
-    watches: readJson<Watch[]>(WATCHES, []),
+    watches: migrateScale(readJson<Watch[]>(WATCHES, [])),
     people: readJson<Person[]>(PEOPLE, DEFAULT_PEOPLE),
     households: readJson<Household[]>(HOUSEHOLDS, []),
     lists,
@@ -80,6 +94,8 @@ function read(): Snapshot {
 
 function write(snap: Snapshot) {
   localStorage.setItem(WATCHES, JSON.stringify(snap.watches))
+  // Whatever is written now is already out of 10
+  localStorage.setItem(SCALE10, '1')
   localStorage.setItem(PEOPLE, JSON.stringify(snap.people))
   localStorage.setItem(HOUSEHOLDS, JSON.stringify(snap.households ?? []))
   localStorage.setItem(LISTS, JSON.stringify(snap.lists ?? []))

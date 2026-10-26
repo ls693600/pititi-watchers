@@ -1,6 +1,6 @@
 // What this phone has already shown (reveals, badges, chat announcements), kept in localStorage.
 
-export const SEEN_KEY = 'pititi.reveals.v1'
+export const SEEN_KEY = 'pititi.reveals.v2'
 export const BADGES_KEY = 'pititi.badges.v1'
 /** Family chat lines and reactions this phone has already announced */
 export const CHAT_KEY = 'pititi.chatseen.v1'

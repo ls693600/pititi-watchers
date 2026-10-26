@@ -65,7 +65,6 @@ export const seed = {
   'pititi.reactions.v1': [],
   'pititi.mutes.v1': [],
   // Reveals and badges already seen, so nothing pops up over the screens under test
-  'pititi.reveals.v1': ['w-101', 'w-102', 'w-103'],
   'pititi.badges.v1': ['explorer', 'roll', 'family', 'soulmates', 'disagree', 'binge', 'rewatch', 'night', 'centurion'],
   'pititi.chatseen.v1': [],
   'pititi.festive': 'off',

@@ -13,7 +13,7 @@ const MUTED = '#8a8490'
 export interface CardShow {
   name: string
   poster: string | null
-  /** Family average or a person's stars (1–5), null if not rated */
+  /** Family average or a person's score (1–10), null if not rated */
   stars: number | null
   note: string
 }
@@ -68,18 +68,19 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, max: number): stri
   return t + '…'
 }
 
-/** Five stars filled to the exact value (4.5 shows four and a half), like the app. */
+/** Ten stars filled to the exact value (8.5 shows eight and a half), like the app's 1–10 scale. */
 function stars(ctx: CanvasRenderingContext2D, value: number, x: number, y: number, size: number) {
-  ctx.font = `${size}px -apple-system, system-ui, sans-serif`
-  const step = size * 1.02
+  const px = Math.round(size * 0.62)
+  ctx.font = `${px}px -apple-system, system-ui, sans-serif`
+  const step = px * 1.04
   ctx.fillStyle = '#e2ddd6'
-  for (let i = 0; i < 5; i++) ctx.fillText('★', x + i * step, y)
+  for (let i = 0; i < 10; i++) ctx.fillText('★', x + i * step, y)
   ctx.save()
   ctx.beginPath()
-  ctx.rect(x, y - size, step * value, size * 1.4)
+  ctx.rect(x, y - px, step * value, px * 1.4)
   ctx.clip()
   ctx.fillStyle = '#f5a524'
-  for (let i = 0; i < 5; i++) ctx.fillText('★', x + i * step, y)
+  for (let i = 0; i < 10; i++) ctx.fillText('★', x + i * step, y)
   ctx.restore()
 }
 

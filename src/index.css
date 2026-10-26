@@ -227,13 +227,18 @@ a.btn { text-decoration: none; }
 .chev { color: var(--chev); flex: none; }
 
 /* Stars */
-.stars { display: flex; gap: 2px; }
-.stars { flex: none; }
-.stars button { font-size: 28px; line-height: 1; color: var(--star-empty); width: 32px; height: 40px; transition: transform .12s, color .12s; }
+.stars-wrap { display: flex; align-items: center; gap: 8px; flex: none; }
+.stars { display: flex; gap: 0; flex: none; }
+.stars button { font-size: 21px; line-height: 1; color: var(--star-empty); width: 24px; height: 40px; transition: transform .12s, color .12s; }
 .stars button.on { color: var(--gold); }
-.stars button:active { transform: scale(1.25); }
-.avg-stars { position: relative; display: inline-block; color: var(--star-empty); line-height: 1; letter-spacing: 1px; white-space: nowrap; }
-.avg-stars span { position: absolute; inset: 0 auto 0 0; overflow: hidden; color: var(--gold); }
+.stars button:active { transform: scale(1.3); }
+.stars-num { min-width: 38px; font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--text); white-space: nowrap; }
+.stars-num small { font-size: 11px; font-weight: 700; color: var(--muted); margin-left: 1px; }
+.stars-num.empty { color: var(--muted); }
+.avg-stars { display: inline-flex; align-items: baseline; gap: 4px; line-height: 1; white-space: nowrap; color: var(--text); }
+.avg-star { color: var(--gold); }
+.avg-stars b { font-family: var(--display); font-weight: 800; }
+.avg-stars small { font-size: 0.55em; font-weight: 700; color: var(--muted); }
 .avg-num { font-family: var(--display); font-weight: 800; font-size: 15px; color: var(--text); }
 
 /* Detail */
@@ -269,6 +274,9 @@ a.btn { text-decoration: none; }
 .card > .field:last-child { border-bottom: 0; }
 .field select, .field input { max-width: 58%; }
 .field-label { font-size: 13px; font-weight: 600; color: var(--muted); padding-top: 14px; }
+.field.rate-field { flex-wrap: wrap; row-gap: 0; padding: 4px 0; }
+.rate-field .stars-wrap { margin-left: auto; }
+.rate-note { font-size: 13px; color: var(--muted); margin: 10px 0 2px; }
 .who { display: flex; align-items: center; gap: 8px; font-weight: 550; min-width: 0; flex-wrap: wrap; row-gap: 2px; }
 .you { font-size: 11px; font-weight: 650; color: var(--brand-ink); background: var(--brand-soft); border-radius: 999px; padding: 2px 8px; }
 .avg-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 10px -8px 12px; padding: 14px; border-radius: 16px; background: var(--avg-bg); }
@@ -395,7 +403,7 @@ a.btn { text-decoration: none; }
 .rcard { width: 96px; padding: 12px 8px; border-radius: 20px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; flex-direction: column; align-items: center; gap: 6px; animation: flip-in .6s cubic-bezier(.2, 1.2, .4, 1) both; transform: rotate(var(--tilt)); }
 @keyframes flip-in { from { opacity: 0; transform: rotateY(90deg) scale(.8); } to { opacity: 1; transform: rotate(var(--tilt)); } }
 .rcard-num { font-family: var(--display); font-size: 30px; font-weight: 900; line-height: 1; }
-.rcard-stars { color: var(--gold); font-size: 13px; letter-spacing: 1px; }
+.rcard-stars { color: var(--gold); font-size: 8.5px; letter-spacing: -0.3px; white-space: nowrap; }
 .rcard-stars span { opacity: 0.3; }
 .reveal-avg { display: flex; flex-direction: column; align-items: center; animation: pop .5s cubic-bezier(.2, 1.4, .4, 1) both; }
 .reveal-avg strong { font-family: var(--display); font-size: 64px; font-weight: 900; line-height: 1; }
@@ -432,7 +440,9 @@ a.btn { text-decoration: none; }
 .big-choice button small { font-size: 12.5px; color: var(--muted); }
 .big-choice button.on { border-color: var(--brand); background: var(--brand-soft); }
 .quick-rate { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
-.quick-stars .stars button { font-size: 44px; width: 52px; height: 56px; }
+.quick-stars .stars button { font-size: 28px; width: 29px; height: 50px; }
+.quick-stars .stars-wrap { flex-direction: column; gap: 2px; }
+.quick-stars .stars-num { font-size: 22px; }
 .more { text-align: center; color: var(--muted); font-size: 14px; font-weight: 600; padding: 4px; }
 .pcard-sub.turn { color: var(--brand-ink); font-weight: 650; }
 .save-to-reveal { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--grad); color: #fff; font-weight: 700; font-size: 14px; }

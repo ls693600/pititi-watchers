@@ -19,6 +19,84 @@ export function averageRating(w: Pick<Watch, 'watchedBy' | 'ratings'>): number |
   return ids.reduce((sum, id) => sum + w.ratings[id], 0) / ids.length
 }
 
+// ---- One rating per show, out of 10 ----
+
+/** Ratings go from 1 to 10, like IMDb. */
+export const MAX_SCORE = 10
+
+/** One show in one household (each movie log stands alone). */
+export function showKey(w: Pick<Watch, 'id' | 'showId' | 'kind' | 'householdId'>): string {
+  return kindOf(w) === 'movie' ? `m|${w.id}` : `${w.householdId ?? ''}|tv|${w.showId}`
+}
+
+/**
+ * A show has one rating per person: the one on the latest season they rated. Every season's log carries it,
+ * so older per-season ratings fold into one and a new season starts with what you already think.
+ */
+export function withShowRatings(list: Watch[]): Watch[] {
+  const best = new Map<string, Map<string, { v: number; season: number; at: string }>>()
+  for (const w of list) {
+    if (kindOf(w) === 'movie') continue
+    const k = showKey(w)
+    const byPerson = best.get(k) ?? new Map()
+    for (const [id, v] of Object.entries(w.ratings)) {
+      const cur = byPerson.get(id)
+      if (!cur || w.season > cur.season || (w.season === cur.season && w.updatedAt > cur.at)) byPerson.set(id, { v, season: w.season, at: w.updatedAt })
+    }
+    best.set(k, byPerson)
+  }
+  return list.map((w) => {
+    const byPerson = kindOf(w) === 'movie' ? null : best.get(showKey(w))
+    if (!byPerson?.size) return w
+    const ids = new Set([...w.watchedBy, ...Object.keys(w.ratings)])
+    const ratings: Record<string, number> = {}
+    for (const id of ids) {
+      const r = byPerson.get(id)
+      if (r) ratings[id] = r.v
+    }
+    const same = Object.keys(ratings).length === Object.keys(w.ratings).length && Object.entries(ratings).every(([id, v]) => w.ratings[id] === v)
+    return same ? w : { ...w, ratings }
+  })
+}
+
+/** The log that stands for the whole show in ratings, stats and reveals: its latest season (movies: every log). */
+export function showHeads(list: Watch[]): Watch[] {
+  const head = new Map<string, Watch>()
+  for (const w of list) {
+    const k = showKey(w)
+    const cur = head.get(k)
+    if (!cur || w.season > cur.season || (w.season === cur.season && w.updatedAt > cur.updatedAt)) head.set(k, w)
+  }
+  return list.filter((w) => head.get(showKey(w)) === w)
+}
+
+/** Each show once, carrying its show-level ratings: what rating stats, taste and reveals count. */
+export function ratedShows(list: Watch[]): Watch[] {
+  return showHeads(withShowRatings(list))
+}
+
+export function isShowHead(list: Watch[], w: Watch): boolean {
+  return showHeads(list.filter((x) => showKey(x) === showKey(w))).some((x) => x.id === w.id)
+}
+
+/** Where a person's show rating is saved: the latest season of it they watched (or this log). */
+export function ratingTarget(list: Watch[], w: Watch, personId: string): Watch {
+  if (kindOf(w) === 'movie') return w
+  const theirs = list.filter((x) => showKey(x) === showKey(w) && x.watchedBy.includes(personId))
+  return theirs.length ? showHeads(theirs)[0] : w
+}
+
+/** Every log of the show that holds this person's rating (clearing a rating clears it everywhere). */
+export function ratingLogs(list: Watch[], w: Watch, personId: string): Watch[] {
+  if (kindOf(w) === 'movie') return [w]
+  return list.filter((x) => showKey(x) === showKey(w) && x.ratings[personId] != null)
+}
+
+/** What a reveal is about: the show and who rated it. New seasons and changed scores don't replay it; a new rater does. */
+export function revealKey(w: Watch): string {
+  return `${showKey(w)}:${raters(w).slice().sort().join(',')}`
+}
+
 /** Admin removes anything; everyone else only logs they added. No session = single-phone mode. */
 export function canDelete(w: Pick<Watch, 'createdBy'>, who: { personId: string; isAdmin: boolean } | null): boolean {
   if (!who) return true
@@ -33,7 +111,7 @@ export function watchedByPerson(list: Watch[], personId: string | null): Watch[]
 /** Each person's average rating across the given logs. */
 export function personAverages(list: Watch[], personIds: string[]): Record<string, number | null> {
   return Object.fromEntries(
-    personIds.map((id) => [id, mean(list.flatMap((w) => (w.ratings[id] != null ? [w.ratings[id]] : [])))]),
+    personIds.map((id) => [id, mean(ratedShows(list).flatMap((w) => (w.ratings[id] != null ? [w.ratings[id]] : [])))]),
   )
 }
 
@@ -192,7 +270,7 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
     const month = `${year}-${String(i + 1).padStart(2, '0')}`
     return { month, count: uniqueShows(list.filter((w) => activeIn(w, month))) }
   })
-  const rated = list
+  const rated = ratedShows(list)
     .map((watch) => ({ watch, avg: averageRating(watch) }))
     .filter((r): r is { watch: Watch; avg: number } => r.avg != null)
   const topRated = [...rated].sort((a, b) => b.avg - a.avg).slice(0, 5)
@@ -201,7 +279,7 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
       const stars = raters(watch).map((id) => watch.ratings[id])
       return { watch, diff: Math.max(...stars) - Math.min(...stars) }
     })
-    .filter((d) => d.diff >= 2)
+    .filter((d) => d.diff >= 4)
     .sort((a, b) => b.diff - a.diff)
     .slice(0, 3)
   const monthsElapsed = year < now.getFullYear() ? 12 : year > now.getFullYear() ? 0 : now.getMonth() + 1
@@ -252,16 +330,16 @@ export function ratingSpread(w: Pick<Watch, 'watchedBy' | 'ratings'>): number {
 
 export function verdict(spread: number): string {
   if (spread === 0) return t('Perfect match')
-  if (spread === 1) return t('Almost a perfect match')
-  if (spread === 2) return t('Mixed feelings')
+  if (spread <= 2) return t('Almost a perfect match')
+  if (spread <= 4) return t('Mixed feelings')
   return t('Big debate')
 }
 
 /** Logs that just became fully rated and are worth a reveal for this viewer (2+ watchers, viewer among them, not seen yet). */
 export function pendingReveals(list: Watch[], viewer: string | null, seen: Set<string>): Watch[] {
   if (!viewer) return []
-  return list
-    .filter((w) => w.watchedBy.length > 1 && w.watchedBy.includes(viewer) && averageRating(w) != null && !seen.has(w.id))
+  return ratedShows(list)
+    .filter((w) => w.watchedBy.length > 1 && w.watchedBy.includes(viewer) && averageRating(w) != null && !seen.has(revealKey(w)))
     .sort(byUpdatedDesc)
 }
 
@@ -452,18 +530,18 @@ export function tasteMatches(list: Watch[], personIds: string[]): TasteMatch[] {
     for (let j = i + 1; j < personIds.length; j++) {
       const a = personIds[i]
       const b = personIds[j]
-      const both = list.filter((w) => w.ratings[a] != null && w.ratings[b] != null)
+      const both = ratedShows(list).filter((w) => w.ratings[a] != null && w.ratings[b] != null)
       if (!both.length) continue
       const diffs = both.map((w) => ({ watch: w, diff: Math.abs(w.ratings[a] - w.ratings[b]) }))
-      const closeness = diffs.reduce((s, d) => s + (1 - d.diff / 4), 0) / diffs.length
+      const closeness = diffs.reduce((s, d) => s + (1 - d.diff / (MAX_SCORE - 1)), 0) / diffs.length
       const worst = diffs.reduce((m, d) => (d.diff > m.diff ? d : m), diffs[0])
       out.push({
         a,
         b,
         score: Math.round(closeness * 100),
         shared: both.length,
-        agreed: diffs.filter((d) => d.diff <= 1).length,
-        clash: worst.diff >= 2 ? worst : null,
+        agreed: diffs.filter((d) => d.diff <= 2).length,
+        clash: worst.diff >= 4 ? worst : null,
       })
     }
   }
@@ -495,7 +573,8 @@ export function monthStreak(list: Watch[]): number {
 
 /** Family badges, all computed from what's already logged. */
 export function familyBadges(list: Watch[]): Badge[] {
-  const perfect = list.filter((w) => w.watchedBy.length > 1 && averageRating(w) != null && ratingSpread(w) === 0).length
+  const shows = ratedShows(list)
+  const perfect = shows.filter((w) => w.watchedBy.length > 1 && averageRating(w) != null && ratingSpread(w) === 0).length
   const busiestMonthEpisodes = Math.max(0, ...[...new Set(list.map((w) => w.month))].map((m) => summarize(watchesInMonth(list, m)).episodes))
   const genres = new Set(list.flatMap((w) => w.genres))
   const lateNight = list.filter((w) => {
@@ -515,7 +594,7 @@ export function familyBadges(list: Watch[]): Badge[] {
     make('binge', t('Binge mode'), t('50 episodes in one month'), busiestMonthEpisodes, 50),
     make('soulmates', t('Soulmates'), t('5 perfect matches'), perfect, 5),
     make('family-night', t('Family night'), t('A show watched by 3 or more'), Math.max(0, ...list.map((w) => w.watchedBy.length)), 3),
-    make('debate', t('Agree to disagree'), t('A show 3+ stars apart'), Math.max(0, ...list.filter((w) => averageRating(w) != null).map(ratingSpread)), 3),
+    make('debate', t('Agree to disagree'), t('A show 5+ points apart'), Math.max(0, ...shows.filter((w) => averageRating(w) != null).map(ratingSpread)), 5),
     make('rewatch', t('Rewatch royalty'), t('5 rewatches'), list.filter((w) => w.isRewatch).length, 5),
     make('explorer', t('Explorer'), t('Shows from 6 genres'), genres.size, 6),
     make('night-owl', t('Night owl'), t('Log a show after 1 AM'), lateNight, 1),
@@ -579,7 +658,7 @@ export function outlookOrder(a: Outlook | undefined, b: Outlook | undefined): nu
 
 /** A person's own top shows by their stars (ties: most recent first). */
 export function personalTop(list: Watch[], personId: string, n = 5): { watch: Watch; avg: number }[] {
-  return list
+  return ratedShows(list)
     .filter((w) => w.ratings[personId] != null)
     .sort((a, b) => b.ratings[personId] - a.ratings[personId] || b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, n)

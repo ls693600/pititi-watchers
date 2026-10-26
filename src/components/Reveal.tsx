@@ -59,9 +59,9 @@ export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: P
           <div key={id} className="rcard" style={{ animationDelay: `${0.35 + i * 0.25}s`, ['--tilt' as string]: `${i % 2 ? 4 : -4}deg` }}>
             <Avatar people={people} id={id} size={42} />
             <span className="rcard-num">{watch.ratings[id]}</span>
-            <span className="rcard-stars" aria-label={watch.ratings[id] === 1 ? t('{n} star', { n: 1 }) : t('{n} stars', { n: watch.ratings[id] })}>
+            <span className="rcard-stars" aria-label={t('{n} out of 10', { n: watch.ratings[id] })}>
               {'★'.repeat(watch.ratings[id])}
-              <span>{'★'.repeat(5 - watch.ratings[id])}</span>
+              <span>{'★'.repeat(Math.max(0, 10 - watch.ratings[id]))}</span>
             </span>
             {viewer && (
               <Reactions
