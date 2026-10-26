@@ -22,7 +22,9 @@ export function resolveTheme(pref: ThemePref, now = new Date()): 'light' | 'dark
 export function applyTheme(pref = getThemePref()) {
   const theme = resolveTheme(pref)
   document.documentElement.dataset.theme = theme
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', COLORS[theme])
+  // Halloween is a night look whatever the theme, so the phone's bar matches it
+  const night = document.documentElement.dataset.festive === 'halloween'
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', night ? '#120c1a' : COLORS[theme])
 }
 
 export function setThemePref(pref: ThemePref) {

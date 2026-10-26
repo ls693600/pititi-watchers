@@ -5,6 +5,8 @@ import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { ReleaseCarousel } from '../components/ReleaseCarousel'
 import { WatchedSheet } from '../components/WatchedSheet'
+import { FestivePicks } from '../components/FestivePicks'
+import { FestiveDeco } from '../components/Festive'
 import type { MonthSort } from '../logic'
 import {
   averageRating,
@@ -19,7 +21,7 @@ import {
   watchesInMonth,
 } from '../logic'
 import { getLang, setLang, t } from '../i18n'
-import type { Comment, Person, Watch } from '../types'
+import type { Comment, ListItem, Person, Title, Watch } from '../types'
 import type { Festive } from '../festive'
 
 interface Props {
@@ -49,6 +51,9 @@ interface Props {
   /** Family chat strip under the header (null when chat isn't available) */
   familyChat?: { last: Comment | null; unread: number; recent: string[] } | null
   onFamilyChat?: () => void
+  /** Festive picks: what's already on the family's lists, and saving one */
+  listItems?: ListItem[]
+  onSaveTitle?: (title: Title) => void
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -67,10 +72,11 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
+  const [picks, setPicks] = useState(false)
   const hideTip = () => {
     setShowTip(false)
     try {
@@ -123,13 +129,20 @@ export function Home(props: Props) {
       {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
 
       {festive && (
-        <div className="festive-card" role="note">
+        <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
+          <FestiveDeco festive={festive} />
           <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
-          <p>
+          <span className="festive-text" aria-hidden="true">
             <b>{t(festive.name)}</b>
             {t(festive.greeting)}
-          </p>
-        </div>
+            <span className="festive-cta">
+              {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />
+            </span>
+          </span>
+        </button>
+      )}
+      {festive && picks && (
+        <FestivePicks festive={festive} watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} onClose={() => setPicks(false)} />
       )}
 
       {isCurrent && watching.length > 0 && (

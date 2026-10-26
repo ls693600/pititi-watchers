@@ -72,7 +72,7 @@ export const seed = {
 }
 
 /** Loads the app as a person (?as=), with the test family and fixed answers for TVmaze and movies. */
-export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt'; path?: string; extra?: Record<string, unknown> } = {}) {
+export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt'; path?: string; extra?: Record<string, unknown>; query?: Record<string, string> } = {}) {
   await page.addInitScript(
     ({ data, lang }) => {
       // Only on the first load of this test: later reloads keep what the test changed
@@ -125,5 +125,5 @@ export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt
   await page.route('https://www.youtube-nocookie.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>player</title><p>Trailer playing</p>' }))
   // Posters: a tiny blank image so nothing waits on the network
   await page.route('https://static.tvmaze.com/**', (route) => route.fulfill({ status: 404, body: '' }))
-  await page.goto(`${opts.path ?? '/'}?as=${personId}`)
+  await page.goto(`${opts.path ?? '/'}?${new URLSearchParams({ as: personId, ...opts.query })}`)
 }

@@ -1,6 +1,7 @@
 // Festive looks: the on/off preference and today's look, applied to <html data-festive>.
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { festiveById, festiveFor, type Festive } from './festive'
+import { applyTheme } from './theme'
 
 const PREF = 'pititi.festive'
 const listeners = new Set<() => void>()
@@ -49,6 +50,7 @@ export function useFestive(): Festive | null {
     const root = document.documentElement
     if (festive) root.dataset.festive = festive.id
     else delete root.dataset.festive
+    applyTheme()
   }, [festive])
   return festive
 }

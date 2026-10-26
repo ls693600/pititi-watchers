@@ -34,7 +34,7 @@ import { setErrorScreen } from './errors'
 import { Toast } from './components/Toast'
 import { SEEN_KEY, readSet, writeSet } from './lib/seen'
 import { announceNew, celebrateBadges } from './lib/announce'
-import { FestiveRain } from './components/Festive'
+import { FestiveAmbient, FestiveRain } from './components/Festive'
 import { changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
@@ -495,6 +495,7 @@ export default function App() {
       )}
       <UpdateBanner />
       {festive && <FestiveRain key={festive.id} festive={festive} />}
+      {festive && tab === 'home' && !detail && <FestiveAmbient key={`a-${festive.id}`} festive={festive} />}
 
       <main>
         {detail ? (
@@ -577,6 +578,8 @@ export default function App() {
             festive={festive}
             familyChat={social ? familyChatSummary(comments, lastRead, me) : null}
             onFamilyChat={() => openThread(null)}
+            listItems={circle.items}
+            onSaveTitle={(title) => setTitleSheet({ title, mode: 'save' })}
             onAdd={() => {
               setAddMonth(month)
               setTab('search')
