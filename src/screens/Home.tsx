@@ -147,7 +147,10 @@ export function Home(props: Props) {
           <FestiveDeco festive={festive} />
           <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
           <span className="festive-text" aria-hidden="true">
-            <b>{t(festive.name)}</b>
+            <b>
+              {t(festive.name)}
+              {festive.country && <span className="festive-country">{festive.country === 'CA' ? t('🇨🇦 Canada') : t('🇧🇷 Brazil')}</span>}
+            </b>
             {t(festive.greeting)}
             <span className="festive-cta">
               {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />

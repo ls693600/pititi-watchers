@@ -42,6 +42,14 @@ export function FestiveRain({ festive }: { festive: Festive }) {
   )
 }
 
+/** Little flags strung across the card, in the day's colors. */
+const BUNTING: Partial<Record<Festive['id'], string[]>> = {
+  junina: ['#ffd166', '#06d6a0', '#ef476f', '#118ab2', '#ffffff'],
+  independencia: ['#009c3b', '#ffdf00', '#002776', '#ffffff'],
+  criancas: ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#9b5de5'],
+  canadaday: ['#ffffff', '#d52b1e'],
+}
+
 /** A small drawing on the festive card: cobweb, snow, bunting… (decorative). */
 export function FestiveDeco({ festive }: { festive: Festive }) {
   if (festive.id === 'halloween')
@@ -55,15 +63,15 @@ export function FestiveDeco({ festive }: { festive: Festive }) {
         <circle cx="44" cy="48" r="3.2" fill="currentColor" />
       </svg>
     )
-  if (festive.id === 'junina')
+  const flags = BUNTING[festive.id]
+  if (flags)
     return (
       <svg className="festive-deco bunting" viewBox="0 0 300 26" preserveAspectRatio="none" aria-hidden="true">
         <path d="M0 4 Q150 18 300 4" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.2" />
         {Array.from({ length: 12 }, (_, i) => {
           const x = 8 + i * 25
           const y = 4 + Math.sin((x / 300) * Math.PI) * 7
-          const colors = ['#ffd166', '#06d6a0', '#ef476f', '#118ab2', '#ffffff']
-          return <path key={i} d={`M${x} ${y} h16 l-8 13z`} fill={colors[i % colors.length]} />
+          return <path key={i} d={`M${x} ${y} h16 l-8 13z`} fill={flags[i % flags.length]} />
         })}
       </svg>
     )
@@ -88,6 +96,20 @@ const AMBIENT: Partial<Record<Festive['id'], { glyphs: string[]; motion: Motion;
   easter: { glyphs: ['🌷', '🥚'], motion: 'fall', count: 7 },
   carnaval: { glyphs: ['▮'], motion: 'fall', count: 22 },
   junina: { glyphs: ['✦'], motion: 'twinkle', count: 10 },
+  fathers: { glyphs: ['✦'], motion: 'twinkle', count: 8 },
+  familyday: { glyphs: ['♥'], motion: 'rise', count: 7 },
+  victoria: { glyphs: ['✦', '✧'], motion: 'twinkle', count: 12 },
+  canadaday: { glyphs: ['🍁'], motion: 'fall', count: 8 },
+  thanksgiving: { glyphs: ['🍂', '🍁'], motion: 'fall', count: 9 },
+  independencia: { glyphs: ['▮'], motion: 'fall', count: 16 },
+  criancas: { glyphs: ['🎈'], motion: 'rise', count: 7 },
+  consciencia: { glyphs: ['✦'], motion: 'twinkle', count: 8 },
+}
+
+/** Confetti colors for the days that rain little paper strips. */
+const CONFETTI: Partial<Record<Festive['id'], string[]>> = {
+  carnaval: ['#ffcc00', '#009c3b', '#ef476f', '#118ab2'],
+  independencia: ['#009c3b', '#ffdf00', '#002776'],
 }
 
 /** The day's mood behind Home: night fog and bats, snow, sparkles… Quiet, behind the cards, off with reduced motion. */
@@ -106,7 +128,7 @@ export function FestiveAmbient({ festive }: { festive: Festive }) {
               animationDelay: `${-((i * 1.7) % (a.motion === 'fly' ? 18 : 9))}s`,
               animationDuration: `${(a.motion === 'fly' ? 16 : a.motion === 'twinkle' ? 3 : 11) + (i % 4) * 2}s`,
               fontSize: `${(a.motion === 'fly' ? 22 : 10) + (i % 3) * 5}px`,
-              color: festive.id === 'carnaval' ? ['#ffcc00', '#009c3b', '#ef476f', '#118ab2'][i % 4] : undefined,
+              color: CONFETTI[festive.id]?.[i % (CONFETTI[festive.id]?.length ?? 1)],
             }}
           >
             {a.glyphs[i % a.glyphs.length]}

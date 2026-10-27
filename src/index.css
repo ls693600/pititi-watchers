@@ -855,6 +855,15 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 :root[data-festive='carnaval'] { --brand: #009c3b; --brand-2: #ffcc00; --brand-ink: #00762c; --brand-soft: #e3f7ea; --grad: linear-gradient(135deg, #009c3b 0%, #ffcc00 100%); --avg-bg: linear-gradient(135deg, #eafaf0 0%, #fff9db 100%); }
 :root[data-festive='junina'] { --brand: #e85d04; --brand-2: #f4a261; --brand-ink: #c2410c; --brand-soft: #ffefe0; --grad: linear-gradient(135deg, #e85d04 0%, #2a9d8f 100%); --avg-bg: linear-gradient(135deg, #fff4e8 0%, #e8f6f4 100%); }
 :root[data-festive='mothers'] { --brand: #db2777; --brand-2: #f9a8d4; --brand-ink: #be185d; --brand-soft: #fde7f1; --grad: linear-gradient(135deg, #db2777 0%, #fb923c 100%); --avg-bg: linear-gradient(135deg, #fff0f6 0%, #fff4ea 100%); }
+:root[data-festive='fathers'] { --brand: #1d4ed8; --brand-2: #38bdf8; --brand-ink: #1e40af; --brand-soft: #e3ecff; --grad: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%); --avg-bg: linear-gradient(135deg, #eef3ff 0%, #e6f7fe 100%); }
+:root[data-festive='familyday'] { --brand: #0f766e; --brand-2: #f59e0b; --brand-ink: #115e59; --brand-soft: #dff5f2; --grad: linear-gradient(135deg, #0f766e 0%, #f59e0b 100%); --avg-bg: linear-gradient(135deg, #ebf8f6 0%, #fff6e3 100%); }
+:root[data-festive='victoria'] { --brand: #6d28d9; --brand-2: #d4a017; --brand-ink: #5b21b6; --brand-soft: #efe7ff; --grad: linear-gradient(135deg, #4c1d95 0%, #d4a017 100%); --avg-bg: linear-gradient(135deg, #f5f0ff 0%, #fdf6e0 100%); }
+:root[data-festive='canadaday'] { --brand: #d52b1e; --brand-2: #ff7a70; --brand-ink: #b3241a; --brand-soft: #ffe8e6; --grad: linear-gradient(135deg, #d52b1e 0%, #ff7a70 100%); --avg-bg: linear-gradient(135deg, #fff1f0 0%, #ffffff 100%); }
+:root[data-festive='labourday'], :root[data-festive='trabalhador'] { --brand: #2563eb; --brand-2: #f59e0b; --brand-ink: #1d4ed8; --brand-soft: #e5edff; --grad: linear-gradient(135deg, #1e40af 0%, #f59e0b 100%); --avg-bg: linear-gradient(135deg, #eef3ff 0%, #fff6e3 100%); }
+:root[data-festive='thanksgiving'] { --brand: #c2410c; --brand-2: #ca8a04; --brand-ink: #9a3412; --brand-soft: #ffeedd; --grad: linear-gradient(135deg, #9a3412 0%, #ca8a04 100%); --avg-bg: linear-gradient(135deg, #fff3e8 0%, #fdf6dc 100%); }
+:root[data-festive='independencia'], :root[data-festive='tiradentes'], :root[data-festive='republica'] { --brand: #009c3b; --brand-2: #002776; --brand-ink: #00762c; --brand-soft: #e3f7ea; --grad: linear-gradient(135deg, #009c3b 0%, #002776 100%); --avg-bg: linear-gradient(135deg, #eafaf0 0%, #eaf0fb 100%); }
+:root[data-festive='criancas'] { --brand: #e11d48; --brand-2: #8b5cf6; --brand-ink: #be123c; --brand-soft: #ffe4ea; --grad: linear-gradient(135deg, #f43f5e 0%, #f59e0b 50%, #8b5cf6 100%); --avg-bg: linear-gradient(135deg, #fff0f3 0%, #f3edff 100%); }
+:root[data-festive='consciencia'] { --brand: #b45309; --brand-2: #1c1917; --brand-ink: #92400e; --brand-soft: #fdf0dc; --grad: linear-gradient(135deg, #b45309 0%, #1c1917 100%); --avg-bg: linear-gradient(135deg, #fdf3e3 0%, #f2efed 100%); }
 :root[data-theme='dark'][data-festive] { --brand-soft: color-mix(in srgb, var(--brand) 18%, transparent); --brand-ink: color-mix(in srgb, var(--brand) 70%, white); --avg-bg: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
 :root[data-festive='halloween'], :root[data-theme='dark'][data-festive='halloween'] {
   /* Halloween is a night look on every phone, light theme or not */
@@ -880,7 +889,8 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .festive-deco.web { top: 0; right: 0; width: 76px; height: 76px; color: rgba(255, 255, 255, 0.4); }
 .festive-deco.bunting { top: 0; left: 0; width: 100%; height: 22px; }
 .festive-deco.snowcap { top: 0; left: 0; width: 100%; height: 12px; opacity: 0.95; }
-.festive-junina, .festive-christmas { padding-top: 22px; }
+.festive-junina, .festive-christmas, .festive-independencia, .festive-criancas, .festive-canadaday { padding-top: 22px; }
+.festive-country { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-size: 11.5px; font-weight: 750; letter-spacing: .2px; vertical-align: 2px; }
 /* Halloween: a candle-lit night card, the pumpkin flickers */
 .festive-halloween { background: radial-gradient(circle at 12% 50%, rgba(255, 122, 0, 0.55), transparent 42%), linear-gradient(135deg, #2b1144 0%, #1a0d26 55%, #4a1a06 100%); box-shadow: 0 0 0 1px rgba(255, 140, 40, 0.35), 0 10px 30px rgba(255, 106, 0, 0.25); }
 .festive-halloween b { color: #ffb15c; font-size: 19px; letter-spacing: .5px; text-shadow: 0 0 12px rgba(255, 122, 0, 0.7); }
@@ -923,6 +933,8 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .amb-christmas .amb-fall { text-shadow: 0 0 6px rgba(255, 255, 255, 0.9); }
 :root:not([data-theme='dark']):not([data-festive='halloween']) .amb-christmas .amb-fall { color: #b9d4ea; }
 .amb-stpatricks .amb-fall { color: #16a34a; }
+.amb-victoria .amb-twinkle, .amb-consciencia .amb-twinkle { color: #d4a017; }
+.amb-fathers .amb-twinkle { color: #38bdf8; }
 .amb-halloween::before { content: ''; position: absolute; top: -12vh; right: -20vw; width: 70vw; height: 70vw; max-width: 420px; max-height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 150, 0.22) 0%, rgba(255, 170, 80, 0.08) 35%, transparent 65%); }
 .amb-halloween::after { content: ''; position: absolute; left: -20%; right: -20%; bottom: -10vh; height: 45vh; background: radial-gradient(ellipse at 30% 100%, rgba(157, 78, 221, 0.22), transparent 60%), radial-gradient(ellipse at 75% 100%, rgba(255, 122, 0, 0.14), transparent 60%); animation: fog 14s ease-in-out infinite alternate; }
 @keyframes fog { from { transform: translateX(-4%); } to { transform: translateX(4%); } }

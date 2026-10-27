@@ -8,7 +8,8 @@ export interface FestivePick extends Title {
   titlePt: string
 }
 
-const PICKS: Record<Exclude<FestiveId, 'namorados'>, FestivePick[]> = {
+type PickList = Exclude<FestiveId, 'namorados' | 'tiradentes' | 'republica' | 'labourday' | 'trabalhador'> | 'labour'
+const PICKS: Record<PickList, FestivePick[]> = {
   halloween: [
     { kind: 'movie', extId: 10439, title: 'Hocus Pocus', titlePt: 'Abracadabra', year: '1993', poster: 'https://image.tmdb.org/t/p/w342/by4D4Q9NlUjFSEUA1yrxq6ksXmk.jpg', genres: ['Fantasy', 'Comedy', 'Family'], runtime: 96, network: null },
     { kind: 'movie', extId: 917496, title: 'Beetlejuice Beetlejuice', titlePt: 'Os Fantasmas Ainda se Divertem: Beetlejuice Beetlejuice', year: '2024', poster: 'https://image.tmdb.org/t/p/w342/kKgQzkUCnQmeTPkyIwHly2t6ZFI.jpg', genres: ['Comedy', 'Fantasy'], runtime: 105, network: null },
@@ -105,9 +106,121 @@ const PICKS: Record<Exclude<FestiveId, 'namorados'>, FestivePick[]> = {
     { kind: 'tv', extId: 17128, title: 'This Is Us', titlePt: 'This Is Us', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/401/1003345.jpg', genres: ['Drama', 'Comedy', 'Romance'], runtime: 60, network: 'NBC' },
     { kind: 'tv', extId: 47549, title: 'Ginny & Georgia', titlePt: 'Ginny & Georgia', year: '2021', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/570/1427139.jpg', genres: ['Drama', 'Comedy', 'Crime'], runtime: 59, network: 'Netflix' },
   ],
+  fathers: [
+    { kind: 'movie', extId: 12, title: 'Finding Nemo', titlePt: 'Procurando Nemo', year: '2003', poster: 'https://image.tmdb.org/t/p/w342/eHuGQ10FUzK1mdOY69wF5pGgEf5.jpg', genres: ['Animation', 'Family', 'Adventure'], runtime: 100, network: null },
+    { kind: 'movie', extId: 587, title: 'Big Fish', titlePt: 'Peixe Grande e Suas Histórias Maravilhosas', year: '2003', poster: 'https://image.tmdb.org/t/p/w342/tjK063yCgaBAluVU72rZ6PKPH2l.jpg', genres: ['Adventure', 'Fantasy', 'Drama'], runtime: 125, network: null },
+    { kind: 'movie', extId: 1402, title: 'The Pursuit of Happyness', titlePt: 'À Procura da Felicidade', year: '2006', poster: 'https://image.tmdb.org/t/p/w342/lBYOKAMcxIvuk9s9hMuecB9dPBV.jpg', genres: ['Drama'], runtime: 117, network: null },
+    { kind: 'movie', extId: 49367, title: 'Two Sons of Francisco', titlePt: '2 Filhos de Francisco', year: '2005', poster: 'https://image.tmdb.org/t/p/w342/ub8vYfI1zgW4WItWDQ5mT6q5tzQ.jpg', genres: ['Drama', 'History', 'Music'], runtime: 132, network: null },
+    { kind: 'movie', extId: 776503, title: 'CODA', titlePt: 'No Ritmo do Coração', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/BzVjmm8l23rPsijLiNLUzuQtyd.jpg', genres: ['Drama', 'Music', 'Romance'], runtime: 112, network: null },
+    { kind: 'movie', extId: 965150, title: 'Aftersun', titlePt: 'Aftersun', year: '2022', poster: 'https://image.tmdb.org/t/p/w342/evKz85EKouVbIr51zy5fOtpNRPg.jpg', genres: ['Drama'], runtime: 101, network: null },
+    { kind: 'movie', extId: 157336, title: 'Interstellar', titlePt: 'Interestelar', year: '2014', poster: 'https://image.tmdb.org/t/p/w342/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg', genres: ['Adventure', 'Drama', 'Science Fiction'], runtime: 169, network: null },
+    { kind: 'movie', extId: 11846, title: 'Father of the Bride', titlePt: 'O Pai da Noiva', year: '1991', poster: 'https://image.tmdb.org/t/p/w342/bU7HzJbJpY5OiLdqWhKSqGPtYii.jpg', genres: ['Comedy', 'Romance'], runtime: 105, network: null },
+    { kind: 'tv', extId: 44458, title: 'Ted Lasso', titlePt: 'Ted Lasso', year: '2020', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/634/1585930.jpg', genres: ['Drama', 'Comedy', 'Sports'], runtime: 43, network: 'Apple TV' },
+    { kind: 'tv', extId: 80, title: 'Modern Family', titlePt: 'Modern Family', year: '2009', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/359/898320.jpg', genres: ['Comedy', 'Family'], runtime: 30, network: 'ABC' },
+  ],
+  thanksgiving: [
+    { kind: 'movie', extId: 2609, title: 'Planes, Trains and Automobiles', titlePt: 'Antes Só do que Mal Acompanhado', year: '1987', poster: 'https://image.tmdb.org/t/p/w342/fwi2cET87xArJCb8MdbWq2BZO3n.jpg', genres: ['Comedy'], runtime: 92, network: null },
+    { kind: 'movie', extId: 546554, title: 'Knives Out', titlePt: 'Entre Facas e Segredos', year: '2019', poster: 'https://image.tmdb.org/t/p/w342/pThyQovXQrw2m0s9x82twj48Jq4.jpg', genres: ['Comedy', 'Crime', 'Mystery'], runtime: 131, network: null },
+    { kind: 'movie', extId: 9043, title: 'The Family Stone', titlePt: 'Tudo em Família', year: '2005', poster: 'https://image.tmdb.org/t/p/w342/nlqw53HmTP7o3b2NDttYNOtsK4V.jpg', genres: ['Comedy', 'Drama', 'Romance'], runtime: 103, network: null },
+    { kind: 'movie', extId: 773, title: 'Little Miss Sunshine', titlePt: 'Pequena Miss Sunshine', year: '2006', poster: 'https://image.tmdb.org/t/p/w342/niNdhTpPHSgw22tK0PLjQMV640v.jpg', genres: ['Comedy', 'Drama'], runtime: 102, network: null },
+    { kind: 'movie', extId: 840430, title: 'The Holdovers', titlePt: 'Os Rejeitados', year: '2023', poster: 'https://image.tmdb.org/t/p/w342/VHSzNBTwxV8vh7wylo7O9CLdac.jpg', genres: ['Drama', 'Comedy'], runtime: 133, network: null },
+    { kind: 'movie', extId: 175574, title: 'Free Birds', titlePt: 'Bons de Bico', year: '2013', poster: 'https://image.tmdb.org/t/p/w342/gnSU2wUBq2gTkBEkxY8C1d1fXAQ.jpg', genres: ['Animation', 'Comedy', 'Family'], runtime: 91, network: null },
+    { kind: 'tv', extId: 525, title: 'Gilmore Girls', titlePt: 'Gilmore Girls', year: '2000', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/4/11308.jpg', genres: ['Drama', 'Comedy', 'Romance'], runtime: 60, network: 'The CW' },
+    { kind: 'tv', extId: 431, title: 'Friends', titlePt: 'Friends', year: '1994', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/41/104565.jpg', genres: ['Comedy', 'Romance'], runtime: 30, network: 'NBC' },
+    { kind: 'tv', extId: 17128, title: 'This Is Us', titlePt: 'This Is Us', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/401/1003345.jpg', genres: ['Drama', 'Comedy', 'Romance'], runtime: 60, network: 'NBC' },
+    { kind: 'tv', extId: 54198, title: 'The Bear', titlePt: 'O Urso', year: '2022', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/629/1574642.jpg', genres: ['Drama', 'Comedy', 'Food'], runtime: 35, network: 'Hulu' },
+  ],
+  familyday: [
+    { kind: 'movie', extId: 346648, title: 'Paddington 2', titlePt: 'As Aventuras de Paddington 2', year: '2017', poster: 'https://image.tmdb.org/t/p/w342/1OJ9vkD5xPt3skC6KguyXAgagRZ.jpg', genres: ['Adventure', 'Comedy', 'Family'], runtime: 104, network: null },
+    { kind: 'movie', extId: 568124, title: 'Encanto', titlePt: 'Encanto', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/4j0PNHkMr5ax3IA8tjtxcmPU3QT.jpg', genres: ['Animation', 'Comedy', 'Family', 'Fantasy'], runtime: 102, network: null },
+    { kind: 'movie', extId: 501929, title: 'The Mitchells vs. the Machines', titlePt: 'A Família Mitchell e a Revolta das Máquinas', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/mI2Di7HmskQQ34kz0iau6J1vr70.jpg', genres: ['Animation', 'Adventure', 'Comedy'], runtime: 110, network: null },
+    { kind: 'movie', extId: 150540, title: 'Inside Out', titlePt: 'Divertida Mente', year: '2015', poster: 'https://image.tmdb.org/t/p/w342/2H1TmgdfNtsKlU9jKdeNyYL5y8T.jpg', genres: ['Animation', 'Family', 'Adventure', 'Drama'], runtime: 95, network: null },
+    { kind: 'movie', extId: 787699, title: 'Wonka', titlePt: 'Wonka', year: '2023', poster: 'https://image.tmdb.org/t/p/w342/qhb1qOilapbapxWQn9jtRCMwXJF.jpg', genres: ['Comedy', 'Family', 'Fantasy'], runtime: 117, network: null },
+    { kind: 'movie', extId: 1593, title: 'Night at the Museum', titlePt: 'Uma Noite no Museu', year: '2006', poster: 'https://image.tmdb.org/t/p/w342/pDsAAYf6Zn0yiAGJ6lYGs6hoZ4E.jpg', genres: ['Fantasy', 'Family', 'Comedy'], runtime: 108, network: null },
+    { kind: 'movie', extId: 11007, title: 'Cheaper by the Dozen', titlePt: 'Doze é Demais', year: '2003', poster: 'https://image.tmdb.org/t/p/w342/afclGGoQslTYFTnyW1LRMtJMiBp.jpg', genres: ['Comedy', 'Family'], runtime: 98, network: null },
+    { kind: 'tv', extId: 555, title: 'Avatar: The Last Airbender', titlePt: 'Avatar: The Last Airbender', year: '2005', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/79/199224.jpg', genres: ['Action', 'Adventure', 'Fantasy'], runtime: 30, network: 'Nickelodeon' },
+    { kind: 'tv', extId: 568, title: 'Malcolm in the Middle', titlePt: 'Malcolm in the Middle', year: '2000', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/549/1373492.jpg', genres: ['Comedy'], runtime: 30, network: 'FOX' },
+    { kind: 'tv', extId: 1294, title: 'The Wonder Years', titlePt: 'Anos Incríveis', year: '1988', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/62/155340.jpg', genres: ['Drama', 'Comedy', 'Family'], runtime: 30, network: 'ABC' },
+  ],
+  victoria: [
+    { kind: 'movie', extId: 18320, title: 'The Young Victoria', titlePt: 'A Jovem Rainha Vitória', year: '2009', poster: 'https://image.tmdb.org/t/p/w342/iGyuReyij3bPCtzJdSjTR8PR0pa.jpg', genres: ['Drama', 'History', 'Romance'], runtime: 105, network: null },
+    { kind: 'movie', extId: 45269, title: 'The King\'s Speech', titlePt: 'O Discurso do Rei', year: '2010', poster: 'https://image.tmdb.org/t/p/w342/pVNKXVQFukBaCz6ML7GH3kiPlQP.jpg', genres: ['Drama', 'History'], runtime: 118, network: null },
+    { kind: 'movie', extId: 1165, title: 'The Queen', titlePt: 'A Rainha', year: '2006', poster: 'https://image.tmdb.org/t/p/w342/v08RH5Cx9EFAQMBWQuE5jHAgHYs.jpg', genres: ['Drama', 'History'], runtime: 103, network: null },
+    { kind: 'movie', extId: 375262, title: 'The Favourite', titlePt: 'A Favorita', year: '2018', poster: 'https://image.tmdb.org/t/p/w342/cwBq0onfmeilU5xgqNNjJAMPfpw.jpg', genres: ['History', 'Comedy', 'Drama'], runtime: 120, network: null },
+    { kind: 'movie', extId: 497582, title: 'Enola Holmes', titlePt: 'Enola Holmes', year: '2020', poster: 'https://image.tmdb.org/t/p/w342/riYInlsq2kf1AWoGm80JQW5dLKp.jpg', genres: ['Adventure', 'Mystery', 'Crime'], runtime: 124, network: null },
+    { kind: 'movie', extId: 716612, title: 'Spencer', titlePt: 'Spencer', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/7GcqdBKaMM9BWXWN07BirBMkcBF.jpg', genres: ['Drama'], runtime: 116, network: null },
+    { kind: 'tv', extId: 8699, title: 'Victoria', titlePt: 'Victoria', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/179/448340.jpg', genres: ['Drama', 'History'], runtime: 61, network: 'PBS' },
+    { kind: 'tv', extId: 3594, title: 'The Crown', titlePt: 'The Crown', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/632/1580063.jpg', genres: ['Drama', 'History'], runtime: 55, network: 'Netflix' },
+    { kind: 'tv', extId: 42966, title: 'Bridgerton', titlePt: 'Bridgerton', year: '2020', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/614/1535959.jpg', genres: ['Drama', 'Romance'], runtime: 63, network: 'Netflix' },
+    { kind: 'tv', extId: 60126, title: 'Queen Charlotte: A Bridgerton Story', titlePt: 'Rainha Charlotte: Uma História Bridgerton', year: '2023', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/453/1133575.jpg', genres: ['Drama', 'Romance'], runtime: 65, network: 'Netflix' },
+  ],
+  canadaday: [
+    { kind: 'movie', extId: 22538, title: 'Scott Pilgrim vs. the World', titlePt: 'Scott Pilgrim Contra o Mundo', year: '2010', poster: 'https://image.tmdb.org/t/p/w342/g5IoYeudx9XBEfwNL0fHvSckLBz.jpg', genres: ['Action', 'Comedy', 'Romance'], runtime: 113, network: null },
+    { kind: 'movie', extId: 1016084, title: 'BlackBerry', titlePt: 'BlackBerry', year: '2023', poster: 'https://image.tmdb.org/t/p/w342/nQSvHZDuMlrZdm7ooMo8gb4CXhW.jpg', genres: ['Comedy', 'Drama', 'History'], runtime: 119, network: null },
+    { kind: 'movie', extId: 264644, title: 'Room', titlePt: 'O Quarto de Jack', year: '2015', poster: 'https://image.tmdb.org/t/p/w342/2hHDMeYyZjbGWn0BeNH1cTMxuM7.jpg', genres: ['Drama', 'Thriller'], runtime: 118, network: null },
+    { kind: 'movie', extId: 508947, title: 'Turning Red', titlePt: 'Red: Crescer é Uma Fera', year: '2022', poster: 'https://image.tmdb.org/t/p/w342/qsdjk9oAKSQMWs0Vt5Pyfh6O4GZ.jpg', genres: ['Animation', 'Family', 'Comedy', 'Fantasy'], runtime: 100, network: null },
+    { kind: 'movie', extId: 46738, title: 'Incendies', titlePt: 'Incêndios', year: '2010', poster: 'https://image.tmdb.org/t/p/w342/yH6DAQVgbyj72S66gN4WWVoTjuf.jpg', genres: ['Drama', 'War', 'Mystery'], runtime: 131, network: null },
+    { kind: 'movie', extId: 209185, title: 'The Grand Seduction', titlePt: 'Tickle Head, O Melhor Lugar Da Terra', year: '2014', poster: 'https://image.tmdb.org/t/p/w342/jEmeM9BKYWaCxzX0nF6thqLl9zp.jpg', genres: ['Comedy'], runtime: 112, network: null },
+    { kind: 'tv', extId: 1775, title: 'Schitt\'s Creek', titlePt: 'Schitt\'s Creek', year: '2015', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/279/697623.jpg', genres: ['Comedy'], runtime: 30, network: 'CBC' },
+    { kind: 'tv', extId: 17312, title: 'Kim\'s Convenience', titlePt: 'Kim\'s Convenience', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/177/442900.jpg', genres: ['Drama', 'Comedy', 'Family'], runtime: 30, network: 'CBC' },
+    { kind: 'tv', extId: 20400, title: 'Anne with an E', titlePt: 'Anne with an E', year: '2017', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/213/533113.jpg', genres: ['Drama', 'Family', 'History'], runtime: 57, network: 'CBC' },
+    { kind: 'tv', extId: 14055, title: 'Letterkenny', titlePt: 'Letterkenny', year: '2016', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/436/1092299.jpg', genres: ['Comedy'], runtime: 24, network: 'Crave' },
+    { kind: 'tv', extId: 593, title: 'Murdoch Mysteries', titlePt: 'Murdoch Mysteries', year: '2008', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/644/1610487.jpg', genres: ['Drama', 'Crime', 'Mystery'], runtime: 59, network: 'CBC Gem' },
+  ],
+  labour: [
+    { kind: 'movie', extId: 350, title: 'The Devil Wears Prada', titlePt: 'O Diabo Veste Prada', year: '2006', poster: 'https://image.tmdb.org/t/p/w342/8912AsVuS7Sj915apArUFbv6F9L.jpg', genres: ['Drama', 'Comedy'], runtime: 109, network: null },
+    { kind: 'movie', extId: 257211, title: 'The Intern', titlePt: 'Um Senhor Estagiário', year: '2015', poster: 'https://image.tmdb.org/t/p/w342/bTQ46fupPbjBfFBHuzfD3hxxL0Q.jpg', genres: ['Comedy'], runtime: 121, network: null },
+    { kind: 'movie', extId: 381284, title: 'Hidden Figures', titlePt: 'Estrelas Além do Tempo', year: '2016', poster: 'https://image.tmdb.org/t/p/w342/9lfz2W2uGjyow3am00rsPJ8iOyq.jpg', genres: ['Drama', 'History'], runtime: 127, network: null },
+    { kind: 'movie', extId: 310569, title: 'The Second Mother', titlePt: 'Que Horas Ela Volta?', year: '2015', poster: 'https://image.tmdb.org/t/p/w342/u1tDQun2iJAzersd94S8P47WEOL.jpg', genres: ['Drama'], runtime: 112, network: null },
+    { kind: 'movie', extId: 1542, title: 'Office Space', titlePt: 'Como Enlouquecer Seu Chefe', year: '1999', poster: 'https://image.tmdb.org/t/p/w342/iEmTwOkUaLziMQCUZii5wPQBIAO.jpg', genres: ['Comedy'], runtime: 90, network: null },
+    { kind: 'movie', extId: 3525, title: 'Working Girl', titlePt: 'Uma Secretária de Futuro', year: '1988', poster: 'https://image.tmdb.org/t/p/w342/q2jfFzZvAzjTaArQR0tjilIZ5aJ.jpg', genres: ['Comedy', 'Romance', 'Drama'], runtime: 114, network: null },
+    { kind: 'tv', extId: 526, title: 'The Office', titlePt: 'The Office', year: '2005', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/481/1204342.jpg', genres: ['Comedy'], runtime: 30, network: 'NBC' },
+    { kind: 'tv', extId: 44933, title: 'Severance', titlePt: 'Ruptura', year: '2022', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/548/1371406.jpg', genres: ['Drama', 'Science-Fiction', 'Mystery'], runtime: 49, network: 'Apple TV' },
+    { kind: 'tv', extId: 1864, title: 'Superstore', titlePt: 'Superstore', year: '2015', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/402/1007462.jpg', genres: ['Comedy'], runtime: 30, network: 'NBC' },
+    { kind: 'tv', extId: 55350, title: 'Abbott Elementary', titlePt: 'Abbott Elementary', year: '2021', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/644/1611887.jpg', genres: ['Comedy'], runtime: 31, network: 'ABC' },
+  ],
+  independencia: [
+    { kind: 'movie', extId: 232784, title: 'Independence or Death!', titlePt: 'Independência ou Morte', year: '1972', poster: 'https://image.tmdb.org/t/p/w342/5miII37GOTLcgOqzwEvyFcFMXKk.jpg', genres: ['Drama', 'History'], runtime: 118, network: null },
+    { kind: 'movie', extId: 126045, title: 'Carlota Joaquina, Princess of Brazil', titlePt: 'Carlota Joaquina, Princesa do Brazil', year: '1995', poster: 'https://image.tmdb.org/t/p/w342/hOU1KgIGdD7fOWSru7eHTMWFus9.jpg', genres: ['History', 'Comedy'], runtime: 100, network: null },
+    { kind: 'movie', extId: 309799, title: 'Tiradentes', titlePt: 'Tiradentes', year: '1999', poster: 'https://image.tmdb.org/t/p/w342/hf03dQ1gSXeqyFoDP03ySmvrw11.jpg', genres: ['History', 'Drama'], runtime: 128, network: null },
+    { kind: 'movie', extId: 666, title: 'Central Station', titlePt: 'Central do Brasil', year: '1998', poster: 'https://image.tmdb.org/t/p/w342/zJvp7XjQ2LhPbDVYhFXyucs40vR.jpg', genres: ['Drama'], runtime: 111, network: null },
+    { kind: 'movie', extId: 598, title: 'City of God', titlePt: 'Cidade de Deus', year: '2002', poster: 'https://image.tmdb.org/t/p/w342/k7eYdWvhYQyRQoU2TB2A2Xu2TfD.jpg', genres: ['Drama', 'Crime'], runtime: 129, network: null },
+    { kind: 'movie', extId: 40096, title: 'A Dog\'s Will', titlePt: 'O Auto da Compadecida', year: '2000', poster: 'https://image.tmdb.org/t/p/w342/z9Au9XtK0ARzkKGsZCzMkmKgMPf.jpg', genres: ['Comedy', 'Drama', 'Fantasy', 'Romance'], runtime: 102, network: null },
+    { kind: 'movie', extId: 1000837, title: 'I\'m Still Here', titlePt: 'Ainda Estou Aqui', year: '2024', poster: 'https://image.tmdb.org/t/p/w342/gZnsMbhCvhzAQlKaVpeFRHYjGyb.jpg', genres: ['Drama', 'History'], runtime: 138, network: null },
+    { kind: 'movie', extId: 446159, title: 'Bacurau', titlePt: 'Bacurau', year: '2019', poster: 'https://image.tmdb.org/t/p/w342/tBa4zMGzZUco26XT3WfZZCwQ76i.jpg', genres: ['Mystery', 'Western', 'Thriller'], runtime: 131, network: null },
+    { kind: 'movie', extId: 7347, title: 'Elite Squad', titlePt: 'Tropa de Elite', year: '2007', poster: 'https://image.tmdb.org/t/p/w342/lwIXz785N2fXi8hsBr1IXciFlkM.jpg', genres: ['Drama', 'Action', 'Crime'], runtime: 115, network: null },
+    { kind: 'tv', extId: 53040, title: 'Cidade Invisível', titlePt: 'Cidade Invisível', year: '2021', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/453/1133412.jpg', genres: ['Drama', 'Fantasy', 'Mystery'], runtime: 39, network: 'Netflix' },
+    { kind: 'tv', extId: 71503, title: 'DNA do Crime', titlePt: 'DNA do Crime', year: '2023', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/565/1414241.jpg', genres: ['Drama', 'Action', 'Crime'], runtime: 55, network: 'Netflix' },
+  ],
+  consciencia: [
+    { kind: 'movie', extId: 500458, title: 'Marighella', titlePt: 'Marighella', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/9Wdrdooav23KNxOntYYFJ6ddXD7.jpg', genres: ['Drama', 'History', 'Action'], runtime: 155, network: null },
+    { kind: 'movie', extId: 614282, title: 'Executive Order', titlePt: 'Medida Provisória', year: '2022', poster: 'https://image.tmdb.org/t/p/w342/8wdCvVsQGf76QOWDqcrgobLjWLb.jpg', genres: ['Drama', 'Science Fiction'], runtime: 102, network: null },
+    { kind: 'movie', extId: 765613, title: 'Emicida: AmarElo - It\'s All for Yesterday', titlePt: 'Emicida: AmarElo - É Tudo Pra Ontem', year: '2020', poster: 'https://image.tmdb.org/t/p/w342/afVApltOyuDj5Dgq8OB99SqJ6v9.jpg', genres: ['Documentary', 'Music'], runtime: 89, network: null },
+    { kind: 'movie', extId: 37817, title: 'Ó Paí, Ó: Look at This', titlePt: 'Ó Paí, Ó', year: '2007', poster: 'https://image.tmdb.org/t/p/w342/BFVGUEQxhORXLRsclpzvGsIIFY.jpg', genres: ['Music', 'Comedy'], runtime: 96, network: null },
+    { kind: 'movie', extId: 23854, title: 'The Assailant', titlePt: 'Besouro', year: '2009', poster: 'https://image.tmdb.org/t/p/w342/Gx36iu3gOhNFx2nxzEv1ffncmx.jpg', genres: ['Drama', 'Action', 'Adventure', 'Fantasy'], runtime: 94, network: null },
+    { kind: 'movie', extId: 238334, title: 'Xica', titlePt: 'Xica da Silva', year: '1976', poster: 'https://image.tmdb.org/t/p/w342/nhy28j9WkVBxDdyKqSSg716OUEM.jpg', genres: ['History', 'Drama', 'Comedy'], runtime: 117, network: null },
+    { kind: 'movie', extId: 651906, title: 'M8 - When Death Rescues Life', titlePt: 'M-8: Quando a Morte Socorre a Vida', year: '2019', poster: 'https://image.tmdb.org/t/p/w342/cCyAqeRPvKj8nJm1Eux5logss7W.jpg', genres: ['Drama', 'Thriller'], runtime: 84, network: null },
+    { kind: 'movie', extId: 785976, title: 'Pelé', titlePt: 'Pelé', year: '2021', poster: 'https://image.tmdb.org/t/p/w342/tX2gco2U4MlKEWwM4UkiIf1C74e.jpg', genres: ['Documentary'], runtime: 108, network: null },
+    { kind: 'tv', extId: 40742, title: 'Irmandade', titlePt: 'Irmandade', year: '2019', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/211/529772.jpg', genres: ['Drama', 'Thriller'], runtime: 51, network: 'Netflix' },
+    { kind: 'tv', extId: 42760, title: 'Sintonia', titlePt: 'Sintonia', year: '2019', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/362/905246.jpg', genres: ['Drama', 'Action', 'Crime'], runtime: 47, network: 'Netflix' },
+  ],
+  criancas: [
+    { kind: 'movie', extId: 459670, title: 'Monica and Friends: Bonds', titlePt: 'Turma da Mônica: Laços', year: '2019', poster: 'https://image.tmdb.org/t/p/w342/mZ9BeuuvvurtCcZpUtwmxUtNK0i.jpg', genres: ['Family', 'Adventure', 'Comedy'], runtime: 97, network: null },
+    { kind: 'movie', extId: 223706, title: 'Boy & the World', titlePt: 'O Menino e o Mundo', year: '2014', poster: 'https://image.tmdb.org/t/p/w342/g5Lyl1LtntJ0zJfOGynGeRE9kED.jpg', genres: ['Animation', 'Fantasy', 'Adventure', 'Family'], runtime: 80, network: null },
+    { kind: 'movie', extId: 862, title: 'Toy Story', titlePt: 'Toy Story: Um Mundo de Aventuras', year: '1995', poster: 'https://image.tmdb.org/t/p/w342/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg', genres: ['Family', 'Comedy', 'Animation', 'Adventure'], runtime: 81, network: null },
+    { kind: 'movie', extId: 277834, title: 'Moana', titlePt: 'Moana: Um Mar de Aventuras', year: '2016', poster: 'https://image.tmdb.org/t/p/w342/m5MDZOIFEFlxGiLuAzWzFSsWcye.jpg', genres: ['Adventure', 'Comedy', 'Family', 'Animation'], runtime: 107, network: null },
+    { kind: 'movie', extId: 808, title: 'Shrek', titlePt: 'Shrek', year: '2001', poster: 'https://image.tmdb.org/t/p/w342/iB64vpL3dIObOtMZgX3RqdVdQDc.jpg', genres: ['Animation', 'Comedy', 'Fantasy', 'Adventure'], runtime: 90, network: null },
+    { kind: 'movie', extId: 269149, title: 'Zootopia', titlePt: 'Zootopia: Essa Cidade é o Bicho', year: '2016', poster: 'https://image.tmdb.org/t/p/w342/hlK0e0wAQ3VLuJcsfIYPvb4JVud.jpg', genres: ['Animation', 'Adventure', 'Family', 'Comedy'], runtime: 109, network: null },
+    { kind: 'movie', extId: 20352, title: 'Despicable Me', titlePt: 'Meu Malvado Favorito', year: '2010', poster: 'https://image.tmdb.org/t/p/w342/b1BT309QWjtFUlJPLmXmrcHOWEL.jpg', genres: ['Animation', 'Comedy', 'Crime', 'Science Fiction'], runtime: 95, network: null },
+    { kind: 'tv', extId: 41821, title: 'Bluey', titlePt: 'Bluey', year: '2018', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/512/1281879.jpg', genres: ['Comedy', 'Children'], runtime: 7, network: 'ABC Kids' },
+    { kind: 'tv', extId: 7248, title: 'Earth to Luna!', titlePt: 'O Show da Luna', year: '2014', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/324/810578.jpg', genres: ['Comedy', 'Adventure', 'Children'], runtime: 30, network: 'Universal Kids' },
+    { kind: 'tv', extId: 396, title: 'Gravity Falls', titlePt: 'Gravity Falls', year: '2012', poster: 'https://static.tvmaze.com/uploads/images/medium_portrait/2/6140.jpg', genres: ['Adventure', 'Mystery', 'Supernatural'], runtime: 30, network: 'Disney XD' },
+  ],
 }
 
-/** Dia dos Namorados shares the Valentine's picks. */
+/** Days that share another day's picks: Namorados uses Valentine's, Brazil's civic holidays share Brazilian cinema, both labour days share one list. */
+const SHARED = { namorados: 'valentines', tiradentes: 'independencia', republica: 'independencia', labourday: 'labour', trabalhador: 'labour' } as const
+
 export function picksFor(id: FestiveId): FestivePick[] {
-  return PICKS[id === 'namorados' ? 'valentines' : id]
+  return PICKS[id in SHARED ? SHARED[id as keyof typeof SHARED] : (id as PickList)]
 }

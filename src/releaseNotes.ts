@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-27',
+    en: [
+      'New themed days from Canada and Brazil: Thanksgiving, Canada Day, Dia das Crianças, 7 de Setembro, Father\'s Day and more, each with its own movie and show picks.',
+      'Each theme says whose holiday it is: 🇨🇦 or 🇧🇷.',
+    ],
+    pt: [
+      'Novas datas comemorativas do Canadá e do Brasil: Ação de Graças, Dia do Canadá, Dia das Crianças, 7 de Setembro, Dia dos Pais e mais, cada uma com sua seleção de filmes e séries.',
+      'Cada tema mostra de qual país é o feriado: 🇨🇦 ou 🇧🇷.',
+    ],
+  },
+  {
     id: '2026-10-26b',
     en: [
       '"Logged twice" no longer shows up when another family logs the same show, so Merge works again.',
