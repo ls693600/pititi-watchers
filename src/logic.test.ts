@@ -53,6 +53,8 @@ import {
   personalTop,
   defaultWatchersFor,
   findDuplicate,
+  moveToMonth,
+  strayWatchers,
   inProgressFor,
   mergeLogs,
   premiereMonthFix,
@@ -968,5 +970,38 @@ describe('monthBreakdown', () => {
   })
   it('is empty for an empty month', () => {
     expect(monthBreakdown([], m)).toEqual([])
+  })
+})
+
+describe('other households', () => {
+  const ours = watch({ id: 'a', householdId: 'h1', status: 'watching', month: '2026-09', episodesWatched: 4 })
+  const theirs = watch({ id: 'b', householdId: 'h2', status: 'watching', month: '2026-10', episodesWatched: 0, watchedBy: ['x'] })
+
+  it('another family logging the same season is not a duplicate, rewatch or second viewing', () => {
+    expect(findDuplicate([ours, theirs], ours)).toBeNull()
+    expect(rewatchPair([{ ...theirs, status: 'done' }, { ...ours, isRewatch: true }], { ...ours, isRewatch: true })).toBeNull()
+    expect(timesWatchedFor([ours, { ...theirs, status: 'done' }], ours)).toBe(1)
+    expect(findDuplicate([ours, { ...theirs, householdId: 'h1' }], ours)?.id).toBe('b')
+  })
+
+  it('finds people from another household on a log', () => {
+    const people = [
+      { id: 'p1', householdId: 'h1' },
+      { id: 'x', householdId: 'h2' },
+    ]
+    expect(strayWatchers({ watchedBy: ['p1', 'x'], householdId: 'h1' }, people)).toEqual(['x'])
+    expect(strayWatchers({ watchedBy: ['p1', 'x'], householdId: null }, people)).toEqual([])
+  })
+})
+
+describe('moveToMonth', () => {
+  it('moves the log and the episodes counted before the new month', () => {
+    const w = watch({ month: '2026-09', episodesWatched: 4, episodesByMonth: { '2026-09': 3, '2026-10': 1 } })
+    const moved = moveToMonth(w, '2026-10')
+    expect(moved.month).toBe('2026-10')
+    expect(moved.episodesByMonth).toEqual({ '2026-10': 4 })
+  })
+  it('handles a log with no monthly breakdown', () => {
+    expect(moveToMonth(watch({ month: '2026-09', episodesWatched: 2, episodesByMonth: undefined }), '2026-10').episodesByMonth).toEqual({ '2026-10': 2 })
   })
 })

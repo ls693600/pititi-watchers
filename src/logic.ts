@@ -228,8 +228,34 @@ export function timesWatched(all: Watch[], showId: number, season: number): numb
 
 /** True when this show-season was already logged before, so a new log is a rewatch. */
 /** True when this show-season was already finished in another log, so a new log is a rewatch. */
-export function isPriorWatch(all: Watch[], showId: number, season: number, excludeId?: string, kind: Kind = 'tv'): boolean {
-  return all.some((w) => w.showId === showId && kindOf(w) === kind && w.season === season && w.id !== excludeId && w.status === 'done')
+export function isPriorWatch(all: Watch[], showId: number, season: number, excludeId?: string, kind: Kind = 'tv', householdId?: string | null): boolean {
+  return all.some(
+    (w) => w.showId === showId && kindOf(w) === kind && w.season === season && w.id !== excludeId && w.status === 'done' && (householdId === undefined || sameHome(w, { householdId })),
+  )
+}
+
+/** Two logs from the same household. Another family logging the same show is never a duplicate or a rewatch of yours. */
+export function sameHome(a: Pick<Watch, 'householdId'>, b: Pick<Watch, 'householdId'>): boolean {
+  return (a.householdId ?? null) === (b.householdId ?? null)
+}
+
+/** People on a log who belong to another household (e.g. pulled in by merging with another family's log). */
+export function strayWatchers(w: Pick<Watch, 'watchedBy' | 'householdId'>, people: Pick<Person, 'id' | 'householdId'>[]): string[] {
+  if (!w.householdId) return []
+  return w.watchedBy.filter((id) => {
+    const p = people.find((x) => x.id === id)
+    return Boolean(p?.householdId && p.householdId !== w.householdId)
+  })
+}
+
+/** File a log under a later month (e.g. the season's premiere): episodes counted in earlier months move with it. */
+export function moveToMonth(w: Watch, month: string): Watch {
+  const buckets: Record<string, number> = {}
+  for (const [m, n] of Object.entries(monthBuckets(w))) {
+    const key = m < month ? month : m
+    buckets[key] = (buckets[key] ?? 0) + n
+  }
+  return { ...w, month, episodesByMonth: buckets }
 }
 
 /** Episodes of a log in a period: one month, a set of months, or all time. */
@@ -380,7 +406,7 @@ export function withSeason(cur: Watch, s: SeasonInfo, all: Watch[]): Watch {
     season: s.number,
     totalEpisodes: s.episodes,
     episodesWatched: cur.status === 'done' && s.episodes ? s.episodes : Math.min(cur.episodesWatched, s.episodes ?? Infinity),
-    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id, kindOf(cur)),
+    isRewatch: isPriorWatch(all, cur.showId, s.number, cur.id, kindOf(cur), cur.householdId ?? null),
   }
   return capToAired(next, s.airedEpisodes ?? null)
 }
@@ -398,15 +424,15 @@ export function capToAired(w: Watch, aired: number | null): Watch {
 }
 
 /** Times this show-season has been logged, counting the log being edited once even if its season just changed. */
-export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'kind'>): number {
+export function timesWatchedFor(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'kind' | 'householdId'>): number {
   // Only finished watches of this season count; an unfinished duplicate isn't a second viewing
-  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done').length + 1
+  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done' && sameHome(x, w)).length + 1
 }
 
 /** Another log of the same show-season that's still open: a duplicate, not a rewatch. */
-export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'status' | 'kind'>): Watch | null {
+export function findDuplicate(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'status' | 'kind' | 'householdId'>): Watch | null {
   return (
-    all.find((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && (x.status === 'watching' || w.status === 'watching')) ?? null
+    all.find((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && (x.status === 'watching' || w.status === 'watching') && sameHome(x, w)) ?? null
   )
 }
 
@@ -415,7 +441,7 @@ export function openTwin(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season'
   if (kindOf(w) === 'movie') return null
   return (
     all
-      .filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'watching' && (x.householdId ?? null) === (w.householdId ?? null))
+      .filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'watching' && sameHome(x, w))
       .sort(byUpdatedDesc)[0] ?? null
   )
 }
@@ -424,9 +450,9 @@ export function openTwin(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season'
  * A log marked as a rewatch next to an earlier finished log of the same season. Usually a real rewatch,
  * but the old duplicate bug produced these too, so the show page offers "Only watched once? Merge".
  */
-export function rewatchPair(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'isRewatch' | 'kind'>): Watch | null {
+export function rewatchPair(all: Watch[], w: Pick<Watch, 'id' | 'showId' | 'season' | 'isRewatch' | 'kind' | 'householdId'>): Watch | null {
   if (!w.isRewatch) return null
-  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done').sort(byUpdatedDesc)[0] ?? null
+  return all.filter((x) => x.id !== w.id && sameTitle(x, w) && x.season === w.season && x.status === 'done' && sameHome(x, w)).sort(byUpdatedDesc)[0] ?? null
 }
 
 /** The show you're already in the middle of (any season), so re-adding it opens that log instead of a copy. */

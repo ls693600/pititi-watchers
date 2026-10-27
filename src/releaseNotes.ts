@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-26b',
+    en: [
+      '"Logged twice" no longer shows up when another family logs the same show, so Merge works again.',
+      '"Move to (month)" now saves right away. No need to scroll down and tap Save.',
+    ],
+    pt: [
+      'O aviso "registrada duas vezes" não aparece mais quando outra família registra a mesma série, e o Juntar voltou a funcionar.',
+      '"Mover para (mês)" agora salva na hora. Não precisa rolar a tela e tocar em Salvar.',
+    ],
+  },
+  {
     id: '2026-10-26',
     en: [
       'Home shows your month as Together, or one person alone: the numbers add up.',

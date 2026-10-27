@@ -5,7 +5,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, pendingRaters, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -29,7 +29,7 @@ interface Props {
   viewer: string | null
   saving: boolean
   canDelete: boolean
-  onSave: (w: Watch) => void
+  onSave: (w: Watch, msg?: string) => void
   onDelete: (w: Watch) => void
   /** Combine this log with a duplicate of the same season (keeps this one) */
   onMerge: (keep: Watch, drop: Watch) => void
@@ -129,6 +129,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const duplicate = isNew ? null : findDuplicate(watches, w)
   const pair = isNew || duplicate ? null : rewatchPair(watches, stored)
   const seasonInfo = seasons?.find((x) => x.number === w.season)
+  // People from another household on this log (an older merge with another family's copy pulled them in)
+  const strays = isNew ? [] : strayWatchers(stored, everyone)
   const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
 
   async function shareShow() {
@@ -193,7 +195,12 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const times = timesWatchedFor(watches, w)
   const total = w.totalEpisodes
 
-  function save() {
+  /** Saves the page; `patch` lets a one-tap fix (like moving the month) save straight away. */
+  function save(patch?: (cur: Watch) => Watch, msg?: string) {
+    saveLog(patch ? patch(w) : w, msg)
+  }
+
+  function saveLog(w: Watch, msg?: string) {
     if (!w.watchedBy.length) return setError(t('Pick who watched it.'))
     if (!/^\d{4}-\d{2}$/.test(w.month)) return setError(t('Pick the month you watched it.'))
     if (total != null && w.episodesWatched > total) return setError(t('Season {season} only has {n} episodes.', { season: w.season, n: total }))
@@ -209,7 +216,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
     )
     // A new log can't be filed before its season premiered: it goes to the premiere month
     const month = isNew && earlyMonth ? earlyMonth : w.month
-    onSave({ ...w, month, ratings, updatedAt: new Date().toISOString() })
+    onSave({ ...w, month, ratings, updatedAt: new Date().toISOString() }, msg)
   }
 
   return (
@@ -276,6 +283,22 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         </div>
       )}
 
+      {!readOnly && strays.length > 0 && (
+        <div className="health-card" role="alert">
+          <Icon name="users" size={20} stroke={2.2} />
+          <div>
+            <b>{t(strays.length === 1 ? "{names} isn't in your household" : "{names} aren't in your household", { names: strays.map((id) => everyone.find((p) => p.id === id)?.name ?? t('Someone')).join(' & ') })}</b>
+            <p>{t("They were added to this log by mistake, from another family's log of the same show. Their log stays as it is.")}</p>
+            <button
+              className="btn sm dark"
+              onClick={() => save((cur) => ({ ...cur, watchedBy: cur.watchedBy.filter((id) => !strays.includes(id)) }), t('Removed from this log'))}
+            >
+              {t('Remove from this log')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {!readOnly && pair && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
@@ -293,7 +316,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
       )}
 
       {/* Older logs could be flagged as rewatches by the duplicate bug; one tap clears it (and Undo brings it back) */}
-      {!readOnly && !isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id, w.kind ?? 'tv') && (
+      {!readOnly && !isNew && !duplicate && stored.isRewatch && !isPriorWatch(watches, w.showId, w.season, w.id, w.kind ?? 'tv', w.householdId ?? null) && (
         <div className="health-card" role="alert">
           <Icon name="repeat" size={20} stroke={2.2} />
           <div>
@@ -316,7 +339,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             <p>
               {t('This log is in {month}, but Season {season} premiered in {premiere}.', { month: monthLabel(w.month), season: w.season, premiere: monthLabel(earlyMonth) })}
             </p>
-            <button className="btn sm dark" onClick={() => setW((cur) => ({ ...cur, month: earlyMonth }))}>
+            <button className="btn sm dark" onClick={() => save((cur) => moveToMonth(cur, earlyMonth), t('Moved to {month}', { month: monthLabel(earlyMonth) }))}>
               {t('Move to {month}', { month: monthLabel(earlyMonth) })}
             </button>
           </div>
@@ -728,7 +751,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         </p>
       ) : (
       <div className="actions">
-        <button className="btn primary block" onClick={save} disabled={saving}>
+        <button className="btn primary block" onClick={() => save()} disabled={saving}>
           {saving ? t('Saving…') : isNew ? t('Add to {month}', { month: monthLabel(w.month) }) : t('Save changes')}
         </button>
         {!isNew && canDelete && (

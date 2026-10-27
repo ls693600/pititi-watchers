@@ -24,7 +24,7 @@ interface Props {
 /** Log a movie: one sitting, so it's just together-or-not and your stars. */
 export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForLater, onClose }: Props) {
   const [w, setW] = useState<Watch>(() =>
-    movieWatch({ ...draft, status: 'done', isRewatch: isPriorWatch(watches, draft.showId, 1, draft.id, 'movie') }),
+    movieWatch({ ...draft, status: 'done', isRewatch: isPriorWatch(watches, draft.showId, 1, draft.id, 'movie', draft.householdId ?? null) }),
   )
 
   // Runtime and genres come with the details (search results don't have runtime)

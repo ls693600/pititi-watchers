@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -393,7 +393,7 @@ export default function App() {
     }
   }
 
-  async function handleSave(w: Watch, isNew = detail?.isNew ?? false) {
+  async function handleSave(w: Watch, isNew = detail?.isNew ?? false, msg?: string) {
     // Two phones adding the same season, or a tap that slipped past "already watching": join the open log, never a copy
     const twin = isNew ? openTwin(watchesRef.current, w) : null
     if (twin) {
@@ -413,11 +413,12 @@ export default function App() {
     // Logged from a list: it's being watched now, so it leaves that list
     const item = isNew ? fromItem : null
     const before = watchesRef.current.find((x) => x.id === w.id) ?? null
-    const ok = await persist(w, isNew ? t('{title} added to {month}', { title: w.showName, month: monthLabel(w.month) }) : t('Saved'))
+    const done = msg ?? (isNew ? t('{title} added to {month}', { title: w.showName, month: monthLabel(w.month) }) : t('Saved'))
+    const ok = await persist(w, done)
     setSaving(false)
     if (ok) {
       // Undo: a new log goes away (and back on its list); an edit goes back
-      flash(isNew ? t('{title} added to {month}', { title: w.showName, month: monthLabel(w.month) }) : t('Saved'), async () => {
+      flash(done, async () => {
         if (!before) {
           await removeLog(w, t('Undone'))
           if (item) circle.addToList(item, item.listId, true)
@@ -543,7 +544,7 @@ export default function App() {
             viewer={viewer}
             saving={saving}
             canDelete={canDelete(detail.watch, who)}
-            onSave={handleSave}
+            onSave={(w, msg) => handleSave(w, undefined, msg)}
             onDelete={handleDelete}
             onFlash={flash}
             social={social && !detail.isNew}
@@ -560,6 +561,8 @@ export default function App() {
               rateShow(saved, personId, stars, personId === me ? t('Your {n}/10 saved', { n: stars ?? 0 }) : t("{name}'s {n}/10 saved", { name: name ?? '', n: stars ?? 0 }))
             }}
             onMerge={async (keep, drop) => {
+              // Another family's log of the same show is theirs, never a copy of yours
+              if (!sameHome(keep, drop)) return
               if (!canDelete(drop, who)) {
                 flash(t('Ask {name} to merge these: you can only remove logs you added.', { name: people.find((p) => p.isAdmin)?.name ?? t('the admin') }))
                 return
