@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { getLang, t } from '../i18n'
 import type { Festive } from '../festive'
 import { picksFor, type FestivePick } from '../festivePicks'
@@ -21,11 +21,37 @@ interface Props {
 }
 
 /** Behind the festive card: a hand-picked selection of movies and shows for the day. */
-export function FestivePicks({ festive, watches, items, readOnly = false, onSave, onClose }: Props) {
-  const pt = getLang() === 'pt'
-  const picks = picksFor(festive.id)
+export function FestivePicks({ festive, ...rest }: Props) {
   const name = t(festive.name)
-  const title = t('{name} picks', { name })
+  return (
+    <PicksSheet
+      {...rest}
+      emoji={festive.emoji}
+      eyebrow={name}
+      title={t('{name} picks', { name })}
+      intro={t('We picked a few movies and shows for the occasion. Tap a poster to watch the trailer.')}
+      picks={picksFor(festive.id)}
+    />
+  )
+}
+
+type SheetProps = Omit<Props, 'festive'> & {
+  emoji?: string
+  eyebrow: string
+  title: string
+  intro: string
+  picks: (FestivePick & { score?: number })[]
+  /** "kind:extId" of the pick to scroll to and highlight (opened from a poster) */
+  focus?: string | null
+}
+
+/** A sheet of movie and show picks: trailer on the poster, Save to a list, and what you already watched or saved. */
+export function PicksSheet({ watches, items, readOnly = false, onSave, onClose, emoji, eyebrow, title, intro, picks, focus = null }: SheetProps) {
+  const pt = getLang() === 'pt'
+  const focused = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    focused.current?.scrollIntoView({ block: 'center' })
+  }, [])
 
   useEffect(() => {
     // The trailer or "Save to a list" on top closes first
@@ -44,23 +70,24 @@ export function FestivePicks({ festive, watches, items, readOnly = false, onSave
       <div className="sheet picks-sheet">
         <div className="grabber" aria-hidden="true" />
         <div className="picks-head">
-          <span className="picks-emoji" aria-hidden="true">{festive.emoji}</span>
+          {emoji && <span className="picks-emoji" aria-hidden="true">{emoji}</span>}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p className="label-sm">{name}</p>
+            <p className="label-sm">{eyebrow}</p>
             <h2 className="sheet-title">{title}</h2>
           </div>
           <button className="icon-btn" aria-label={t('Close')} onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
         </div>
-        <p className="picks-intro">{t('We picked a few movies and shows for the occasion. Tap a poster to watch the trailer.')}</p>
+        <p className="picks-intro">{intro}</p>
 
         <ul className="picks-grid">
           {picks.map((p) => {
             const label = pt ? p.titlePt : p.title
             const isSaved = saved(p)
+            const key = `${p.kind}:${p.extId}`
             return (
-              <li key={`${p.kind}:${p.extId}`} className="pick">
+              <li key={key} className={`pick${focus === key ? ' focused' : ''}`} ref={focus === key ? focused : undefined}>
                 <PosterPlay kind={p.kind} extId={p.extId} title={label} year={p.year} chip compact>
                   <span className="pick-poster">
                     <PosterFill src={p.poster} name={label} />
@@ -69,7 +96,8 @@ export function FestivePicks({ festive, watches, items, readOnly = false, onSave
                 {watched(p) && <span className="pick-seen">{t('Watched ✓')}</span>}
                 <b className="pick-title">{label}</b>
                 <span className="muted small">
-                  {p.kind === 'movie' ? t('Movie') : t('Show')} · {p.year}
+                  {[p.kind === 'movie' ? t('Movie') : t('Show'), p.year].filter(Boolean).join(' · ')}
+                  {p.score != null && <> · <b className="gold">★</b> {p.score.toFixed(1)}</>}
                 </span>
                 {!readOnly && (
                   <button

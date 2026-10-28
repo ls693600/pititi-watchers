@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-28',
+    en: [
+      'Picks of the week on Home: the most popular movies and series right now, rated 7 or more. Touch to stop it, tap a poster for the trailer.',
+      'What you already watched gets a ✓; what\'s on a list gets 🔖.',
+    ],
+    pt: [
+      'Destaques da semana no Início: os filmes e séries mais populares do momento, com nota 7 ou mais. Toque para parar, toque no pôster para ver o trailer.',
+      'O que você já viu ganha ✓; o que está numa lista ganha 🔖.',
+    ],
+  },
+  {
     id: '2026-10-27',
     en: [
       'New themed days from Canada and Brazil: Thanksgiving, Canada Day, Dia das Crianças, 7 de Setembro, Father\'s Day and more, each with its own movie and show picks.',

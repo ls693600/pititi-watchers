@@ -1,6 +1,7 @@
 // Pititi Watchers movie data (Supabase Edge Function "tmdb").
 // Proxies TMDB so the API key stays a server secret. GET ?q=search text  |  GET ?id=123&region=CA
 // GET ?trailer=movie&id=TMDB_ID  |  GET ?trailer=tv&id=TVMAZE_ID&season=2  → { key, name } (YouTube) or { key: null }
+// GET ?trending=week  → the week's most popular well-rated movies and series, mixed (series as TVmaze ids, like the app)
 const TOKEN = Deno.env.get('TMDB_TOKEN') ?? '' // v4 "API Read Access Token"
 const KEY = Deno.env.get('TMDB_KEY') ?? '' // or the v3 "API Key"
 const IMG = 'https://image.tmdb.org/t/p/'
@@ -69,6 +70,71 @@ async function trailer(kind: string, id: number, season: number, lang: 'pt' | 'e
   return bySeason ?? pickTrailer(await videosOf(`/tv/${tv}`, lang), lang)
 }
 
+// Trending: only titles people actually like (7.0+ with enough votes), no talk, news or reality shows
+const MIN_SCORE = 7
+const SKIP_TV = new Set([10763, 10764, 10767])
+type Trend = Record<string, unknown> & { id: number; vote_average: number; vote_count: number; poster_path?: string | null; genre_ids?: number[] }
+
+async function trendingPage(kind: 'movie' | 'tv', page: number, language: string): Promise<Trend[]> {
+  const r = await tmdb(`/trending/${kind}/week`, { page: String(page), language }).catch(() => null)
+  return (r?.results as Trend[]) ?? []
+}
+
+/** A TMDB series as the app knows it: its TVmaze show (through IMDb, then TheTVDB). */
+async function tvmazeShow(tmdbId: number): Promise<Record<string, any> | null> {
+  const ext = await tmdb(`/tv/${tmdbId}/external_ids`).catch(() => null)
+  for (const [key, id] of [['imdb', ext?.imdb_id], ['thetvdb', ext?.tvdb_id]] as const) {
+    if (!id) continue
+    const res = await fetch(`https://api.tvmaze.com/lookup/shows?${key}=${id}`).catch(() => null)
+    if (res?.ok) return await res.json()
+  }
+  return null
+}
+
+async function trendingWeek() {
+  const [m1, m2, mp1, mp2, t1, t2, tp1, tp2] = await Promise.all([
+    trendingPage('movie', 1, 'en-US'), trendingPage('movie', 2, 'en-US'), trendingPage('movie', 1, 'pt-BR'), trendingPage('movie', 2, 'pt-BR'),
+    trendingPage('tv', 1, 'en-US'), trendingPage('tv', 2, 'en-US'), trendingPage('tv', 1, 'pt-BR'), trendingPage('tv', 2, 'pt-BR'),
+  ])
+  const ptName = new Map([...mp1, ...mp2, ...tp1, ...tp2].map((x) => [`${x.title ? 'm' : 't'}${x.id}`, String(x.title ?? x.name ?? '')]))
+  const liked = (x: Trend, votes: number) => x.vote_average >= MIN_SCORE && x.vote_count >= votes && x.poster_path && !x.adult
+  const movies = [...m1, ...m2].filter((x) => liked(x, 150)).slice(0, 12)
+  const shows = [...t1, ...t2].filter((x) => liked(x, 50) && !(x.genre_ids ?? []).some((g) => SKIP_TV.has(g))).slice(0, 14)
+
+  const movieItems = await Promise.all(
+    movies.map(async (m) => {
+      const d = await tmdb(`/movie/${m.id}`, { language: 'en-US' }).catch(() => null)
+      return {
+        kind: 'movie', extId: m.id, title: String(m.title), titlePt: ptName.get(`m${m.id}`) || String(m.title),
+        year: typeof m.release_date === 'string' ? m.release_date.slice(0, 4) : null, poster: `${IMG}w342${m.poster_path}`,
+        genres: ((d?.genres as { name: string }[]) ?? []).map((g) => g.name).slice(0, 4), runtime: d?.runtime || null, network: null,
+        score: Math.round(m.vote_average * 10) / 10,
+      }
+    }),
+  )
+  const showItems = (
+    await Promise.all(
+      shows.map(async (t) => {
+        const s = await tvmazeShow(t.id).catch(() => null)
+        if (!s?.id || !s.image?.medium) return null
+        return {
+          kind: 'tv', extId: s.id, title: String(s.name), titlePt: ptName.get(`t${t.id}`) || String(s.name),
+          year: typeof s.premiered === 'string' ? s.premiered.slice(0, 4) : null, poster: s.image.medium,
+          genres: (s.genres ?? []).slice(0, 4), runtime: s.averageRuntime ?? s.runtime ?? null, network: s.network?.name ?? s.webChannel?.name ?? null,
+          score: Math.round(t.vote_average * 10) / 10,
+        }
+      }),
+    )
+  ).filter(Boolean)
+  // Movie, series, movie, series… in trending order
+  const mixed: unknown[] = []
+  for (let i = 0; mixed.length < 20 && (i < movieItems.length || i < showItems.length); i++) {
+    if (movieItems[i]) mixed.push(movieItems[i])
+    if (showItems[i] && mixed.length < 20) mixed.push(showItems[i])
+  }
+  return mixed
+}
+
 const json = (body: unknown, status = 200, cache = 'public, max-age=3600') =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': cache } })
 
@@ -86,6 +152,7 @@ Deno.serve(async (req) => {
       // "None" is re-checked sooner: TMDB adds trailers for new seasons
       return json(v ? { key: v.key, name: v.name } : { key: null }, 200, v ? 'public, max-age=86400' : 'public, max-age=3600')
     }
+    if (u.searchParams.get('trending') === 'week') return json(await trendingWeek(), 200, 'public, max-age=21600')
     const q = u.searchParams.get('q')?.trim()
     if (q) {
       const r = await tmdb('/search/movie', { query: q.slice(0, 100), include_adult: 'false', language: lang })

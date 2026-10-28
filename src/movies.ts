@@ -85,3 +85,8 @@ export function getTrailer(kind: 'movie' | 'tv', id: number, season = 0): Promis
 /** A YouTube search for when there's no trailer on file */
 export const youtubeSearch = (title: string, year: string | null) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent([title, year, 'trailer'].filter(Boolean).join(' '))}`
+
+/** The week's most popular well-rated movies and series (series as TVmaze ids), ranked. */
+export async function getTrendingWeek(): Promise<unknown> {
+  return call<unknown>({ trending: 'week' })
+}

@@ -1,0 +1,185 @@
+[
+ {
+  "kind": "movie",
+  "extId": 2609,
+  "title": "Planes, Trains and Automobiles",
+  "titlePt": "Antes Só do que Mal Acompanhado",
+  "year": "1987",
+  "poster": "https://image.tmdb.org/t/p/w342/fwi2cET87xArJCb8MdbWq2BZO3n.jpg",
+  "genres": [
+   "Comedy"
+  ],
+  "runtime": 92,
+  "network": null,
+  "score": 7
+ },
+ {
+  "kind": "movie",
+  "extId": 546554,
+  "title": "Knives Out",
+  "titlePt": "Entre Facas e Segredos",
+  "year": "2019",
+  "poster": "https://image.tmdb.org/t/p/w342/pThyQovXQrw2m0s9x82twj48Jq4.jpg",
+  "genres": [
+   "Comedy",
+   "Crime",
+   "Mystery"
+  ],
+  "runtime": 131,
+  "network": null,
+  "score": 7.3
+ },
+ {
+  "kind": "tv",
+  "extId": 101,
+  "title": "Lioness",
+  "titlePt": "Operação Lioness",
+  "year": "2023",
+  "poster": "https://static.tvmaze.com/test/101.jpg",
+  "genres": [
+   "Drama"
+  ],
+  "runtime": 50,
+  "network": "Paramount+",
+  "score": 7.8
+ },
+ {
+  "kind": "movie",
+  "extId": 9043,
+  "title": "The Family Stone",
+  "titlePt": "Tudo em Família",
+  "year": "2005",
+  "poster": "https://image.tmdb.org/t/p/w342/nlqw53HmTP7o3b2NDttYNOtsK4V.jpg",
+  "genres": [
+   "Comedy",
+   "Drama",
+   "Romance"
+  ],
+  "runtime": 103,
+  "network": null,
+  "score": 7.6
+ },
+ {
+  "kind": "tv",
+  "extId": 201,
+  "title": "Severance",
+  "titlePt": "Ruptura",
+  "year": "2022",
+  "poster": "https://static.tvmaze.com/test/201.jpg",
+  "genres": [
+   "Drama"
+  ],
+  "runtime": 50,
+  "network": "Apple TV+",
+  "score": 8.7
+ },
+ {
+  "kind": "movie",
+  "extId": 773,
+  "title": "Little Miss Sunshine",
+  "titlePt": "Pequena Miss Sunshine",
+  "year": "2006",
+  "poster": "https://image.tmdb.org/t/p/w342/niNdhTpPHSgw22tK0PLjQMV640v.jpg",
+  "genres": [
+   "Comedy",
+   "Drama"
+  ],
+  "runtime": 102,
+  "network": null,
+  "score": 7.9
+ },
+ {
+  "kind": "movie",
+  "extId": 840430,
+  "title": "The Holdovers",
+  "titlePt": "Os Rejeitados",
+  "year": "2023",
+  "poster": "https://image.tmdb.org/t/p/w342/VHSzNBTwxV8vh7wylo7O9CLdac.jpg",
+  "genres": [
+   "Drama",
+   "Comedy"
+  ],
+  "runtime": 133,
+  "network": null,
+  "score": 8.2
+ },
+ {
+  "kind": "movie",
+  "extId": 175574,
+  "title": "Free Birds",
+  "titlePt": "Bons de Bico",
+  "year": "2013",
+  "poster": "https://image.tmdb.org/t/p/w342/gnSU2wUBq2gTkBEkxY8C1d1fXAQ.jpg",
+  "genres": [
+   "Animation",
+   "Comedy",
+   "Family"
+  ],
+  "runtime": 91,
+  "network": null,
+  "score": 8.5
+ },
+ {
+  "kind": "tv",
+  "extId": 525,
+  "title": "Gilmore Girls",
+  "titlePt": "Gilmore Girls",
+  "year": "2000",
+  "poster": "https://static.tvmaze.com/uploads/images/medium_portrait/4/11308.jpg",
+  "genres": [
+   "Drama",
+   "Comedy",
+   "Romance"
+  ],
+  "runtime": 60,
+  "network": "The CW",
+  "score": 8.8
+ },
+ {
+  "kind": "tv",
+  "extId": 431,
+  "title": "Friends",
+  "titlePt": "Friends",
+  "year": "1994",
+  "poster": "https://static.tvmaze.com/uploads/images/medium_portrait/41/104565.jpg",
+  "genres": [
+   "Comedy",
+   "Romance"
+  ],
+  "runtime": 30,
+  "network": "NBC",
+  "score": 9.1
+ },
+ {
+  "kind": "tv",
+  "extId": 17128,
+  "title": "This Is Us",
+  "titlePt": "This Is Us",
+  "year": "2016",
+  "poster": "https://static.tvmaze.com/uploads/images/medium_portrait/401/1003345.jpg",
+  "genres": [
+   "Drama",
+   "Comedy",
+   "Romance"
+  ],
+  "runtime": 60,
+  "network": "NBC",
+  "score": 9.4
+ },
+ {
+  "kind": "tv",
+  "extId": 54198,
+  "title": "The Bear",
+  "titlePt": "O Urso",
+  "year": "2022",
+  "poster": "https://static.tvmaze.com/uploads/images/medium_portrait/629/1574642.jpg",
+  "genres": [
+   "Drama",
+   "Comedy",
+   "Food"
+  ],
+  "runtime": 35,
+  "network": "Hulu",
+  "score": 7.2
+ }
+]

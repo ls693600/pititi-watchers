@@ -8,6 +8,7 @@ import { WatchedSheet } from '../components/WatchedSheet'
 import { SeasonsSheet } from '../components/SeasonsSheet'
 import { WhatsNewCard } from '../components/WhatsNew'
 import { FestivePicks } from '../components/FestivePicks'
+import { WeeklyPicks } from '../components/WeeklyPicks'
 import { FestiveDeco } from '../components/Festive'
 import type { MonthSort, ShowGroup } from '../logic'
 import {
@@ -141,6 +142,7 @@ export function Home(props: Props) {
       {!loading && <WhatsNewCard />}
 
       {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
+      {!loading && <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} />}
 
       {festive && (
         <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
