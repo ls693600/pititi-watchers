@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, pendingReveals } from './logic'
+import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { QuickLog } from './components/QuickLog'
@@ -605,6 +605,7 @@ export default function App() {
               quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Episode {n} logged', { n: next.episodesWatched }))
             }}
             onActions={(w) => setActionsFor(w.id)}
+            onStartSeason={(head, season) => setDetail({ watch: withSeason(nextSeasonDraft(head, newId(), me), season, watches), isNew: true })}
             readOnly={readOnly}
             everyone={people}
             festive={festive}

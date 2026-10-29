@@ -2,6 +2,7 @@
 // Proxies TMDB so the API key stays a server secret. GET ?q=search text  |  GET ?id=123&region=CA
 // GET ?trailer=movie&id=TMDB_ID  |  GET ?trailer=tv&id=TVMAZE_ID&season=2  → { key, name } (YouTube) or { key: null }
 // GET ?trending=week  → the week's most popular well-rated movies and series, mixed (series as TVmaze ids, like the app)
+// GET ?forus=tv:101,movie:693134  → titles like the ones you loved (TMDB recommendations), each with the loved titles it came from
 const TOKEN = Deno.env.get('TMDB_TOKEN') ?? '' // v4 "API Read Access Token"
 const KEY = Deno.env.get('TMDB_KEY') ?? '' // or the v3 "API Key"
 const IMG = 'https://image.tmdb.org/t/p/'
@@ -135,6 +136,66 @@ async function trendingWeek() {
   return mixed
 }
 
+// "For us": what TMDB recommends for each title the family loved, ranked by how many loves point at it
+const MAX_SEEDS = 8
+const FOR_US_MIN = 7
+
+async function forUs(refs: string[]) {
+  const seeds = refs
+    .map((r) => r.split(':'))
+    .filter(([k, id]) => (k === 'tv' || k === 'movie') && Number(id) > 0)
+    .slice(0, MAX_SEEDS)
+    .map(([k, id]) => ({ ref: `${k}:${id}`, kind: k as 'tv' | 'movie', id: Number(id) }))
+  const resolved = await Promise.all(
+    seeds.map(async (s) => ({ ...s, tmdb: s.kind === 'movie' ? s.id : await tvIdFromTvmaze(s.id).catch(() => null) })),
+  )
+  const own = new Set(resolved.map((s) => `${s.kind}${s.tmdb}`))
+  const pool = new Map<string, { x: Trend; kind: 'tv' | 'movie'; points: number; because: string[] }>()
+  const ptName = new Map<string, string>()
+  await Promise.all(
+    resolved.map(async (s) => {
+      if (!s.tmdb) return
+      const [en, pt] = await Promise.all([
+        tmdb(`/${s.kind}/${s.tmdb}/recommendations`, { language: 'en-US' }).catch(() => null),
+        tmdb(`/${s.kind}/${s.tmdb}/recommendations`, { language: 'pt-BR' }).catch(() => null),
+      ])
+      for (const x of (pt?.results as Trend[]) ?? []) ptName.set(`${s.kind}${x.id}`, String(x.title ?? x.name ?? ''))
+      ;((en?.results as Trend[]) ?? []).slice(0, 20).forEach((x, i) => {
+        const key = `${s.kind}${x.id}`
+        if (own.has(key)) return
+        const liked = x.vote_average >= FOR_US_MIN && x.vote_count >= (s.kind === 'movie' ? 150 : 50) && x.poster_path && !x.adult
+        if (!liked || (s.kind === 'tv' && (x.genre_ids ?? []).some((g) => SKIP_TV.has(g)))) return
+        const cur = pool.get(key) ?? { x, kind: s.kind, points: 0, because: [] }
+        // Higher on a loved title's list counts more; showing up for several loved titles counts most
+        cur.points += 1 + (20 - i) / 20
+        if (!cur.because.includes(s.ref)) cur.because.push(s.ref)
+        pool.set(key, cur)
+      })
+    }),
+  )
+  const ranked = [...pool.values()].sort((a, b) => b.points - a.points || b.x.vote_average - a.x.vote_average).slice(0, 26)
+  const items = await Promise.all(
+    ranked.map(async ({ x, kind, because }) => {
+      const score = Math.round(x.vote_average * 10) / 10
+      if (kind === 'movie')
+        return {
+          kind, extId: x.id, title: String(x.title), titlePt: ptName.get(`movie${x.id}`) || String(x.title),
+          year: typeof x.release_date === 'string' && x.release_date ? x.release_date.slice(0, 4) : null, poster: `${IMG}w342${x.poster_path}`,
+          genres: (x.genre_ids ?? []).map((g) => GENRES[g]).filter(Boolean).slice(0, 4), runtime: null, network: null, score, because,
+        }
+      const s = await tvmazeShow(x.id).catch(() => null)
+      if (!s?.id || !s.image?.medium) return null
+      return {
+        kind, extId: s.id, title: String(s.name), titlePt: ptName.get(`tv${x.id}`) || String(s.name),
+        year: typeof s.premiered === 'string' ? s.premiered.slice(0, 4) : null, poster: s.image.medium,
+        genres: (s.genres ?? []).slice(0, 4), runtime: s.averageRuntime ?? s.runtime ?? null, network: s.network?.name ?? s.webChannel?.name ?? null,
+        score, because,
+      }
+    }),
+  )
+  return items.filter(Boolean).slice(0, 24)
+}
+
 const json = (body: unknown, status = 200, cache = 'public, max-age=3600') =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': cache } })
 
@@ -153,6 +214,8 @@ Deno.serve(async (req) => {
       return json(v ? { key: v.key, name: v.name } : { key: null }, 200, v ? 'public, max-age=86400' : 'public, max-age=3600')
     }
     if (u.searchParams.get('trending') === 'week') return json(await trendingWeek(), 200, 'public, max-age=21600')
+    const loved = u.searchParams.get('forus')
+    if (loved) return json(await forUs(loved.split(',')), 200, 'public, max-age=86400')
     const q = u.searchParams.get('q')?.trim()
     if (q) {
       const r = await tmdb('/search/movie', { query: q.slice(0, 100), include_adult: 'false', language: lang })

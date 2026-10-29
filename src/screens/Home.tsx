@@ -9,6 +9,9 @@ import { SeasonsSheet } from '../components/SeasonsSheet'
 import { WhatsNewCard } from '../components/WhatsNew'
 import { FestivePicks } from '../components/FestivePicks'
 import { WeeklyPicks } from '../components/WeeklyPicks'
+import { ItsBack } from '../components/ItsBack'
+import { lovedTitles } from '../forUs'
+import type { SeasonInfo } from '../tvmaze'
 import { FestiveDeco } from '../components/Festive'
 import type { MonthSort, ShowGroup } from '../logic'
 import {
@@ -61,6 +64,8 @@ interface Props {
   /** Festive picks: what's already on the family's lists, and saving one */
   listItems?: ListItem[]
   onSaveTitle?: (title: Title) => void
+  /** "It's back": start a finished show's new season */
+  onStartSeason?: (head: Watch, season: SeasonInfo) => void
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -79,7 +84,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
@@ -142,7 +147,10 @@ export function Home(props: Props) {
       {!loading && <WhatsNewCard />}
 
       {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
-      {!loading && <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} />}
+      {!loading && <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} />}
+      {!loading && (
+        <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} loved={lovedTitles(watches)} />
+      )}
 
       {festive && (
         <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>

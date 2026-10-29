@@ -154,7 +154,60 @@ async function reminders() {
       tag: `ep:${w.id}`,
     }))
   }
-  return { checked: byShow.size, due: due.length, sent }
+  const back = await premieres(today, (subs ?? []) as Sub[])
+  return { checked: byShow.size, due: due.length, sent: sent + back.sent, premieres: back.due }
+}
+
+/**
+ * "It's back": a show you finished starts a new season today. TVmaze's schedule for today (TV and streaming)
+ * is matched against each household's finished shows, so it costs a handful of calls however many shows you have.
+ */
+async function premieres(today: string, subs: Sub[]) {
+  const urls = ['US', 'GB', 'CA', 'BR'].map((c) => `https://api.tvmaze.com/schedule?date=${today}&country=${c}`).concat(`https://api.tvmaze.com/schedule/web?date=${today}`)
+  const starts = new Map<number, number>()
+  for (const url of urls) {
+    try {
+      const eps = (await (await fetch(url)).json()) as { season: number; number: number; type?: string; show?: { id: number }; _embedded?: { show?: { id: number } } }[]
+      for (const e of eps) {
+        const id = e.show?.id ?? e._embedded?.show?.id
+        if (id && e.number === 1 && e.season > 1 && (e.type ?? 'regular') === 'regular') starts.set(id, e.season)
+      }
+    } catch {
+      // That schedule didn't load: fewer premieres today, never wrong ones
+    }
+  }
+  if (!starts.size) return { due: 0, sent: 0 }
+  const [{ data: logs }, { data: people }] = await Promise.all([
+    db.from('watches').select('id, show_id, show_name, season, status, watched_by, household_id').eq('kind', 'tv').in('show_id', [...starts.keys()]),
+    db.from('people').select('id, notify_level, lang'),
+  ])
+  const who = new Map(((people ?? []) as { id: string; notify_level: string | null; lang: string | null }[]).map((p) => [p.id, p]))
+  // Each household's latest season of the show; only finished shows, one season behind the premiere
+  const heads = new Map<string, { id: string; show_id: number; show_name: string; season: number; status: string; watched_by: string[] }>()
+  const watching = new Set<string>()
+  for (const w of (logs ?? []) as { id: string; show_id: number; show_name: string; season: number; status: string; watched_by: string[]; household_id: string }[]) {
+    const k = `${w.household_id}:${w.show_id}`
+    if (w.status === 'watching') watching.add(k)
+    if (!heads.has(k) || heads.get(k)!.season < w.season) heads.set(k, w)
+  }
+  let due = 0
+  let sent = 0
+  for (const [k, w] of heads) {
+    const season = starts.get(w.show_id)!
+    if (watching.has(k) || w.status !== 'done' || w.season >= season) continue
+    due++
+    const to = w.watched_by.filter((id) => who.get(id)?.notify_level !== 'off')
+    sent += await deliver(subs.filter((s) => to.includes(s.person_id)), (personId) => {
+      const pt = who.get(personId)?.lang === 'pt'
+      return {
+        title: pt ? `Voltou! ${w.show_name} 🎉` : `${w.show_name} is back 🎉`,
+        body: pt ? `A temporada ${season} estreia hoje. Bora maratonar?` : `Season ${season} starts today. Couch time?`,
+        open: `show:${w.id}`,
+        tag: `back:${w.show_id}:${season}`,
+      }
+    })
+  }
+  return { due, sent }
 }
 
 interface EveningPerson { id: string; household_id: string | null; evening_hour: number | null; tz: string | null; notify_level: string | null; lang: string | null }

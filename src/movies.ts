@@ -90,3 +90,8 @@ export const youtubeSearch = (title: string, year: string | null) =>
 export async function getTrendingWeek(): Promise<unknown> {
   return call<unknown>({ trending: 'week' })
 }
+
+/** Movies and series like the titles you loved ("tv:123" / "movie:456"), each saying which loved titles led to it. */
+export async function getForUs(loved: string[]): Promise<unknown> {
+  return call<unknown>({ forus: loved.join(',') })
+}

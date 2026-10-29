@@ -40,13 +40,15 @@ type SheetProps = Omit<Props, 'festive'> & {
   eyebrow: string
   title: string
   intro: string
-  picks: (FestivePick & { score?: number })[]
+  picks: (FestivePick & { score?: number; because?: string[] })[]
   /** "kind:extId" of the pick to scroll to and highlight (opened from a poster) */
   focus?: string | null
+  /** A line under a pick, e.g. why it's there */
+  noteFor?: (p: FestivePick & { because?: string[] }) => string | null
 }
 
 /** A sheet of movie and show picks: trailer on the poster, Save to a list, and what you already watched or saved. */
-export function PicksSheet({ watches, items, readOnly = false, onSave, onClose, emoji, eyebrow, title, intro, picks, focus = null }: SheetProps) {
+export function PicksSheet({ watches, items, readOnly = false, onSave, onClose, emoji, eyebrow, title, intro, picks, focus = null, noteFor }: SheetProps) {
   const pt = getLang() === 'pt'
   const focused = useRef<HTMLLIElement>(null)
   useEffect(() => {
@@ -99,6 +101,7 @@ export function PicksSheet({ watches, items, readOnly = false, onSave, onClose, 
                   {[p.kind === 'movie' ? t('Movie') : t('Show'), p.year].filter(Boolean).join(' · ')}
                   {p.score != null && <> · <b className="gold">★</b> {p.score.toFixed(1)}</>}
                 </span>
+                {noteFor?.(p) && <span className="pick-note">{noteFor(p)}</span>}
                 {!readOnly && (
                   <button
                     className={`btn sm block ${isSaved ? 'pick-saved' : 'primary'}`}

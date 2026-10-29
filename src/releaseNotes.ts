@@ -10,6 +10,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-29',
+    en: [
+      'It\'s back: Home tells you when a show you finished gets a new season, a premiere date, a renewal, or ends. Tap Start to begin the new season.',
+      'On premiere day you get a notification too.',
+      'What to watch has a new For us tab: movies and series like the ones you rated 8 or more.',
+    ],
+    pt: [
+      'Voltou!: o Início avisa quando uma série que vocês terminaram ganha temporada nova, data de estreia, renovação, ou chega ao fim. Toque em Começar para iniciar a temporada nova.',
+      'No dia da estreia chega uma notificação também.',
+      'O que assistir ganhou a aba Para nós: filmes e séries parecidos com os que vocês deram 8 ou mais.',
+    ],
+  },
+  {
     id: '2026-10-28',
     en: [
       'Picks of the week on Home: the most popular movies and series right now, rated 7 or more. Touch to stop it, tap a poster for the trailer.',
