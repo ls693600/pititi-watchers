@@ -1,0 +1,80 @@
+// Offline shell: hashed assets are cache-first, the page itself is network-first.
+const CACHE = 'pititi-v3'
+
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+  )
+})
+
+self.addEventListener('fetch', (e) => {
+  const req = e.request
+  const url = new URL(req.url)
+  // Only this app's own files; Supabase and TVmaze always go to the network
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return
+
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      // Skip the browser's HTTP cache (GitHub Pages allows 10 minutes): always the newest page when online
+      fetch(req, { cache: 'no-store' })
+        .then((res) => {
+          const copy = res.clone()
+          caches.open(CACHE).then((c) => c.put(req, copy))
+          return res
+        })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match('./'))),
+    )
+    return
+  }
+
+  e.respondWith(
+    caches.match(req).then(
+      (hit) =>
+        hit ||
+        fetch(req).then((res) => {
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(CACHE).then((c) => c.put(req, copy))
+          }
+          return res
+        }),
+    ),
+  )
+})
+
+// Notifications sent by the server (messages, @mentions, new episodes)
+self.addEventListener('push', (e) => {
+  let data = {}
+  try {
+    data = e.data ? e.data.json() : {}
+  } catch {
+    data = { title: 'Pititi Watchers', body: e.data ? e.data.text() : '' }
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Pititi Watchers', {
+      body: data.body || '',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: data.tag,
+      data: { open: data.open || '' },
+    }),
+  )
+})
+
+// Tapping a notification opens the app on that chat (or show)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const open = e.notification.data && e.notification.data.open
+  const url = new URL(open ? `./?open=${encodeURIComponent(open)}` : './', self.registration.scope).href
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const win = list.find((c) => c.url.startsWith(self.registration.scope))
+      if (win) {
+        win.postMessage({ type: 'open', open })
+        return win.focus()
+      }
+      return self.clients.openWindow(url)
+    }),
+  )
+})
