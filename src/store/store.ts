@@ -1,4 +1,4 @@
-import type { Comment, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 
 export interface Snapshot {
   watches: Watch[]
@@ -13,6 +13,10 @@ export interface Snapshot {
   comments: Comment[]
   /** False when the reactions/chat tables don't exist yet (migration 006 not run) */
   social: boolean
+  /** Everyone's emoji per episode */
+  episodeReactions: EpisodeReaction[]
+  /** False until migration 013 is run: "how was this episode?" stays hidden */
+  episodeFx: boolean
 }
 
 export interface Store {
@@ -47,6 +51,8 @@ export interface Store {
   setEvening(personId: string, hour: number | null, lang: 'en' | 'pt'): Promise<void>
   /** Sets your reaction on someone's rating (null removes it) */
   setReaction(r: Omit<Reaction, 'emoji'> & { emoji: string | null }): Promise<void>
+  /** Your emoji on an episode (null removes it) */
+  setEpisodeReaction(r: Omit<EpisodeReaction, 'emoji'> & { emoji: EpisodeReaction['emoji'] | null }): Promise<void>
   addComment(c: Comment): Promise<void>
   removeComment(id: string): Promise<void>
   /** This phone's notification subscription (Web Push) */

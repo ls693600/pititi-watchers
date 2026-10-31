@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '../i18n'
-import type { Watch } from '../types'
+import type { EpisodeEmoji, Watch } from '../types'
+import { EmojiRow } from './EpisodeReactions'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
 
@@ -10,10 +11,17 @@ interface Props {
   onNext: (w: Watch) => void
   onOther: () => void
   onClose: () => void
+  /** "How was it?" after each tap (null: episode reactions aren't set up) */
+  react?: { mine: (w: Watch, episode: number) => EpisodeEmoji | null; onReact: (w: Watch, episode: number, emoji: EpisodeEmoji) => void } | null
 }
 
 /** "What did you watch today?": one tap per show marks the next episode (each with Undo). */
-export function QuickMark({ watching, onNext, onOther, onClose }: Props) {
+export function QuickMark({ watching, onNext, onOther, onClose, react = null }: Props) {
+  // Only the last episode you marked asks "how was it?" (the others can be filled in on the show page)
+  const [asked, setAsked] = useState<{ watch: Watch; episode: number } | null>(null)
+  const now = asked && watching.find((x) => x.id === asked.watch.id)
+  // Undone since: don't ask about an episode that's no longer marked
+  const ask = asked && !(now && now.episodesWatched < asked.episode) ? asked : null
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -35,7 +43,19 @@ export function QuickMark({ watching, onNext, onOther, onClose }: Props) {
           </button>
         </div>
 
-        {watching.length === 0 ? (
+        {react && ask && (
+          <div className="qm-ask" aria-live="polite">
+            <p>
+              <b>{t('How was E{n}?', { n: ask.episode })}</b> <span className="muted">{ask.watch.showName}</span>
+            </p>
+            <EmojiRow mine={react.mine(ask.watch, ask.episode)} label={t('How was episode {n}?', { n: ask.episode })} onPick={(e) => react.onReact(ask.watch, ask.episode, e)} />
+            <button type="button" className="qm-ask-close" aria-label={t('Not now')} onClick={() => setAsked(null)}>
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
+
+        {watching.length === 0 && !ask ? (
           <p className="muted">{t("You're not in the middle of any show. Add one to start.")}</p>
         ) : (
           <ul className="quickmark">
@@ -51,7 +71,13 @@ export function QuickMark({ watching, onNext, onOther, onClose }: Props) {
                       {t('S{season}', { season: w.season })} · {w.totalEpisodes ? t('{n} of {total}', { n: w.episodesWatched, total: w.totalEpisodes }) : t('{n} eps', { n: w.episodesWatched })}
                     </span>
                   </span>
-                  <button className="qm-btn" disabled={done} onClick={() => onNext(w)} aria-label={t('Watched episode {n} of {title}', { n: next, title: w.showName })}>
+                  <button
+                    className="qm-btn"
+                    disabled={done}
+                    onClick={() => {
+                      onNext(w)
+                      setAsked({ watch: w, episode: next })
+                    }} aria-label={t('Watched episode {n} of {title}', { n: next, title: w.showName })}>
                     <Icon name="plus" size={16} stroke={2.6} /> {t('E{n}', { n: next })}
                   </button>
                 </li>

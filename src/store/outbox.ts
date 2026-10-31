@@ -5,8 +5,8 @@ import type { Store } from './store'
 
 const KEY = 'pititi.outbox.v1'
 
-type Queued = 'save' | 'remove' | 'addComment' | 'removeComment' | 'setReaction' | 'addItem' | 'removeItem' | 'saveList' | 'removeList' | 'recommend' | 'answerRecommendation' | 'setMute'
-const QUEUED: Queued[] = ['save', 'remove', 'addComment', 'removeComment', 'setReaction', 'addItem', 'removeItem', 'saveList', 'removeList', 'recommend', 'answerRecommendation', 'setMute']
+type Queued = 'save' | 'remove' | 'addComment' | 'removeComment' | 'setReaction' | 'setEpisodeReaction' | 'addItem' | 'removeItem' | 'saveList' | 'removeList' | 'recommend' | 'answerRecommendation' | 'setMute'
+const QUEUED: Queued[] = ['save', 'remove', 'addComment', 'removeComment', 'setReaction', 'setEpisodeReaction', 'addItem', 'removeItem', 'saveList', 'removeList', 'recommend', 'answerRecommendation', 'setMute']
 
 export interface Pending {
   id: string

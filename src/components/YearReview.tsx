@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { currentMonth, monthLabel, yearReview, type YearReview as Review } from '../logic'
+import { currentMonth, episodeOfYear, monthLabel, yearReview, type YearReview as Review } from '../logic'
 import { drawMonthCard, shareImage } from '../share'
 import { bigPoster } from '../tvmaze'
-import type { Person, Watch } from '../types'
+import type { EpisodeReaction, Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
@@ -15,6 +15,8 @@ interface Props {
   year: number
   watches: Watch[]
   people: Person[]
+  /** Everyone's episode emojis, for "Episode of the year" */
+  episodeReactions?: EpisodeReaction[]
   onClose: () => void
   onFlash: (msg: string) => void
 }
@@ -30,7 +32,7 @@ function names(people: Person[], ids: string[]): string {
   return list.length <= 2 ? list.join(' & ') : `${list.slice(0, -1).join(', ')} & ${list[list.length - 1]}`
 }
 
-function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boolean, share: ReactNode): Slide[] {
+function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boolean, share: ReactNode, episodeReactions: EpisodeReaction[]): Slide[] {
   const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? t('Someone')
   const who = names(people, r.people.map((p) => p.id)) || t('The family')
   const posters = [...new Set(watches.filter((w) => w.month.startsWith(`${r.year}-`) && w.poster).map((w) => w.poster!))].slice(0, 6)
@@ -87,6 +89,30 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
             <AvgStars value={r.top.avg} size={26} /> <b>{r.top.avg.toFixed(1)}</b>
           </div>
           <p className="yr-sub">{w.watchedBy.length > 1 ? t('Your highest family average.') : t("{name}'s top pick.", { name: nameOf(w.watchedBy[0]) })}</p>
+        </>
+      ),
+    })
+  }
+  const ep = episodeOfYear(episodeReactions, watches, r.people.map((p) => p.id), r.year)
+  if (ep) {
+    const w = ep.watch
+    slides.push({
+      id: 'episode',
+      tone: 'violet',
+      body: (
+        <>
+          <p className="yr-kicker">{t('Episode of the year')}</p>
+          <div className="yr-poster">{w.poster ? <img src={bigPoster(w.poster)!} alt="" /> : <PosterFill src={null} name={w.showName} />}</div>
+          <h2 className="yr-title">{w.showName}</h2>
+          <p className="yr-ep">{t('S{season} · E{n}', { season: w.season, n: ep.tally.episode })}</p>
+          <p className="yr-emojis" aria-label={t('{n} reactions', { n: ep.tally.count })}>
+            {Object.entries(ep.tally.byEmoji).map(([e, ids]) => (
+              <span key={e}>
+                {e}
+                {ids!.length > 1 && <small>×{ids!.length}</small>}
+              </span>
+            ))}
+          </p>
         </>
       ),
     })
@@ -190,7 +216,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
 }
 
 /** "Pititi Wrapped": a story of the family's year. Tap right for next, left for back; hold to pause. */
-export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
+export function YearReview({ year, watches, people, episodeReactions = [], onClose, onFlash }: Props) {
   const r = yearReview(watches, people.map((p) => p.id), year)
   const soFar = year === Number(currentMonth().slice(0, 4))
   const [i, setI] = useState(0)
@@ -233,7 +259,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
       <Icon name="share" size={18} /> {sharing ? t('Making the picture…') : t('Share our {month}', { month: year })}
     </button>
   )
-  const slides = buildSlides(r, watches, people, soFar, shareBtn)
+  const slides = buildSlides(r, watches, people, soFar, shareBtn, episodeReactions)
   const last = slides.length - 1
 
   const next = useCallback(() => setI((n) => Math.min(n + 1, last)), [last])

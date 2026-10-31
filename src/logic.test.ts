@@ -32,6 +32,9 @@ import {
   togetherWatchers,
   scoreLabel,
   yearReview,
+  episodeTallies,
+  bestEpisode,
+  episodeOfYear,
   rewatchPair,
   canReact,
   toggleReaction,
@@ -87,7 +90,7 @@ import {
 } from './logic'
 import { resolveTheme } from './theme'
 import { plainText } from './tvmaze'
-import type { Watch } from './types'
+import type { EpisodeReaction, Watch } from './types'
 
 function watch(over: Partial<Watch> = {}): Watch {
   return {
@@ -1023,5 +1026,39 @@ describe('moveToMonth', () => {
   })
   it('handles a log with no monthly breakdown', () => {
     expect(moveToMonth(watch({ month: '2026-09', episodesWatched: 2, episodesByMonth: undefined }), '2026-10').episodesByMonth).toEqual({ '2026-10': 2 })
+  })
+})
+
+describe('episode reactions', () => {
+  const r = (personId: string, episode: number, emoji: EpisodeReaction['emoji'], extra: Partial<EpisodeReaction> = {}): EpisodeReaction => ({
+    kind: 'tv', showId: 1, season: 2, episode, personId, emoji, createdAt: '2026-05-01T20:00:00Z', ...extra,
+  })
+  const list = [r('l', 1, '🥱'), r('a', 1, '🥱'), r('l', 3, '😂'), r('a', 3, '😂'), r('f', 7, '🤯'), r('a', 7, '😍'), r('l', 7, '🤯'), r('x', 7, '🤯', { season: 1 })]
+
+  it('tallies one season, with the most-picked emoji on top', () => {
+    const t = episodeTallies(list, 'tv', 1, 2)
+    expect([...t.keys()].sort()).toEqual([1, 3, 7])
+    expect(t.get(7)).toMatchObject({ count: 3, points: 6, top: '🤯' })
+    expect(t.get(7)!.byEmoji['🤯']).toEqual(['f', 'l'])
+    expect(t.get(1)).toMatchObject({ points: -2, top: '🥱' })
+  })
+  it('a tie on top goes to the order the emojis are offered in', () => {
+    expect(episodeTallies([r('l', 2, '😍'), r('a', 2, '🤯')], 'tv', 1, 2).get(2)!.top).toBe('🤯')
+  })
+  it('best episode: most points, then most reactions, then earlier; none if nothing scores', () => {
+    expect(bestEpisode(episodeTallies(list, 'tv', 1, 2))?.episode).toBe(7)
+    expect(bestEpisode(episodeTallies([r('l', 4, '😂'), r('l', 2, '😂')], 'tv', 1, 2))?.episode).toBe(2)
+    expect(bestEpisode(episodeTallies([r('l', 1, '🥱')], 'tv', 1, 2))).toBeNull()
+    expect(bestEpisode(new Map())).toBeNull()
+  })
+  it('episode of the year: only these people, only that year, and only shows in the log', () => {
+    const log = watch({ id: 'w', showId: 1, season: 2, showName: 'Severance' })
+    const best = episodeOfYear(list, [log], ['l', 'a'], 2026)
+    expect(best?.watch.id).toBe('w')
+    expect(best?.tally.episode).toBe(7)
+    // Fernando's 🤯 isn't ours: E7 has 2 of our reactions (4 points), still the best
+    expect(best?.tally.count).toBe(2)
+    expect(episodeOfYear(list, [log], ['l', 'a'], 2025)).toBeNull()
+    expect(episodeOfYear(list, [], ['l', 'a'], 2026)).toBeNull()
   })
 })

@@ -79,6 +79,24 @@ export interface Reaction {
   emoji: string
 }
 
+/** The emojis for "how was this episode?", in the order they're offered. */
+export const EPISODE_EMOJIS = ['🤯', '😭', '😂', '😍', '🥱'] as const
+export type EpisodeEmoji = (typeof EPISODE_EMOJIS)[number]
+
+/**
+ * One person's emoji on one episode. Keyed by the show, not a household's log, so the whole family's
+ * reactions to the same episode line up ("Fernando also 🤯'd E7").
+ */
+export interface EpisodeReaction {
+  kind: Kind
+  showId: number
+  season: number
+  episode: number
+  personId: string
+  emoji: EpisodeEmoji
+  createdAt: string
+}
+
 /** A line in a show's family chat. */
 export interface Comment {
   id: string

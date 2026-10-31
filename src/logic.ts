@@ -1,6 +1,6 @@
 import { locale, t } from './i18n'
 import type { SeasonInfo } from './tvmaze'
-import type { Comment, Household, Kind, ListItem, Person, Reaction, Recommendation, Title, Watch, WatchList } from './types'
+import { EPISODE_EMOJIS, type Comment, type EpisodeEmoji, type EpisodeReaction, type Household, type Kind, type ListItem, type Person, type Reaction, type Recommendation, type Title, type Watch, type WatchList } from './types'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
 export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
@@ -890,6 +890,69 @@ export function yearReview(all: Watch[], personIds: string[], year: number, now 
     together: list.filter((w) => w.watchedBy.length > 1).length,
     solo: list.filter((w) => w.watchedBy.length === 1).length,
   }
+}
+
+// ---- Episode reactions ----
+
+type EpisodeRef = Pick<EpisodeReaction, 'kind' | 'showId' | 'season' | 'episode'>
+
+export const sameEpisode = (a: EpisodeRef, b: EpisodeRef) => a.kind === b.kind && a.showId === b.showId && a.season === b.season && a.episode === b.episode
+export const sameEpisodeReaction = (a: EpisodeRef & { personId: string }, b: EpisodeRef & { personId: string }) => sameEpisode(a, b) && a.personId === b.personId
+
+/** How much an emoji says "great episode": mind-blown and loved count most, a yawn counts against. */
+const EMOJI_POINTS: Record<EpisodeEmoji, number> = { '🤯': 2, '😍': 2, '😭': 1, '😂': 1, '🥱': -1 }
+
+export interface EpisodeTally {
+  episode: number
+  /** People who reacted */
+  count: number
+  points: number
+  /** The emoji most people picked (ties: the order they're offered in) */
+  top: EpisodeEmoji
+  /** Who picked each emoji */
+  byEmoji: Partial<Record<EpisodeEmoji, string[]>>
+}
+
+function tally(episode: number, list: EpisodeReaction[]): EpisodeTally {
+  const byEmoji: Partial<Record<EpisodeEmoji, string[]>> = {}
+  for (const r of list) (byEmoji[r.emoji] ??= []).push(r.personId)
+  const top = [...EPISODE_EMOJIS].sort((a, b) => (byEmoji[b]?.length ?? 0) - (byEmoji[a]?.length ?? 0))[0]
+  return { episode, count: list.length, points: list.reduce((n, r) => n + EMOJI_POINTS[r.emoji], 0), top, byEmoji }
+}
+
+/** The family's reactions to one season, per episode. */
+export function episodeTallies(list: EpisodeReaction[], kind: Kind, showId: number, season: number): Map<number, EpisodeTally> {
+  const groups = new Map<number, EpisodeReaction[]>()
+  for (const r of list) {
+    if (r.kind !== kind || r.showId !== showId || r.season !== season) continue
+    groups.set(r.episode, [...(groups.get(r.episode) ?? []), r])
+  }
+  return new Map([...groups].map(([ep, rs]) => [ep, tally(ep, rs)]))
+}
+
+/** The season's best episode: most points, then most reactions, then the earlier one. Null until one scores above zero. */
+export function bestEpisode(tallies: Map<number, EpisodeTally>): EpisodeTally | null {
+  const best = [...tallies.values()].sort((a, b) => b.points - a.points || b.count - a.count || a.episode - b.episode)[0]
+  return best && best.points > 0 ? best : null
+}
+
+/** For Year in Review: the best episode these people reacted to that year, with the log it belongs to. */
+export function episodeOfYear(list: EpisodeReaction[], watches: Watch[], personIds: string[], year: number): { watch: Watch; tally: EpisodeTally } | null {
+  const mine = list.filter((r) => personIds.includes(r.personId) && r.createdAt.startsWith(`${year}-`))
+  const groups = new Map<string, EpisodeReaction[]>()
+  for (const r of mine) {
+    const key = `${r.kind}:${r.showId}:${r.season}:${r.episode}`
+    groups.set(key, [...(groups.get(key) ?? []), r])
+  }
+  const ranked = [...groups.values()]
+    .map((rs) => ({ ref: rs[0], tally: tally(rs[0].episode, rs) }))
+    .filter((x) => x.tally.points > 0)
+    .sort((a, b) => b.tally.points - a.tally.points || b.tally.count - a.tally.count || a.ref.createdAt.localeCompare(b.ref.createdAt))
+  for (const { ref, tally: t } of ranked) {
+    const watch = watches.find((w) => kindOf(w) === ref.kind && w.showId === ref.showId && w.season === ref.season)
+    if (watch) return { watch, tally: t }
+  }
+  return null
 }
 
 // ---- Mentions ----

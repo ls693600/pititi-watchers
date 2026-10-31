@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Comment, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, EpisodeReaction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
@@ -201,6 +201,26 @@ interface CommentRow {
   created_at: string
 }
 
+interface EpisodeReactionRow {
+  kind: EpisodeReaction['kind']
+  show_id: number
+  season: number
+  episode: number
+  person_id: string
+  emoji: EpisodeReaction['emoji']
+  created_at: string
+}
+
+const toEpisodeReaction = (r: EpisodeReactionRow): EpisodeReaction => ({
+  kind: r.kind,
+  showId: r.show_id,
+  season: r.season,
+  episode: r.episode,
+  personId: r.person_id,
+  emoji: r.emoji,
+  createdAt: r.created_at,
+})
+
 const toReaction = (r: ReactionRow): Reaction => ({ watchId: r.watch_id, personId: r.person_id, targetId: r.target_id, emoji: r.emoji })
 const toComment = (r: CommentRow): Comment => ({ id: r.id, watchId: r.watch_id, personId: r.person_id, text: r.body, createdAt: r.created_at })
 
@@ -373,7 +393,7 @@ export const cloudStore: Store = {
       if (res.error) console.warn(`${what} unavailable:`, res.error.message)
       return res.error ? [] : (res.data ?? [])
     }
-    const [w, r, p, rx, cm, hh, ls, li, rc, mu] = await Promise.all([
+    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase()
         .from('ratings')
@@ -392,6 +412,7 @@ export const cloudStore: Store = {
       supabase().from('list_items').select('*'),
       supabase().from('recommendations').select('*').order('created_at', { ascending: false }),
       supabase().from('chat_mutes').select('thread'),
+      supabase().from('episode_reactions').select('kind, show_id, season, episode, person_id, emoji, created_at'),
     ])
     if (w.error) throw w.error
     if (r.error) throw r.error
@@ -414,6 +435,9 @@ export const cloudStore: Store = {
       reactions: social ? (rx.data as ReactionRow[]).map(toReaction) : [],
       comments: social ? (cm.data as CommentRow[]).map(toComment) : [],
       social,
+      // Migration 013: until it's run, episode reactions stay hidden
+      episodeReactions: optional(er, 'Episode reactions').map((x) => toEpisodeReaction(x as EpisodeReactionRow)),
+      episodeFx: !er.error,
     }
     cache.write(snap)
     return snap
@@ -453,6 +477,13 @@ export const cloudStore: Store = {
     const { error } = r.emoji
       ? await supabase().from('reactions').upsert({ ...key, emoji: r.emoji })
       : await supabase().from('reactions').delete().match(key)
+    if (error) throw error
+  },
+  async setEpisodeReaction(r) {
+    const key = { kind: r.kind, show_id: r.showId, season: r.season, episode: r.episode, person_id: r.personId }
+    const { error } = r.emoji
+      ? await supabase().from('episode_reactions').upsert({ ...key, emoji: r.emoji, created_at: r.createdAt })
+      : await supabase().from('episode_reactions').delete().match(key)
     if (error) throw error
   },
   async addComment(c) {
@@ -597,10 +628,16 @@ export const cloudStore: Store = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, ping)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, ping)
       .subscribe()
+    // Its own channel too: before migration 013 this table doesn't exist
+    const episodes = supabase()
+      .channel('family-episodes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'episode_reactions' }, ping)
+      .subscribe()
     return () => {
       clearTimeout(t)
       supabase().removeChannel(channel)
       supabase().removeChannel(social)
+      supabase().removeChannel(episodes)
     }
   },
 }

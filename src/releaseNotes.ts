@@ -10,6 +10,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-01',
+    en: [
+      'How was it? After you mark an episode, tap 🤯 😭 😂 😍 or 🥱.',
+      'The show page shows everyone\'s emoji per episode and the season\'s best episode.',
+      'Your year review gets an Episode of the year.',
+    ],
+    pt: [
+      'Como foi? Depois de marcar um episódio, toque em 🤯 😭 😂 😍 ou 🥱.',
+      'A página da série mostra o emoji de todos em cada episódio e o melhor episódio da temporada.',
+      'A retrospectiva do ano ganha o Episódio do ano.',
+    ],
+  },
+  {
     id: '2026-10-31-chart',
     en: ['The monthly chart in Stats now stacks movies (purple) on top of shows.'],
     pt: ['O gráfico mensal das Estatísticas agora mostra os filmes (roxo) em cima das séries.'],

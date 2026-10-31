@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
+import { EpisodeReactions } from '../components/EpisodeReactions'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
@@ -7,7 +8,7 @@ import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
 import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
-import type { Comment, Person, Reaction, Title, Watch } from '../types'
+import type { Comment, EpisodeEmoji, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
 import { getMovie, type MovieInfo } from '../movies'
 import { t } from '../i18n'
@@ -49,10 +50,12 @@ interface Props {
   onMore?: (t: Title) => void
   /** Open another season's log (isNew: a fresh one to fill in) */
   onSwitchLog: (w: Watch, isNew: boolean) => void
+  /** "How was each episode?": everyone's emoji (null hides it: migration 013 not run, or a new log) */
+  episodeFx?: { reactions: EpisodeReaction[]; onReact: (episode: number, emoji: EpisodeEmoji) => void } | null
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, onClose }: Props) {
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
@@ -604,6 +607,22 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             })}
           </div>
         </section>
+      )}
+
+      {episodeFx && !isMovie && (
+        <EpisodeReactions
+          kind="tv"
+          showId={stored.showId}
+          season={stored.season}
+          watched={stored.episodesWatched}
+          finished={stored.status === 'done'}
+          names={Object.fromEntries((episodes ?? []).map((e) => [e.number, e.name]))}
+          reactions={episodeFx.reactions}
+          people={everyone}
+          me={me}
+          canReact={me != null && (!readOnly || stored.watchedBy.includes(me))}
+          onReact={episodeFx.onReact}
+        />
       )}
 
       {!readOnly && (

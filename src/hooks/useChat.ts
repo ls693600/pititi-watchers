@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react'
 import { t } from '../i18n'
 import { CHAT_KEY, readSet, writeSet } from '../lib/seen'
-import { newId, toggleReaction } from '../logic'
+import { newId, sameEpisodeReaction, toggleReaction } from '../logic'
 import type { Snapshot, Store } from '../store/store'
-import type { Comment, Reaction } from '../types'
+import type { Comment, EpisodeEmoji, EpisodeReaction, Reaction } from '../types'
 import type { Flash } from './useToast'
 
 /** Family chats and reactions: what's loaded, sending, removing (with Undo), and putting a show's chat back. */
@@ -12,12 +12,32 @@ export function useChat(store: Store, me: string | null, flash: Flash) {
   const [reactions, setReactions] = useState<Reaction[]>([])
   /** Reactions and chat need migration 006; hidden until it's run */
   const [social, setSocial] = useState(false)
+  const [episodeReactions, setEpisodeReactions] = useState<EpisodeReaction[]>([])
+  /** Episode reactions need migration 013; hidden until it's run */
+  const [episodeFx, setEpisodeFx] = useState(false)
 
-  const take = useCallback((snap: Pick<Snapshot, 'comments' | 'reactions'> & { social?: boolean }) => {
+  const take = useCallback((snap: Pick<Snapshot, 'comments' | 'reactions'> & Partial<Pick<Snapshot, 'social' | 'episodeReactions' | 'episodeFx'>>) => {
     setComments(snap.comments ?? [])
     setReactions(snap.reactions ?? [])
     if (snap.social !== undefined) setSocial(snap.social)
+    if (snap.episodeReactions) setEpisodeReactions(snap.episodeReactions)
+    if (snap.episodeFx !== undefined) setEpisodeFx(snap.episodeFx)
   }, [])
+
+  /** Your emoji on an episode; the same emoji again takes it back. */
+  async function reactEpisode(ref: Pick<EpisodeReaction, 'kind' | 'showId' | 'season' | 'episode'>, emoji: EpisodeEmoji) {
+    if (!me) return
+    const r: EpisodeReaction = { ...ref, personId: me, emoji, createdAt: new Date().toISOString() }
+    const before = episodeReactions.find((x) => sameEpisodeReaction(x, r)) ?? null
+    const kept = before?.emoji !== emoji
+    setEpisodeReactions((list) => [...list.filter((x) => !sameEpisodeReaction(x, r)), ...(kept ? [r] : [])])
+    try {
+      await store.setEpisodeReaction({ ...r, emoji: kept ? emoji : null })
+    } catch {
+      setEpisodeReactions((list) => [...list.filter((x) => !sameEpisodeReaction(x, r)), ...(before ? [before] : [])])
+      flash(t("Couldn't send your reaction. Check your connection."))
+    }
+  }
 
   async function react(watchId: string, targetId: string, emoji: string) {
     if (!me) return
@@ -79,5 +99,5 @@ export function useChat(store: Store, me: string | null, flash: Flash) {
     setReactions((list) => [...list.filter((r) => r.watchId !== watchId), ...reacts])
   }
 
-  return { comments, reactions, social, take, react, send, remove, forWatch, restore }
+  return { comments, reactions, social, episodeReactions, episodeFx, reactEpisode, take, react, send, remove, forWatch, restore }
 }

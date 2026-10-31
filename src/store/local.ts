@@ -1,5 +1,5 @@
-import { newId } from '../logic'
-import type { Comment, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import { newId, sameEpisodeReaction } from '../logic'
+import type { Comment, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
@@ -7,12 +7,13 @@ const PEOPLE = 'pititi.people.v2'
 const UP_NEXT = 'pititi.upnext.v1'
 const REACTIONS = 'pititi.reactions.v1'
 const COMMENTS = 'pititi.comments.v1'
+const EPISODE_REACTIONS = 'pititi.epreactions.v1'
 const HOUSEHOLDS = 'pititi.households.v1'
 const LISTS = 'pititi.lists.v1'
 const ITEMS = 'pititi.listitems.v1'
 const RECS = 'pititi.recs.v1'
 const MUTES = 'pititi.mutes.v1'
-const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES]
+const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS]
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -89,6 +90,8 @@ function read(): Snapshot {
     reactions: readJson<Reaction[]>(REACTIONS, []),
     comments: readJson<Comment[]>(COMMENTS, []),
     social: true,
+    episodeReactions: readJson<EpisodeReaction[]>(EPISODE_REACTIONS, []),
+    episodeFx: true,
   }
 }
 
@@ -104,6 +107,7 @@ function write(snap: Snapshot) {
   localStorage.setItem(MUTES, JSON.stringify(snap.mutes ?? []))
   localStorage.setItem(REACTIONS, JSON.stringify(snap.reactions ?? []))
   localStorage.setItem(COMMENTS, JSON.stringify(snap.comments ?? []))
+  localStorage.setItem(EPISODE_REACTIONS, JSON.stringify(snap.episodeReactions ?? []))
 }
 
 function update(fn: (s: Snapshot) => Partial<Snapshot>) {
@@ -201,6 +205,12 @@ export const localStore: Store = {
     update((s) => {
       const rest = s.reactions.filter((x) => !(x.watchId === r.watchId && x.personId === r.personId && x.targetId === r.targetId))
       return { reactions: r.emoji ? [...rest, { ...r, emoji: r.emoji }] : rest }
+    })
+  },
+  async setEpisodeReaction(r) {
+    update((s) => {
+      const rest = (s.episodeReactions ?? []).filter((x) => !sameEpisodeReaction(x, r))
+      return { episodeReactions: r.emoji ? [...rest, { ...r, emoji: r.emoji }] : rest }
     })
   },
   async addComment(c) {

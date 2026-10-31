@@ -257,7 +257,7 @@ export default function App() {
       setWatches(snap.watches)
       setPeople(snap.people)
       takeCircle(snap)
-      takeChat({ comments: snap.comments, reactions: snap.reactions })
+      takeChat({ comments: snap.comments, reactions: snap.reactions, episodeReactions: snap.episodeReactions })
       setOffline(true)
     } finally {
       setLoaded(true)
@@ -551,6 +551,14 @@ export default function App() {
             reactions={reactions}
             comments={comments}
             onReact={(targetId, emoji) => chat.react(detail.watch.id, targetId, emoji)}
+            episodeFx={
+              chat.episodeFx && !detail.isNew
+                ? {
+                    reactions: chat.episodeReactions,
+                    onReact: (episode, emoji) => chat.reactEpisode({ kind: 'tv', showId: detail.watch.showId, season: detail.watch.season, episode }, emoji),
+                  }
+                : null
+            }
             onComment={(text) => chat.send(detail.watch.id, text)}
             onRemoveComment={chat.remove}
             onChatSeen={() => markRead(detail.watch.id)}
@@ -707,6 +715,7 @@ export default function App() {
             filter={filter}
             onFilter={setFilter}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
+            episodeReactions={chat.episodeReactions}
           />
         ) : (
           <Settings
@@ -830,6 +839,15 @@ export default function App() {
             setTab('search')
           }}
           onClose={() => setQuickMark(false)}
+          react={
+            chat.episodeFx && me
+              ? {
+                  mine: (w, episode) =>
+                    chat.episodeReactions.find((r) => r.kind === 'tv' && r.showId === w.showId && r.season === w.season && r.episode === episode && r.personId === me)?.emoji ?? null,
+                  onReact: (w, episode, emoji) => chat.reactEpisode({ kind: 'tv', showId: w.showId, season: w.season, episode }, emoji),
+                }
+              : null
+          }
         />
       )}
 

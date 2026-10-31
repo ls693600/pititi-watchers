@@ -8,7 +8,7 @@ import { MonthSheet } from '../components/MonthSheet'
 import { YearReview } from '../components/YearReview'
 import { currentMonth, familyBadges, personalTop, monthLabel, personAverages, raters, tasteMatches, watchedByPerson, yearStats } from '../logic'
 import { t } from '../i18n'
-import type { Person, Watch } from '../types'
+import type { EpisodeReaction, Person, Watch } from '../types'
 
 interface Props {
   watches: Watch[]
@@ -18,9 +18,11 @@ interface Props {
   onOpen: (w: Watch) => void
   onHelp: (topic: string) => void
   onFlash: (msg: string) => void
+  /** For Year in Review's "Episode of the year" */
+  episodeReactions?: EpisodeReaction[]
 }
 
-export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFlash }: Props) {
+export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFlash, episodeReactions = [] }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
   const [year, setYear] = useState(thisYear)
   const mine = watchedByPerson(watches, filter)
@@ -106,7 +108,7 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFla
           </button>
         )}
       </section>
-      {review && <YearReview year={year} watches={watches} people={people} onClose={() => setReview(false)} onFlash={onFlash} />}
+      {review && <YearReview year={year} watches={watches} people={people} episodeReactions={episodeReactions} onClose={() => setReview(false)} onFlash={onFlash} />}
 
       <section className="card" style={{ padding: 0 }}>
         <div className="chart" aria-label={t('Shows per month in {year}', { year })}>
