@@ -116,17 +116,30 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFla
               className="col"
               onClick={() => setOpenMonth(m.month)}
               disabled={m.month > nowMonth}
-              aria-label={t('{month}: {n} shows', { month: monthLabel(m.month), n: m.count })}
+              aria-label={
+                m.movies
+                  ? `${monthLabel(m.month)}: ${m.series} ${m.series === 1 ? t('show') : t('shows')}, ${m.movies} ${m.movies === 1 ? t('movie') : t('movies')}`
+                  : t('{month}: {n} shows', { month: monthLabel(m.month), n: m.count })
+              }
             >
               <span className="col-n">{m.count || ''}</span>
               <div
                 className={`col-bar ${m.count ? 'has' : ''} ${m.month === nowMonth || s.busiest?.month === m.month ? 'now' : ''}`}
                 style={{ height: `${Math.max(4, (m.count / max) * 100)}%` }}
-              />
+              >
+                {/* Movies stacked on top of the series */}
+                {m.movies > 0 && <i className="col-movies" style={{ height: `${(m.movies / m.count) * 100}%` }} />}
+              </div>
               <span className="col-l">{monthLabel(m.month, 'short')[0].toUpperCase()}</span>
             </button>
           ))}
         </div>
+        {s.movies > 0 && (
+          <p className="chart-key" aria-hidden="true">
+            <span><i className="key-shows" /> {t('shows')}</span>
+            <span><i className="key-movies" /> {t('movies')}</span>
+          </p>
+        )}
       </section>
 
       {matches.length > 0 && (

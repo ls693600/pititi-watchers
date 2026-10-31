@@ -315,7 +315,8 @@ export function addEpisode(w: Watch, now = new Date()): Watch {
 }
 
 export interface YearStats extends Summary {
-  perMonth: { month: string; count: number }[]
+  /** Distinct titles per month; series + movies = count */
+  perMonth: { month: string; count: number; series: number; movies: number }[]
   /** Average shows per month, over the months of the year that have passed */
   avgPerMonth: number
   busiest: { month: string; count: number } | null
@@ -332,7 +333,10 @@ export function yearStats(all: Watch[], year: number, now = new Date()): YearSta
   const list = all.filter((w) => inYear(w.month) || Object.keys(monthBuckets(w)).some(inYear))
   const perMonth = Array.from({ length: 12 }, (_, i) => {
     const month = `${year}-${String(i + 1).padStart(2, '0')}`
-    return { month, count: uniqueShows(list.filter((w) => activeIn(w, month))) }
+    const active = list.filter((w) => activeIn(w, month))
+    const movies = uniqueShows(active.filter((w) => kindOf(w) === 'movie'))
+    const count = uniqueShows(active)
+    return { month, count, series: count - movies, movies }
   })
   const rated = ratedShows(list)
     .map((watch) => ({ watch, avg: averageRating(watch) }))

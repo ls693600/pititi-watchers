@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31-chart',
+    en: ['The monthly chart in Stats now stacks movies (purple) on top of shows.'],
+    pt: ['O gráfico mensal das Estatísticas agora mostra os filmes (roxo) em cima das séries.'],
+  },
+  {
     id: '2026-10-31',
     en: ['Stats and your year review now count shows and movies apart too.'],
     pt: ['As Estatísticas e a retrospectiva do ano agora também contam séries e filmes separados.'],

@@ -331,6 +331,13 @@ a.btn { text-decoration: none; }
 .col-bar { width: 100%; max-width: 20px; min-height: 4px; border-radius: 8px; background: var(--surface-3); transition: height .4s cubic-bezier(.2, .8, .2, 1); }
 .col-bar.has { background: linear-gradient(180deg, #ff8a3d, #ff4d6d); opacity: 0.55; }
 .col-bar.now { opacity: 1; }
+.col-bar.has { display: flex; flex-direction: column; overflow: hidden; }
+.col-movies { display: block; flex-shrink: 0; min-height: 5px; background: linear-gradient(180deg, #a78bfa, #7c5cf0); border-bottom: 2px solid var(--surface); }
+.chart-key { display: flex; justify-content: center; gap: 16px; padding: 0 14px 12px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.chart-key span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-key i { width: 10px; height: 10px; border-radius: 3px; }
+.key-shows { background: linear-gradient(180deg, #ff8a3d, #ff4d6d); }
+.key-movies { background: linear-gradient(180deg, #a78bfa, #7c5cf0); }
 .col-n { font-size: 11px; font-weight: 700; color: var(--text-2); min-height: 13px; }
 .col-l { font-size: 11px; color: var(--muted); font-weight: 600; }
 .chart .col:disabled { opacity: 1; }

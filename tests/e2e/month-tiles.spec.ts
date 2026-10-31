@@ -86,6 +86,9 @@ test.describe('Home tiles show what was watched', () => {
     const card = page.getByRole('region', { name: /summary$/ })
     await expect(card.locator('.wrapped-split')).toContainText('2shows')
     await expect(card.locator('.wrapped-split')).toContainText('1movie')
+    // October's bar stacks the movie on the shows; the key explains the colors
+    await expect(page.getByRole('button', { name: /^October 2026: 2 shows, 1 movie$/ })).toBeVisible()
+    await expect(page.locator('.chart-key')).toContainText('movies')
     await card.getByRole('button', { name: /^Play our/ }).click()
     await page.keyboard.press('ArrowRight')
     const totals = page.locator('.yr-stats')

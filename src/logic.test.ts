@@ -248,6 +248,10 @@ describe('stats', () => {
     expect(y.busiest?.month).toBe('2026-03')
     expect(y.topRated.map((t) => t.watch.showName)).toEqual(['A', 'B'])
     expect(y.disagreements.map((d) => [d.watch.showName, d.diff])).toEqual([['B', 6]])
+    expect(y.perMonth[2]).toMatchObject({ series: 2, movies: 0 })
+    const film = watch({ kind: 'movie', showId: 1, showName: 'Film', month: '2026-03', episodesWatched: 1, totalEpisodes: 1 })
+    // Same id as series A, but a movie: counted on its own, stacked on the series
+    expect(yearStats([...all, film], 2026, now).perMonth[2]).toMatchObject({ count: 3, series: 2, movies: 1 })
   })
   it('measures disagreement as the gap between the highest and lowest rating', () => {
     const w = watch({ watchedBy: ['L', 'A', 'M'], ratings: { L: 10, A: 8, M: 4 } })
