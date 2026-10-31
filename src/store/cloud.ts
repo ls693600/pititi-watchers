@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Comment, EpisodeReaction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
@@ -221,6 +221,30 @@ const toEpisodeReaction = (r: EpisodeReactionRow): EpisodeReaction => ({
   createdAt: r.created_at,
 })
 
+interface PhotoRow {
+  id: string
+  watch_id: string
+  person_id: string
+  path: string
+  night: string
+  created_at: string
+}
+
+const PHOTO_BUCKET = 'couch-photos'
+/** Signed links last a week: the app reloads long before that */
+const PHOTO_LINK_SECONDS = 7 * 86_400
+
+/** Rows → photos with links to show them (one request for all of them). */
+async function withLinks(rows: PhotoRow[]): Promise<CouchPhoto[]> {
+  if (!rows.length) return []
+  const { data, error } = await supabase().storage.from(PHOTO_BUCKET).createSignedUrls(rows.map((r) => r.path), PHOTO_LINK_SECONDS)
+  if (error) throw error
+  const links = new Map((data ?? []).map((d) => [d.path, d.signedUrl]))
+  return rows
+    .map((r) => ({ id: r.id, watchId: r.watch_id, personId: r.person_id, path: r.path, night: r.night, createdAt: r.created_at, url: links.get(r.path) ?? '' }))
+    .filter((p) => p.url)
+}
+
 const toReaction = (r: ReactionRow): Reaction => ({ watchId: r.watch_id, personId: r.person_id, targetId: r.target_id, emoji: r.emoji })
 const toComment = (r: CommentRow): Comment => ({ id: r.id, watchId: r.watch_id, personId: r.person_id, text: r.body, createdAt: r.created_at })
 
@@ -393,7 +417,7 @@ export const cloudStore: Store = {
       if (res.error) console.warn(`${what} unavailable:`, res.error.message)
       return res.error ? [] : (res.data ?? [])
     }
-    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er] = await Promise.all([
+    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase()
         .from('ratings')
@@ -413,7 +437,10 @@ export const cloudStore: Store = {
       supabase().from('recommendations').select('*').order('created_at', { ascending: false }),
       supabase().from('chat_mutes').select('thread'),
       supabase().from('episode_reactions').select('kind, show_id, season, episode, person_id, emoji, created_at'),
+      supabase().from('couch_photos').select('id, watch_id, person_id, path, night, created_at').order('night', { ascending: false }),
     ])
+    // Migration 014: until it's run, photos stay hidden. A failed link request only hides them this time.
+    const photos = ph.error ? [] : await withLinks(ph.data as PhotoRow[]).catch((e: Error) => (console.warn('Photo links unavailable:', e.message), []))
     if (w.error) throw w.error
     if (r.error) throw r.error
     if (p.error) throw p.error
@@ -438,6 +465,8 @@ export const cloudStore: Store = {
       // Migration 013: until it's run, episode reactions stay hidden
       episodeReactions: optional(er, 'Episode reactions').map((x) => toEpisodeReaction(x as EpisodeReactionRow)),
       episodeFx: !er.error,
+      photos,
+      photosOn: !ph.error,
     }
     cache.write(snap)
     return snap
@@ -484,6 +513,34 @@ export const cloudStore: Store = {
     const { error } = r.emoji
       ? await supabase().from('episode_reactions').upsert({ ...key, emoji: r.emoji, created_at: r.createdAt })
       : await supabase().from('episode_reactions').delete().match(key)
+    if (error) throw error
+  },
+  async addPhoto(p, image) {
+    const household = (await supabase().rpc('my_household_id')).data as string | null
+    if (!household) throw new Error(t('Only people in a household can add photos.'))
+    const path = `${household}/${p.id}.jpg`
+    const up = await supabase().storage.from(PHOTO_BUCKET).upload(path, image, { contentType: 'image/jpeg', upsert: false })
+    if (up.error) throw up.error
+    const { error } = await supabase().from('couch_photos').insert({ id: p.id, watch_id: p.watchId, person_id: p.personId, path, night: p.night, created_at: p.createdAt })
+    if (error) {
+      // Don't leave a file nobody can see
+      await supabase().storage.from(PHOTO_BUCKET).remove([path])
+      throw error
+    }
+    const [photo] = await withLinks([{ id: p.id, watch_id: p.watchId, person_id: p.personId, path, night: p.night, created_at: p.createdAt }])
+    return photo
+  },
+  async removePhoto(p) {
+    const { data, error } = await supabase().from('couch_photos').delete().eq('id', p.id).select('id')
+    if (error) throw error
+    if (!data?.length) throw new Error(t('You can only remove your own photos.'))
+    // The row is gone (nobody sees it); a leftover file is harmless
+    await supabase().storage.from(PHOTO_BUCKET).remove([p.path])
+  },
+  async restorePhoto(p) {
+    const { error } = await supabase()
+      .from('couch_photos')
+      .upsert({ id: p.id, watch_id: p.watchId, person_id: p.personId, path: p.path, night: p.night, created_at: p.createdAt })
     if (error) throw error
   },
   async addComment(c) {
@@ -633,11 +690,16 @@ export const cloudStore: Store = {
       .channel('family-episodes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'episode_reactions' }, ping)
       .subscribe()
+    const photos = supabase()
+      .channel('family-photos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'couch_photos' }, ping)
+      .subscribe()
     return () => {
       clearTimeout(t)
       supabase().removeChannel(channel)
       supabase().removeChannel(social)
       supabase().removeChannel(episodes)
+      supabase().removeChannel(photos)
     }
   },
 }

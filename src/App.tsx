@@ -28,6 +28,8 @@ import { useToast } from './hooks/useToast'
 import { usePush } from './hooks/usePush'
 import { useReadState } from './hooks/useReadState'
 import { useChat } from './hooks/useChat'
+import { usePhotos } from './hooks/usePhotos'
+import { tonight } from './lib/photo'
 import { useFamilyAdmin } from './hooks/useFamilyAdmin'
 import { onOutbox, readOutbox, withOutbox } from './store/outbox'
 import { setErrorScreen } from './errors'
@@ -38,7 +40,7 @@ import { FestiveAmbient, FestiveRain } from './components/Festive'
 import { changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
-import type { Comment, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
+import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
 
 // Cloud changes made without signal wait on the phone (and in its offline copy) and sync when it's back
 const cloud = withOutbox(cloudStore, localStore)
@@ -187,6 +189,8 @@ export default function App() {
   const chat = useChat(store, mePerson?.id ?? null, flash)
   const { comments, reactions, social } = chat
   const takeChat = chat.take
+  const couch = usePhotos(store, mePerson?.id ?? null, flash)
+  const takePhotos = couch.take
 
   /** Opened from a "Forgot password?" email: ask for the new password once signed in */
   const [recovering, setRecovering] = useState(false)
@@ -246,6 +250,7 @@ export default function App() {
       setPeople(snap.people)
       takeCircle(snap)
       takeChat(snap)
+      takePhotos(snap)
       setOffline(false)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
@@ -258,11 +263,12 @@ export default function App() {
       setPeople(snap.people)
       takeCircle(snap)
       takeChat({ comments: snap.comments, reactions: snap.reactions, episodeReactions: snap.episodeReactions })
+      takePhotos({ photos: snap.photos })
       setOffline(true)
     } finally {
       setLoaded(true)
     }
-  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, flash])
+  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, takePhotos, flash])
   const familyAdmin = useFamilyAdmin(store, reload, flash)
 
   useEffect(() => {
@@ -369,10 +375,11 @@ export default function App() {
   async function removeLog(w: Watch, okMsg = t('{name} removed', { name: w.showName })) {
     const keepChat = comments.filter((c) => c.watchId === w.id)
     const keepReacts = reactions.filter((r) => r.watchId === w.id)
+    const keepPhotos = couch.forWatch(w.id)
     setWatches((list) => list.filter((x) => x.id !== w.id))
     try {
       await store.remove(w.id)
-      flash(okMsg, okMsg === t('Undone') ? undefined : () => restoreLog(w, keepChat, keepReacts))
+      flash(okMsg, okMsg === t('Undone') ? undefined : () => restoreLog(w, keepChat, keepReacts, keepPhotos))
       return true
     } catch (e) {
       setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
@@ -381,11 +388,12 @@ export default function App() {
     }
   }
 
-  async function restoreLog(w: Watch, lines: Comment[] = [], reacts: Reaction[] = []) {
+  async function restoreLog(w: Watch, lines: Comment[] = [], reacts: Reaction[] = [], photos: CouchPhoto[] = []) {
     setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
     try {
       await store.save(w)
       await chat.restore(w.id, lines, reacts)
+      await couch.restore(photos)
       flash(t('{name} is back', { name: w.showName }))
     } catch {
       setWatches((list) => list.filter((x) => x.id !== w.id))
@@ -559,6 +567,20 @@ export default function App() {
                   }
                 : null
             }
+            couch={
+              couch.photosOn && !detail.isNew
+                ? {
+                    photos: couch.photos.filter((p) => p.watchId === detail.watch.id),
+                    // Your own household's log (viewers and other households only look)
+                    canAdd: !detailReadOnly && !!mePerson?.householdId && (detail.watch.householdId ?? mePerson.householdId) === mePerson.householdId,
+                    uploading: couch.uploading.includes(detail.watch.id),
+                    // Same rule as the server: the family admin (people.is_admin) may remove any photo
+                    isAdmin: !!mePerson?.isAdmin,
+                    onAdd: (f) => void couch.add(detail.watch, f),
+                    onRemove: couch.remove,
+                  }
+                : null
+            }
             onComment={(text) => chat.send(detail.watch.id, text)}
             onRemoveComment={chat.remove}
             onChatSeen={() => markRead(detail.watch.id)}
@@ -716,6 +738,7 @@ export default function App() {
             onFilter={setFilter}
             onOpen={(w) => setDetail({ watch: w, isNew: false })}
             episodeReactions={chat.episodeReactions}
+            photos={couch.photos}
           />
         ) : (
           <Settings
@@ -845,6 +868,15 @@ export default function App() {
                   mine: (w, episode) =>
                     chat.episodeReactions.find((r) => r.kind === 'tv' && r.showId === w.showId && r.season === w.season && r.episode === episode && r.personId === me)?.emoji ?? null,
                   onReact: (w, episode, emoji) => chat.reactEpisode({ kind: 'tv', showId: w.showId, season: w.season, episode }, emoji),
+                }
+              : null
+          }
+          photo={
+            couch.photosOn && mePerson?.householdId
+              ? {
+                  hasTonight: (w) => couch.photos.some((p) => p.watchId === w.id && p.night === tonight()),
+                  busy: (w) => couch.uploading.includes(w.id),
+                  onAdd: (w, f) => void couch.add(w, f),
                 }
               : null
           }

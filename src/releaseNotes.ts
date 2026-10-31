@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-01-photos',
+    en: [
+      'Couch nights: add a photo of tonight on any show or movie (📷 on its page, or right after Quick mark).',
+      'The whole family sees them, and your year review gets a photo album.',
+    ],
+    pt: [
+      'Noites no sofá: adicione uma foto de hoje em qualquer série ou filme (📷 na página dele, ou logo depois do Marcar rápido).',
+      'A família toda vê, e a retrospectiva do ano ganha um álbum de fotos.',
+    ],
+  },
+  {
     id: '2026-11-01',
     en: [
       'How was it? After you mark an episode, tap 🤯 😭 😂 😍 or 🥱.',

@@ -97,6 +97,21 @@ export interface EpisodeReaction {
   createdAt: string
 }
 
+/** A photo of the night, on a log. The whole family sees them. */
+export interface CouchPhoto {
+  id: string
+  watchId: string
+  /** Who added it */
+  personId: string
+  /** Where the file is (cloud: storage path; this phone only: a data URL) */
+  path: string
+  /** The night it was taken, YYYY-MM-DD (the phone's date) */
+  night: string
+  createdAt: string
+  /** Link to show it (cloud: signed, expires after a few days) */
+  url: string
+}
+
 /** A line in a show's family chat. */
 export interface Comment {
   id: string

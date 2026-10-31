@@ -1,5 +1,5 @@
 import { newId, sameEpisodeReaction } from '../logic'
-import type { Comment, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
@@ -8,12 +8,13 @@ const UP_NEXT = 'pititi.upnext.v1'
 const REACTIONS = 'pititi.reactions.v1'
 const COMMENTS = 'pititi.comments.v1'
 const EPISODE_REACTIONS = 'pititi.epreactions.v1'
+const PHOTOS = 'pititi.photos.v1'
 const HOUSEHOLDS = 'pititi.households.v1'
 const LISTS = 'pititi.lists.v1'
 const ITEMS = 'pititi.listitems.v1'
 const RECS = 'pititi.recs.v1'
 const MUTES = 'pititi.mutes.v1'
-const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS]
+const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS]
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -92,6 +93,8 @@ function read(): Snapshot {
     social: true,
     episodeReactions: readJson<EpisodeReaction[]>(EPISODE_REACTIONS, []),
     episodeFx: true,
+    photos: readJson<CouchPhoto[]>(PHOTOS, []),
+    photosOn: true,
   }
 }
 
@@ -108,6 +111,12 @@ function write(snap: Snapshot) {
   localStorage.setItem(REACTIONS, JSON.stringify(snap.reactions ?? []))
   localStorage.setItem(COMMENTS, JSON.stringify(snap.comments ?? []))
   localStorage.setItem(EPISODE_REACTIONS, JSON.stringify(snap.episodeReactions ?? []))
+  // Photos are big: the cloud copy keeps rows only (links are re-signed on load)
+  try {
+    localStorage.setItem(PHOTOS, JSON.stringify(snap.photos ?? []))
+  } catch {
+    // Storage full: photos still show until the app restarts
+  }
 }
 
 function update(fn: (s: Snapshot) => Partial<Snapshot>) {
@@ -133,6 +142,7 @@ export const localStore: Store = {
       watches: s.watches.filter((x) => x.id !== id),
       reactions: s.reactions.filter((r) => r.watchId !== id),
       comments: s.comments.filter((c) => c.watchId !== id),
+      photos: (s.photos ?? []).filter((p) => p.watchId !== id),
     }))
   },
   async addPerson(name, householdId = null) {
@@ -212,6 +222,24 @@ export const localStore: Store = {
       const rest = (s.episodeReactions ?? []).filter((x) => !sameEpisodeReaction(x, r))
       return { episodeReactions: r.emoji ? [...rest, { ...r, emoji: r.emoji }] : rest }
     })
+  },
+  // This phone only: the photo itself is kept as a data URL
+  async addPhoto(p, image) {
+    const url = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(image)
+    })
+    const photo: CouchPhoto = { ...p, path: url, url }
+    update((s) => ({ photos: [...(s.photos ?? []).filter((x) => x.id !== p.id), photo] }))
+    return photo
+  },
+  async removePhoto(p) {
+    update((s) => ({ photos: (s.photos ?? []).filter((x) => x.id !== p.id) }))
+  },
+  async restorePhoto(p) {
+    update((s) => ({ photos: [...(s.photos ?? []).filter((x) => x.id !== p.id), p] }))
   },
   async addComment(c) {
     update((s) => ({ comments: [...s.comments.filter((x) => x.id !== c.id), c] }))

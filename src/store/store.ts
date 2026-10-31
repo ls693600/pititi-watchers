@@ -1,4 +1,4 @@
-import type { Comment, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 
 export interface Snapshot {
   watches: Watch[]
@@ -17,6 +17,9 @@ export interface Snapshot {
   episodeReactions: EpisodeReaction[]
   /** False until migration 013 is run: "how was this episode?" stays hidden */
   episodeFx: boolean
+  photos: CouchPhoto[]
+  /** False until migration 014 is run: couch night photos stay hidden */
+  photosOn: boolean
 }
 
 export interface Store {
@@ -53,6 +56,12 @@ export interface Store {
   setReaction(r: Omit<Reaction, 'emoji'> & { emoji: string | null }): Promise<void>
   /** Your emoji on an episode (null removes it) */
   setEpisodeReaction(r: Omit<EpisodeReaction, 'emoji'> & { emoji: EpisodeReaction['emoji'] | null }): Promise<void>
+  /** Uploads the (already shrunk) photo and returns it with a link to show it */
+  addPhoto(p: Omit<CouchPhoto, 'path' | 'url'>, image: Blob): Promise<CouchPhoto>
+  /** Removes the photo and its file */
+  removePhoto(p: CouchPhoto): Promise<void>
+  /** Puts back a photo's row (Undo on removing its log; the file was kept) */
+  restorePhoto(p: CouchPhoto): Promise<void>
   addComment(c: Comment): Promise<void>
   removeComment(id: string): Promise<void>
   /** This phone's notification subscription (Web Push) */

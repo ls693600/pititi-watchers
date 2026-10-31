@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { currentMonth, episodeOfYear, monthLabel, yearReview, type YearReview as Review } from '../logic'
 import { drawMonthCard, shareImage } from '../share'
 import { bigPoster } from '../tvmaze'
-import type { EpisodeReaction, Person, Watch } from '../types'
+import type { CouchPhoto, EpisodeReaction, Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
@@ -17,6 +17,8 @@ interface Props {
   people: Person[]
   /** Everyone's episode emojis, for "Episode of the year" */
   episodeReactions?: EpisodeReaction[]
+  /** Couch night photos, for the album slide */
+  photos?: CouchPhoto[]
   onClose: () => void
   onFlash: (msg: string) => void
 }
@@ -32,7 +34,7 @@ function names(people: Person[], ids: string[]): string {
   return list.length <= 2 ? list.join(' & ') : `${list.slice(0, -1).join(', ')} & ${list[list.length - 1]}`
 }
 
-function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boolean, share: ReactNode, episodeReactions: EpisodeReaction[]): Slide[] {
+function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boolean, share: ReactNode, episodeReactions: EpisodeReaction[], photos: CouchPhoto[]): Slide[] {
   const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? t('Someone')
   const who = names(people, r.people.map((p) => p.id)) || t('The family')
   const posters = [...new Set(watches.filter((w) => w.month.startsWith(`${r.year}-`) && w.poster).map((w) => w.poster!))].slice(0, 6)
@@ -113,6 +115,30 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
               </span>
             ))}
           </p>
+        </>
+      ),
+    })
+  }
+  // The year's photos on these logs, newest first: one per night so a single evening doesn't fill the album
+  const logIds = new Set(watches.map((w) => w.id))
+  const nights = new Map<string, CouchPhoto>()
+  for (const p of [...photos].sort((a, b) => b.night.localeCompare(a.night))) {
+    if (logIds.has(p.watchId) && p.night.startsWith(`${r.year}-`) && !nights.has(p.night)) nights.set(p.night, p)
+  }
+  if (nights.size) {
+    const album = [...nights.values()].slice(0, 9)
+    slides.push({
+      id: 'album',
+      tone: 'sunset',
+      body: (
+        <>
+          <p className="yr-kicker">{t('Nights on the couch')}</p>
+          <div className={`yr-album n${album.length}`}>
+            {album.map((p) => (
+              <img key={p.id} src={p.url} alt="" />
+            ))}
+          </div>
+          <p className="yr-sub">{nights.size === 1 ? t('1 night saved in a photo.') : t('{n} nights saved in photos.', { n: nights.size })}</p>
         </>
       ),
     })
@@ -216,7 +242,7 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
 }
 
 /** "Pititi Wrapped": a story of the family's year. Tap right for next, left for back; hold to pause. */
-export function YearReview({ year, watches, people, episodeReactions = [], onClose, onFlash }: Props) {
+export function YearReview({ year, watches, people, episodeReactions = [], photos = [], onClose, onFlash }: Props) {
   const r = yearReview(watches, people.map((p) => p.id), year)
   const soFar = year === Number(currentMonth().slice(0, 4))
   const [i, setI] = useState(0)
@@ -259,7 +285,7 @@ export function YearReview({ year, watches, people, episodeReactions = [], onClo
       <Icon name="share" size={18} /> {sharing ? t('Making the picture…') : t('Share our {month}', { month: year })}
     </button>
   )
-  const slides = buildSlides(r, watches, people, soFar, shareBtn, episodeReactions)
+  const slides = buildSlides(r, watches, people, soFar, shareBtn, episodeReactions, photos)
   const last = slides.length - 1
 
   const next = useCallback(() => setI((n) => Math.min(n + 1, last)), [last])

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import type { EpisodeEmoji, Watch } from '../types'
+import { PhotoPicker } from './CouchPhotos'
 import { EmojiRow } from './EpisodeReactions'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
@@ -13,10 +14,12 @@ interface Props {
   onClose: () => void
   /** "How was it?" after each tap (null: episode reactions aren't set up) */
   react?: { mine: (w: Watch, episode: number) => EpisodeEmoji | null; onReact: (w: Watch, episode: number, emoji: EpisodeEmoji) => void } | null
+  /** "Photo of tonight" next to the question (null: photos aren't set up). Asked once per log per night. */
+  photo?: { hasTonight: (w: Watch) => boolean; busy: (w: Watch) => boolean; onAdd: (w: Watch, f: File) => void } | null
 }
 
 /** "What did you watch today?": one tap per show marks the next episode (each with Undo). */
-export function QuickMark({ watching, onNext, onOther, onClose, react = null }: Props) {
+export function QuickMark({ watching, onNext, onOther, onClose, react = null, photo = null }: Props) {
   // Only the last episode you marked asks "how was it?" (the others can be filled in on the show page)
   const [asked, setAsked] = useState<{ watch: Watch; episode: number } | null>(null)
   const now = asked && watching.find((x) => x.id === asked.watch.id)
@@ -49,6 +52,16 @@ export function QuickMark({ watching, onNext, onOther, onClose, react = null }: 
               <b>{t('How was E{n}?', { n: ask.episode })}</b> <span className="muted">{ask.watch.showName}</span>
             </p>
             <EmojiRow mine={react.mine(ask.watch, ask.episode)} label={t('How was episode {n}?', { n: ask.episode })} onPick={(e) => react.onReact(ask.watch, ask.episode, e)} />
+            {photo &&
+              (photo.hasTonight(ask.watch) ? (
+                <p className="qm-photo-done">
+                  <Icon name="check" size={16} /> {t("Tonight's photo is saved")}
+                </p>
+              ) : (
+                <PhotoPicker className="qm-photo" label={t('Add a photo of tonight')} busy={photo.busy(ask.watch)} onPick={(f) => photo.onAdd(ask.watch, f)}>
+                  <Icon name="camera" size={18} /> {photo.busy(ask.watch) ? t('Uploading…') : t('Add a photo of tonight')}
+                </PhotoPicker>
+              ))}
             <button type="button" className="qm-ask-close" aria-label={t('Not now')} onClick={() => setAsked(null)}>
               <Icon name="close" size={14} />
             </button>
