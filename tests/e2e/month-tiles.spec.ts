@@ -71,4 +71,26 @@ test.describe('Home tiles show what was watched', () => {
     await expect(sheet.getByRole('listitem')).toHaveCount(3)
     await expect(sheet.getByText('2 shows · 1 movie · 9 eps · 10h 16m')).toBeVisible()
   })
+
+  test('Stats and the year review count shows and movies apart', async ({ page }) => {
+    const now = new Date().toISOString()
+    const movie = {
+      id: 'w-movie', kind: 'movie', householdId: 'h1', showId: 693134, showName: 'Dune: Part Two', poster: null, network: null, genres: [], year: '2024',
+      season: 1, episodesWatched: 1, totalEpisodes: 1, runtime: 166, month: '2026-10', status: 'done', watchedBy: ['local-leandro', 'local-ana'],
+      ratings: {}, isRewatch: false, notes: '', createdBy: 'local-leandro', createdAt: now, updatedAt: now, episodesByMonth: { '2026-10': 1 },
+    }
+    await openAs(page)
+    await page.evaluate((m) => localStorage.setItem('pititi.watches.v2', JSON.stringify([...JSON.parse(localStorage.getItem('pititi.watches.v2') || '[]'), m])), movie)
+    await page.reload()
+    await page.getByRole('button', { name: 'Stats', exact: true }).click()
+    const card = page.getByRole('region', { name: /summary$/ })
+    await expect(card.locator('.wrapped-split')).toContainText('2shows')
+    await expect(card.locator('.wrapped-split')).toContainText('1movie')
+    await card.getByRole('button', { name: /^Play our/ }).click()
+    await page.keyboard.press('ArrowRight')
+    const totals = page.locator('.yr-stats')
+    await expect(totals).toContainText('2 shows')
+    await expect(totals).toContainText('1 movie')
+    await expect(totals).toContainText('9 episodes')
+  })
 })

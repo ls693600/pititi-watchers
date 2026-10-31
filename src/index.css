@@ -321,6 +321,7 @@ a.btn { text-decoration: none; }
 .wrapped-kicker { font-size: 13px; font-weight: 650; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.08em; }
 .wrapped-big { font-family: var(--display); font-size: 64px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; margin-top: 6px; }
 .wrapped-label { font-size: 17px; font-weight: 600; opacity: 0.95; }
+.wrapped-split { display: flex; gap: 28px; }
 .wrapped-row { display: flex; gap: 10px; margin-top: 18px; }
 .wrapped-row div { flex: 1; background: rgba(255, 255, 255, 0.18); border-radius: 16px; padding: 10px 12px; }
 .wrapped-row strong { display: block; font-family: var(--display); font-size: 20px; font-weight: 800; }

@@ -41,7 +41,7 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
       const names = who ? who.name : people.filter((p) => list.some((w) => w.watchedBy.includes(p.id))).map((p) => p.name).join(' & ') || t('Our family')
       const blob = await drawMonthCard({
         monthName,
-        totals: sum,
+        totals: { series: sum.series, movies: sum.movies, episodes: sum.episodes, hours: sum.hours },
         names,
         shows: list.map((w) => ({
           name: w.showName,

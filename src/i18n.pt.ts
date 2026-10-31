@@ -684,6 +684,8 @@ export const PT: Record<string, string> = {
   '{year} summary': 'Resumo de {year}',
   'show watched': 'série vista',
   'shows watched': 'séries vistas',
+  'movie watched': 'filme visto',
+  'movies watched': 'filmes vistos',
   'per month': 'por mês',
   'busiest month': 'mês mais cheio',
   'Play our {year} so far': 'Ver nosso {year} até agora',

@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-31',
+    en: ['Stats and your year review now count shows and movies apart too.'],
+    pt: ['As Estatísticas e a retrospectiva do ano agora também contam séries e filmes separados.'],
+  },
+  {
     id: '2026-10-30',
     en: [
       'Home now counts shows and movies apart: show · movie · episodes · time. Tap one to see just those.',

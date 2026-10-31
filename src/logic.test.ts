@@ -732,6 +732,17 @@ describe('year in review', () => {
     expect(r.together).toBe(2)
     expect(r.solo).toBe(1)
   })
+  it('counts series and movies apart', () => {
+    expect(r.series).toBe(3)
+    expect(r.movies).toBe(0)
+    const film = watch({ id: '5', kind: 'movie', showId: 1, month: '2026-07', status: 'done', watchedBy: ['l'], episodesWatched: 1, totalEpisodes: 1, runtime: 120, episodesByMonth: { '2026-07': 1 } })
+    const both = yearReview([...list, film], ['l', 'a'], 2026, now)
+    // Same id as series 1, but a movie: its own count, and no episode
+    expect(both.shows).toBe(4)
+    expect(both.series).toBe(3)
+    expect(both.movies).toBe(1)
+    expect(both.episodes).toBe(48)
+  })
 })
 
 describe('mentions', () => {

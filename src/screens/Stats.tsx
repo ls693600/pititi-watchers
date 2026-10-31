@@ -64,8 +64,28 @@ export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFla
 
       <section className="wrapped" aria-label={t('{year} summary', { year })}>
         <p className="wrapped-kicker">{year}{who ? ` · ${who.name}` : ` · ${t('The family')}`}</p>
-        <p className="wrapped-big">{s.shows}</p>
-        <p className="wrapped-label">{s.shows === 1 ? t('show watched') : t('shows watched')}</p>
+        {s.series > 0 && s.movies > 0 ? (
+          <div className="wrapped-split">
+            <div>
+              <p className="wrapped-big">{s.series}</p>
+              <p className="wrapped-label">{s.series === 1 ? t('show') : t('shows')}</p>
+            </div>
+            <div>
+              <p className="wrapped-big">{s.movies}</p>
+              <p className="wrapped-label">{s.movies === 1 ? t('movie') : t('movies')}</p>
+            </div>
+          </div>
+        ) : s.movies > 0 ? (
+          <>
+            <p className="wrapped-big">{s.movies}</p>
+            <p className="wrapped-label">{s.movies === 1 ? t('movie watched') : t('movies watched')}</p>
+          </>
+        ) : (
+          <>
+            <p className="wrapped-big">{s.series}</p>
+            <p className="wrapped-label">{s.series === 1 ? t('show watched') : t('shows watched')}</p>
+          </>
+        )}
         <div className="wrapped-row">
           <div>
             <strong>{s.avgPerMonth.toFixed(1)}</strong>

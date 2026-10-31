@@ -836,6 +836,8 @@ export interface PersonYear {
 export interface YearReview {
   year: number
   shows: number
+  series: number
+  movies: number
   episodes: number
   hours: number
   /** Whole days of TV, for "that's N days" */
@@ -871,6 +873,8 @@ export function yearReview(all: Watch[], personIds: string[], year: number, now 
   return {
     year,
     shows: s.shows,
+    series: s.series,
+    movies: s.movies,
     episodes: s.episodes,
     hours: s.hours,
     days: Math.floor(s.hours / 24),

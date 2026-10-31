@@ -59,7 +59,8 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
         <>
           <p className="yr-kicker">{t('Together you watched')}</p>
           <div className="yr-stats">
-            <p><b>{r.shows}</b> {r.shows === 1 ? t('show') : t('shows')}</p>
+            {(r.series > 0 || r.movies === 0) && <p><b>{r.series}</b> {r.series === 1 ? t('show') : t('shows')}</p>}
+            {r.movies > 0 && <p><b>{r.movies}</b> {r.movies === 1 ? t('movie') : t('movies')}</p>}
             <p><b>{r.episodes}</b> {t('episodes')}</p>
             <p><b>{r.hours}</b> {t('hours')}</p>
           </div>
@@ -207,7 +208,7 @@ export function YearReview({ year, watches, people, onClose, onFlash }: Props) {
       const shows = [...new Map(top.map((x) => [x.w.showId, x])).values()].slice(0, 6)
       const blob = await drawMonthCard({
         monthName: String(year),
-        totals: { shows: r.shows, episodes: r.episodes, hours: r.hours },
+        totals: { series: r.series, movies: r.movies, episodes: r.episodes, hours: r.hours },
         names: names(people, r.people.map((p) => p.id)) || t('Our family'),
         shows: shows.map(({ w, avg }) => ({ name: w.showName, poster: w.poster, stars: avg, note: w.status === 'watching' ? t('Still watching') : t('Not rated yet') })),
       })

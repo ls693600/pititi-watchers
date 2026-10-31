@@ -116,7 +116,7 @@ function footer(ctx: CanvasRenderingContext2D, names: string) {
 /** "Our October": up to 6 posters with ratings and the month's totals. */
 export async function drawMonthCard(opts: {
   monthName: string
-  totals: { shows: number; episodes: number; hours: number }
+  totals: { series: number; movies: number; episodes: number; hours: number }
   shows: CardShow[]
   names: string
 }): Promise<Blob> {
@@ -126,15 +126,19 @@ export async function drawMonthCard(opts: {
   const ctx = canvas.getContext('2d')!
   header(ctx, t('What we watched'), t('Our {month}', { month: opts.monthName }))
 
-  const pills = [
-    [opts.totals.shows, opts.totals.shows === 1 ? t('show') : t('shows')],
+  const { series, movies } = opts.totals
+  const pills: [string | number, string][] = [
+    ...(series > 0 || movies === 0 ? [[series, series === 1 ? t('show') : t('shows')] as [number, string]] : []),
+    ...(movies > 0 ? [[movies, movies === 1 ? t('movie') : t('movies')] as [number, string]] : []),
     [opts.totals.episodes, t('episodes')],
     [`${opts.totals.hours}h`, t('watched')],
-  ] as const
+  ]
+  // Three or four pills across the same width, 24px apart
+  const pw = (W - 144 - 24 * (pills.length - 1)) / pills.length
   pills.forEach(([n, label], i) => {
-    const x = 72 + i * 316
+    const x = 72 + i * (pw + 24)
     ctx.fillStyle = 'rgba(255,255,255,0.2)'
-    rounded(ctx, x, 262, 292, 108, 26)
+    rounded(ctx, x, 262, pw, 108, 26)
     ctx.fill()
     ctx.fillStyle = '#fff'
     ctx.font = '900 48px -apple-system, system-ui, sans-serif'
