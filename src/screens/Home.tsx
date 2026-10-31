@@ -31,7 +31,7 @@ import {
   watchesInMonth,
 } from '../logic'
 import { getLang, setLang, t } from '../i18n'
-import type { Comment, ListItem, Person, Title, Watch } from '../types'
+import type { Comment, Kind, ListItem, Person, Title, Watch } from '../types'
 import type { Festive } from '../festive'
 
 interface Props {
@@ -87,7 +87,7 @@ export function Home(props: Props) {
   const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
-  const [breakdown, setBreakdown] = useState<MonthSort | null>(null)
+  const [breakdown, setBreakdown] = useState<{ sort: MonthSort; kind: Kind | null } | null>(null)
   const [picks, setPicks] = useState(false)
   /** A show with several seasons this month: its seasons */
   const [seasonsFor, setSeasonsFor] = useState<ShowGroup | null>(null)
@@ -208,15 +208,22 @@ export function Home(props: Props) {
 
       <PersonFilter people={people} value={filter} onChange={onFilter} allLabel={t('Together')} soloHint />
 
-      <div className="tiles">
+      <div className="tiles four">
         {(
           [
-            ['episodes', 'tv', 17, String(sum.shows), sum.shows === 1 ? t('show') : t('shows'), t('See the {n} shows watched in {month}', { n: sum.shows, month: monthName })],
-            ['episodes', 'play', 15, String(sum.episodes), t('episodes'), t('See episodes by show for {month}', { month: monthName })],
-            ['hours', 'clock', 17, `${sum.hours}h`, t('watched'), t('See time by show for {month}', { month: monthName })],
+            ['episodes', 'tv', 'tv', 17, String(sum.series), sum.series === 1 ? t('show') : t('shows'), t('See the {n} shows watched in {month}', { n: sum.series, month: monthName })],
+            ['hours', 'movie', 'film', 16, String(sum.movies), sum.movies === 1 ? t('movie') : t('movies'), t('See the {n} movies watched in {month}', { n: sum.movies, month: monthName })],
+            ['episodes', 'tv', 'play', 15, String(sum.episodes), sum.episodes === 1 ? t('episode') : t('episodes'), t('See episodes by show for {month}', { month: monthName })],
+            ['hours', null, 'clock', 17, `${sum.hours}h`, t('watched'), t('See time by show for {month}', { month: monthName })],
           ] as const
-        ).map(([sort, icon, size, value, label, aria]) => (
-          <button key={icon} className="tile tile-btn" onClick={() => setBreakdown(sort)} aria-label={`${value} ${label}. ${aria}`} disabled={list.length === 0}>
+        ).map(([sort, kind, icon, size, value, label, aria]) => (
+          <button
+            key={icon}
+            className="tile tile-btn"
+            onClick={() => setBreakdown({ sort, kind })}
+            aria-label={`${value} ${label}. ${aria}`}
+            disabled={list.length === 0 || value === '0'}
+          >
             <span className="tile-icon"><Icon name={icon} size={size} /></span>
             <span className="tile-more" aria-hidden="true"><Icon name="right" size={15} stroke={2.4} /></span>
             <strong>{value}</strong>
@@ -230,7 +237,8 @@ export function Home(props: Props) {
           month={month}
           who={who?.name ?? null}
           together={people.length > 1}
-          sort={breakdown}
+          sort={breakdown.sort}
+          kind={breakdown.kind}
           onOpen={(w) => {
             setBreakdown(null)
             onOpen(w)

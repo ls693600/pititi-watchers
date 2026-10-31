@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-10-30',
+    en: [
+      'Home now counts shows and movies apart: show · movie · episodes · time. Tap one to see just those.',
+      'A movie no longer counts as an episode.',
+    ],
+    pt: [
+      'O Início agora conta séries e filmes separados: série · filme · episódios · tempo. Toque num deles para ver só esses.',
+      'Filme não conta mais como episódio.',
+    ],
+  },
+  {
     id: '2026-10-29',
     en: [
       'It\'s back: Home tells you when a show you finished gets a new season, a premiere date, a renewal, or ends. Tap Start to begin the new season.',

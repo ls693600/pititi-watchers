@@ -216,7 +216,12 @@ describe('addEpisode', () => {
 describe('stats', () => {
   it('summarizes shows, episodes, hours and rewatches', () => {
     const s = summarize([watch(), watch({ showId: 2, isRewatch: true, episodesWatched: 3, runtime: 20 })])
-    expect(s).toEqual({ shows: 2, episodes: 12, hours: 9, rewatches: 1 })
+    expect(s).toEqual({ shows: 2, series: 2, movies: 0, episodes: 12, hours: 9, rewatches: 1 })
+  })
+  it('counts shows and movies apart; a movie is time watched, not an episode', () => {
+    const s = summarize([watch({ episodesWatched: 3, runtime: 50 }), watch({ kind: 'movie', showId: 1, episodesWatched: 1, totalEpisodes: 1, runtime: 120 })])
+    expect(s).toMatchObject({ shows: 2, series: 1, movies: 1, episodes: 3 })
+    expect(s.hours).toBe(5)
   })
   it('counts a show once even with two seasons or a rewatch in the same period', () => {
     const s = summarize([watch({ season: 1 }), watch({ season: 2 }), watch({ season: 2, isRewatch: true })])

@@ -1069,3 +1069,15 @@ body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: fi
 .back-start { flex: none; white-space: nowrap; }
 .back-x { flex: none; width: 34px; height: 34px; color: var(--text-2); }
 .back-more { margin-top: 8px; }
+
+/* Month tiles: shows · movies · episodes · time */
+.tiles.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tiles.four .tile { padding: 12px 10px; border-radius: 18px; }
+.tiles.four .tile-icon { width: 28px; height: 28px; border-radius: 9px; }
+.tiles.four .tile strong { font-size: 22px; }
+.tiles.four .tile span { font-size: 12px; }
+.tiles.four .tile-more { top: 10px; right: 7px; }
+.kind-chips { display: flex; gap: 8px; margin: 0 0 12px; }
+.kind-chips button { min-height: 34px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--text-2, var(--muted)); background: var(--surface-2); }
+.kind-chips button.on { color: #fff; background: var(--brand); }
+.kind-chips button:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }

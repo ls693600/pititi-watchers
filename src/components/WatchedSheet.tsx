@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { monthBreakdown, monthLabel, sortMonthRows, type MonthSort } from '../logic'
-import type { Watch } from '../types'
+import type { Kind, Watch } from '../types'
 import { Icon } from './Icon'
 import { Poster } from './Poster'
 
@@ -12,6 +12,8 @@ interface Props {
   /** Whose month it is (null = everyone) */
   who: string | null
   sort: MonthSort
+  /** Only shows or only movies (null: both); opened from the matching tile, changeable in the sheet */
+  kind?: Kind | null
   /** Home's month view: no person = what you watched together, a person = what they watched alone */
   together?: boolean
   onOpen: (w: Watch) => void
@@ -25,9 +27,13 @@ const hm = (minutes: number) => {
 }
 
 /** Behind the Home tiles: every show and movie of the month, with its episodes and time. */
-export function WatchedSheet({ list, month, who, sort: initial, together = false, onOpen, onClose }: Props) {
+export function WatchedSheet({ list, month, who, sort: initial, kind: initialKind = null, together = false, onOpen, onClose }: Props) {
   const [sort, setSort] = useState<MonthSort>(initial)
-  const rows = sortMonthRows(monthBreakdown(list, month), sort)
+  const [kind, setKind] = useState<Kind | null>(initialKind)
+  const all = monthBreakdown(list, month)
+  const rows = sortMonthRows(kind ? all.filter((r) => r.kind === kind) : all, sort)
+  const series = rows.filter((r) => r.kind === 'tv').length
+  const movies = rows.filter((r) => r.kind === 'movie').length
   const monthName = monthLabel(month, 'long').split(' ')[0]
   const title = together
     ? who
@@ -36,7 +42,7 @@ export function WatchedSheet({ list, month, who, sort: initial, together = false
     : who
       ? t('What {name} watched in {month}', { name: who, month: monthName })
       : t('What you watched in {month}', { month: monthName })
-  const totalEps = rows.reduce((n, r) => n + r.episodes, 0)
+  const totalEps = rows.reduce((n, r) => n + (r.kind === 'tv' ? r.episodes : 0), 0)
   const totalMin = rows.reduce((n, r) => n + r.minutes, 0)
 
   useEffect(() => {
@@ -45,6 +51,11 @@ export function WatchedSheet({ list, month, who, sort: initial, together = false
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const kinds: [Kind | null, string][] = [
+    [null, t('All')],
+    ['tv', t('Shows')],
+    ['movie', t('Movies')],
+  ]
   const sorts: [MonthSort, string][] = [
     ['episodes', t('Episodes')],
     ['hours', t('Time')],
@@ -66,6 +77,15 @@ export function WatchedSheet({ list, month, who, sort: initial, together = false
           </button>
         </div>
 
+        {all.length > 0 && all.some((r) => r.kind === 'movie') && all.some((r) => r.kind === 'tv') && (
+          <div className="kind-chips" role="radiogroup" aria-label={t('Shows or movies')}>
+            {kinds.map(([k, label]) => (
+              <button key={label} role="radio" aria-checked={kind === k} className={`chip ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {rows.length === 0 ? (
           <p className="muted">{t('Nothing logged this month yet.')}</p>
         ) : (
@@ -106,7 +126,14 @@ export function WatchedSheet({ list, month, who, sort: initial, together = false
             <p className="watched-total">
               <span>{t('Total')}</span>
               <span>
-                {rows.length === 1 ? t('1 title') : t('{n} titles', { n: rows.length })} · {totalEps === 1 ? t('1 ep') : t('{n} eps', { n: totalEps })} · {hm(totalMin)}
+                {[
+                  series ? (series === 1 ? t('1 show') : t('{n} shows', { n: series })) : null,
+                  movies ? (movies === 1 ? t('1 movie') : t('{n} movies', { n: movies })) : null,
+                  totalEps ? (totalEps === 1 ? t('1 ep') : t('{n} eps', { n: totalEps })) : null,
+                  hm(totalMin),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
             </p>
           </>

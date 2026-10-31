@@ -74,9 +74,10 @@ export function MonthSheet({ month, watches, people, personId, onOpen, onClose, 
           </button>
         </div>
 
-        <div className="tiles">
-          <div className="tile"><strong>{sum.shows}</strong><span>{sum.shows === 1 ? t('show') : t('shows')}</span></div>
-          <div className="tile"><strong>{sum.episodes}</strong><span>{t('episodes')}</span></div>
+        <div className="tiles four">
+          <div className="tile"><strong>{sum.series}</strong><span>{sum.series === 1 ? t('show') : t('shows')}</span></div>
+          <div className="tile"><strong>{sum.movies}</strong><span>{sum.movies === 1 ? t('movie') : t('movies')}</span></div>
+          <div className="tile"><strong>{sum.episodes}</strong><span>{sum.episodes === 1 ? t('episode') : t('episodes')}</span></div>
           <div className="tile"><strong>{sum.hours}h</strong><span>{t('watched')}</span></div>
         </div>
 

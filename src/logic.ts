@@ -271,22 +271,30 @@ export function hoursWatched(list: Watch[], months?: string | ((m: string) => bo
 }
 
 export interface Summary {
+  /** Distinct titles: series and movies together */
   shows: number
+  /** Distinct series */
+  series: number
+  /** Distinct movies */
+  movies: number
+  /** Series episodes only (a movie is not an episode) */
   episodes: number
   hours: number
   rewatches: number
 }
 
-/** Distinct shows: two seasons (or a rewatch) of the same show count once. */
+/** Distinct shows: two seasons (or a rewatch) of the same show count once. A movie and a show never share a count. */
 export function uniqueShows(list: Watch[]): number {
-  return new Set(list.map((w) => w.showId)).size
+  return new Set(list.map((w) => `${kindOf(w)}:${w.showId}`)).size
 }
 
 /** Totals for a list of logs; pass a month (or month test) to count only episodes watched then. */
 export function summarize(list: Watch[], months?: string | ((m: string) => boolean)): Summary {
   return {
     shows: uniqueShows(list),
-    episodes: list.reduce((s, w) => s + episodesFor(w, months), 0),
+    series: uniqueShows(list.filter((w) => kindOf(w) === 'tv')),
+    movies: uniqueShows(list.filter((w) => kindOf(w) === 'movie')),
+    episodes: list.reduce((s, w) => s + (kindOf(w) === 'movie' ? 0 : episodesFor(w, months)), 0),
     hours: hoursWatched(list, months),
     rewatches: list.filter((w) => w.isRewatch).length,
   }

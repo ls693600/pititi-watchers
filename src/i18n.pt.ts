@@ -1009,4 +1009,12 @@ export const PT: Record<string, string> = {
   "Hide this news about {show}": "Esconder esta novidade de {show}",
   "Show less": "Mostrar menos",
   "See {n} more": "Ver mais {n}",
+  "movies": "filmes",
+  "episode": "episódio",
+  "See the {n} movies watched in {month}": "Ver os {n} filmes vistos em {month}",
+  "All": "Todos",
+  "1 show": "1 série",
+  "1 movie": "1 filme",
+  "{n} movies": "{n} filmes",
+  "Shows or movies": "Séries ou filmes",
 }
