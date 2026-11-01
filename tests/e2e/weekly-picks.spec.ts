@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 import { weekOf } from '../../src/weeklyPicks'
-import { L, openAs } from './family'
+import { L, openAs, TEST_NOW } from './family'
 import fs from 'node:fs'
 
 const picks = JSON.parse(fs.readFileSync(new URL('./weekly-picks.data.json', import.meta.url), 'utf8')) as { title: string }[]
 
-const thisWeek = { 'pititi.weekly.v1': { week: weekOf(new Date()), items: picks } }
+const thisWeek = { 'pititi.weekly.v1': { week: weekOf(TEST_NOW), items: picks } }
 const rail = (page: Page) => page.getByRole('region', { name: 'Picks of the week' })
 const scrollX = (page: Page) => page.locator('.weekly-rail').evaluate((el) => el.scrollLeft)
 

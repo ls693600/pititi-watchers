@@ -1,3 +1,4 @@
+import { APP_URL } from '../config'
 import { useState, type FormEvent } from 'react'
 import { householdLabel } from '../logic'
 import { t } from '../i18n'
@@ -5,7 +6,6 @@ import type { Household, Person } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 
-const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
 interface Props {
   people: Person[]

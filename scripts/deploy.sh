@@ -13,6 +13,8 @@ rm -rf .git
 git init -q -b gh-pages
 git add -A
 git commit -qm "deploy $(date -u +%Y-%m-%dT%H:%MZ)"
-git push -qf https://github.com/ls693600/pititi-watchers.git gh-pages
+# Publishes to the repo this checkout came from (moves with the repo to another account)
+git push -qf "$(git -C .. remote get-url origin)" gh-pages
 rm -rf .git
-echo "Deployed: https://ls693600.github.io/pititi-watchers/"
+APP_URL=$(grep -E '^VITE_APP_URL=' ../.env.local | cut -d= -f2- || true)
+echo "Deployed: ${APP_URL:-https://ls693600.github.io/pititi-watchers/}"

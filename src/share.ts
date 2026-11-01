@@ -2,7 +2,8 @@
 import { t } from './i18n'
 import { bigPoster } from './tvmaze'
 
-export const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
+export { APP_URL } from './config'
+import { APP_URL } from './config'
 
 const W = 1080
 // 3:4 portrait: room for two rows of posters plus the footer

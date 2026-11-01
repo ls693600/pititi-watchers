@@ -4,7 +4,8 @@ import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
 
 const SECRET = Deno.env.get('PITITI_HOOK_SECRET') ?? ''
-webpush.setVapidDetails('https://ls693600.github.io/pititi-watchers/', Deno.env.get('VAPID_PUBLIC_KEY')!, Deno.env.get('VAPID_PRIVATE_KEY')!)
+// The app's address (contact for push services). Set the APP_URL secret if the app moves.
+webpush.setVapidDetails(Deno.env.get('APP_URL') ?? 'https://ls693600.github.io/pititi-watchers/', Deno.env.get('VAPID_PUBLIC_KEY')!, Deno.env.get('VAPID_PRIVATE_KEY')!)
 // Service role: reads everyone's phones to deliver; never leaves this function
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 

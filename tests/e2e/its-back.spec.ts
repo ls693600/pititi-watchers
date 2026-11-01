@@ -1,16 +1,16 @@
 import { expect, test, type Page } from '@playwright/test'
-import { A, L, openAs } from './family'
+import { A, L, openAs, TEST_NOW } from './family'
 
 // Leandro & Ana finished four shows; TVmaze has news on three of them
 // Local dates, like the phone
 const day = (offset: number) => {
-  const d = new Date()
+  const d = new Date(TEST_NOW)
   d.setDate(d.getDate() + offset)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 const ago = (days: number) => day(-days)
 const ahead = (days: number) => day(days)
-const now = new Date().toISOString()
+const now = TEST_NOW.toISOString()
 const done = (id: number, name: string, season: number, ratings: Record<string, number> = {}) => ({
   id: `b-${id}`, kind: 'tv', householdId: 'h1', showId: id, showName: name, poster: null, network: null, genres: [], year: '2022', season,
   episodesWatched: 8, totalEpisodes: 8, runtime: 50, month: '2026-09', status: 'done', watchedBy: [L, A], ratings, isRewatch: false, notes: '',

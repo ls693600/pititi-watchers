@@ -1,8 +1,9 @@
+import { FUNCTIONS_URL } from './config'
 // Movies come from TMDB through our own server function, so the TMDB key never ships in the app.
 import type { Title } from './types'
 
 // The function is public (no login needed); same project as the app's sync
-const FN = 'https://pnazcanolltupqydemri.supabase.co/functions/v1/tmdb'
+const FN = `${FUNCTIONS_URL}/tmdb`
 
 export interface MovieResult extends Title {
   overview: string | null

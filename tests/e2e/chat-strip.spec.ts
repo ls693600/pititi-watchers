@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { A, L, openAs } from './family'
+import { A, L, openAs, TEST_NOW } from './family'
 
-const at = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
+const at = (min: number) => new Date(TEST_NOW.getTime() - min * 60_000).toISOString()
 const msg = (id: string, personId: string, text: string, min: number, watchId: string | null = null) => ({ id, watchId, personId, text, createdAt: at(min) })
 const home = (page: import('@playwright/test').Page) => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Home/ })
 

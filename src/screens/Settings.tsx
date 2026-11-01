@@ -1,3 +1,4 @@
+import { APP_URL } from '../config'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -58,7 +59,6 @@ interface Props {
   onChangePassword?: ((current: string, next: string) => Promise<void>) | null
 }
 
-const APP_URL = 'https://ls693600.github.io/pititi-watchers/'
 
 export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, evening, onChangePassword }: Props) {
   const [pwOpen, setPwOpen] = useState(false)

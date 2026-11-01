@@ -2,6 +2,12 @@ import { RELEASE_NOTES } from '../../src/releaseNotes'
 import type { Page } from '@playwright/test'
 
 // A test family shaped like the real one: 4 households, shows, a movie, lists, recommendations.
+/**
+ * "Now" for every test: the browser's clock is frozen here, so the seeded October data stays "this month"
+ * whatever day the tests run (they all broke on Nov 1 2026 before this).
+ */
+export const TEST_NOW = new Date('2026-10-20T19:00:00')
+
 export const L = 'local-leandro'
 export const A = 'local-ana'
 
@@ -75,6 +81,7 @@ export const seed = {
 
 /** Loads the app as a person (?as=), with the test family and fixed answers for TVmaze and movies. */
 export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt'; path?: string; extra?: Record<string, unknown>; query?: Record<string, string> } = {}) {
+  await page.clock.setFixedTime(TEST_NOW)
   await page.addInitScript(
     ({ data, lang }) => {
       // Only on the first load of this test: later reloads keep what the test changed

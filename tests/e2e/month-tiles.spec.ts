@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openAs } from './family'
+import { openAs, TEST_NOW } from './family'
 
 test.describe('Home tiles show what was watched', () => {
   test('tap "shows": every show of the month with its episodes, sortable, opens the show', async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe('Home tiles show what was watched', () => {
   })
 
   test('shows and movies are counted apart; a movie adds time, not episodes', async ({ page }) => {
-    const now = new Date().toISOString()
+    const now = TEST_NOW.toISOString()
     const movie = {
       id: 'w-movie', kind: 'movie', householdId: 'h1', showId: 693134, showName: 'Dune: Part Two', poster: null, network: null, genres: [], year: '2024',
       season: 1, episodesWatched: 1, totalEpisodes: 1, runtime: 166, month: '2026-10', status: 'done', watchedBy: ['local-leandro', 'local-ana'],
@@ -73,7 +73,7 @@ test.describe('Home tiles show what was watched', () => {
   })
 
   test('Stats and the year review count shows and movies apart', async ({ page }) => {
-    const now = new Date().toISOString()
+    const now = TEST_NOW.toISOString()
     const movie = {
       id: 'w-movie', kind: 'movie', householdId: 'h1', showId: 693134, showName: 'Dune: Part Two', poster: null, network: null, genres: [], year: '2024',
       season: 1, episodesWatched: 1, totalEpisodes: 1, runtime: 166, month: '2026-10', status: 'done', watchedBy: ['local-leandro', 'local-ana'],
