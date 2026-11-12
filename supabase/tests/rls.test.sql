@@ -2,7 +2,7 @@
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(36);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -91,6 +91,37 @@ select is((select count(*) from public.watches) + (select count(*) from public.p
 select throws_ok(
   $$ insert into public.comments (id, watch_id, body) values ('d0000000-0000-0000-0000-000000000002', null, 'spam') $$,
   '42501', null, 'a stranger cannot post');
+reset role;
+
+-- Predictions (017): guesses stay sealed until the household logs the episode --------------------------------
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data) values
+  ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ann@test.local', '{"invite_code":"TESTAAAA","name":"Ann"}');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select lives_ok(
+  $$ insert into public.predictions (id, show_id, season, episode, question) values ('e0000000-0000-0000-0000-000000000001', 1, 1, 5, 'Who did it?') $$,
+  'a member makes a prediction');
+select lives_ok(
+  $$ insert into public.prediction_guesses (prediction_id, guess) values ('e0000000-0000-0000-0000-000000000001', 'The butler') $$,
+  '... and seals her guess');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+insert into public.prediction_guesses (prediction_id, guess) values ('e0000000-0000-0000-0000-000000000001', 'The gardener');
+select is((select count(*) from public.prediction_guesses), 1::bigint, 'before the episode, you only see your own guess (others are sealed)');
+select throws_ok($$ select public.judge_guess('e0000000-0000-0000-0000-000000000001', public.my_person_id(), 'right') $$, 'P0001', 'still_sealed', 'nobody can judge before the reveal');
+reset role;
+update public.watches set episodes_watched = 5 where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+select is((select count(*) from public.prediction_guesses), 2::bigint, 'once the household logs the episode, every guess opens');
+select is_empty($$ update public.prediction_guesses set guess = 'Changed my mind' where person_id = public.my_person_id() returning 1 $$, 'no changing your guess after the reveal');
+select lives_ok($$ select public.judge_guess('e0000000-0000-0000-0000-000000000001', (select person_id from public.prediction_guesses where guess = 'The butler'), 'right') $$, 'anyone in the household marks a guess right or wrong');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+select is((select count(*) from public.predictions) + (select count(*) from public.prediction_guesses), 0::bigint, 'other households never see your predictions');
+select throws_ok($$ select public.judge_guess('e0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'wrong') $$, 'P0001', 'not_your_household', 'other households cannot judge');
 reset role;
 
 -- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
