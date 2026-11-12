@@ -1,4 +1,4 @@
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 
 export interface Snapshot {
   watches: Watch[]
@@ -25,6 +25,11 @@ export interface Snapshot {
   guesses: Guess[]
   /** False until migration 017 is run: predictions stay hidden */
   predictOn: boolean
+  nights: MovieNight[]
+  /** Your votes, and the others' on titles you've voted on too (the server enforces it) */
+  nightVotes: NightVote[]
+  /** False until migration 018 is run: Decide together stays hidden */
+  nightOn: boolean
 }
 
 export interface Store {
@@ -73,6 +78,8 @@ export interface Store {
   /** After the reveal: mark someone's guess right, wrong, or clear it */
   judgeGuess(predictionId: string, personId: string, verdict: Guess['verdict']): Promise<void>
   removePrediction(id: string): Promise<void>
+  startNight(n: MovieNight): Promise<void>
+  voteNight(v: NightVote): Promise<void>
   addComment(c: Comment): Promise<void>
   removeComment(id: string): Promise<void>
   /** This phone's notification subscription (Web Push) */

@@ -1,5 +1,5 @@
 import { newId, sameEpisodeReaction } from '../logic'
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
@@ -11,12 +11,14 @@ const EPISODE_REACTIONS = 'pititi.epreactions.v1'
 const PHOTOS = 'pititi.photos.v1'
 const PREDICTIONS = 'pititi.predictions.v1'
 const GUESSES = 'pititi.guesses.v1'
+const NIGHTS = 'pititi.nights.v1'
+const NIGHT_VOTES = 'pititi.nightvotes.v1'
 const HOUSEHOLDS = 'pititi.households.v1'
 const LISTS = 'pititi.lists.v1'
 const ITEMS = 'pititi.listitems.v1'
 const RECS = 'pititi.recs.v1'
 const MUTES = 'pititi.mutes.v1'
-const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS, PREDICTIONS, GUESSES]
+const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS, PREDICTIONS, GUESSES, NIGHTS, NIGHT_VOTES]
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -100,6 +102,9 @@ function read(): Snapshot {
     predictions: readJson<Prediction[]>(PREDICTIONS, []),
     guesses: readJson<Guess[]>(GUESSES, []),
     predictOn: true,
+    nights: readJson<MovieNight[]>(NIGHTS, []),
+    nightVotes: readJson<NightVote[]>(NIGHT_VOTES, []),
+    nightOn: true,
   }
 }
 
@@ -118,6 +123,8 @@ function write(snap: Snapshot) {
   localStorage.setItem(EPISODE_REACTIONS, JSON.stringify(snap.episodeReactions ?? []))
   localStorage.setItem(PREDICTIONS, JSON.stringify(snap.predictions ?? []))
   localStorage.setItem(GUESSES, JSON.stringify(snap.guesses ?? []))
+  localStorage.setItem(NIGHTS, JSON.stringify(snap.nights ?? []))
+  localStorage.setItem(NIGHT_VOTES, JSON.stringify(snap.nightVotes ?? []))
   // Photos are big: the cloud copy keeps rows only (links are re-signed on load)
   try {
     localStorage.setItem(PHOTOS, JSON.stringify(snap.photos ?? []))
@@ -241,6 +248,12 @@ export const localStore: Store = {
   },
   async removePrediction(id) {
     update((s) => ({ predictions: (s.predictions ?? []).filter((p) => p.id !== id), guesses: (s.guesses ?? []).filter((g) => g.predictionId !== id) }))
+  },
+  async startNight(n) {
+    update((s) => ({ nights: [...(s.nights ?? []).filter((x) => x.id !== n.id), n] }))
+  },
+  async voteNight(v) {
+    update((s) => ({ nightVotes: [...(s.nightVotes ?? []).filter((x) => !(x.nightId === v.nightId && x.personId === v.personId && x.ref === v.ref)), v] }))
   },
   // This phone only: the photo itself is kept as a data URL
   async addPhoto(p, image) {

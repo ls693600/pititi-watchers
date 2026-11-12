@@ -119,6 +119,33 @@ export interface Guess {
   createdAt: string
 }
 
+/** A poster in a movie night: the title plus why it's there. */
+export interface NightTitle extends Title {
+  titlePt?: string
+  score?: number | null
+  because?: string[]
+  /** Where it came from: your list, For us, or Trending */
+  from?: 'list' | 'forus' | 'week'
+}
+
+/** "Decide together": a household swipes yes/no on the same posters; the first title everyone likes wins. */
+export interface MovieNight {
+  id: string
+  householdId: string | null
+  createdBy: string | null
+  titles: NightTitle[]
+  createdAt: string
+}
+
+export interface NightVote {
+  nightId: string
+  personId: string
+  /** "movie:123" / "tv:456" */
+  ref: string
+  yes: boolean
+  createdAt: string
+}
+
 /** A photo of the night, on a log. The whole family sees them. */
 export interface CouchPhoto {
   id: string

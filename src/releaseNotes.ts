@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-15-movie-night',
+    en: [
+      '🍿 Decide together: start a movie night from Home. Each of you swipes yes or no on the same posters on your own phone; the first title you all like wins.',
+      'The others in your household get a notification to join. Nobody sees anyone\'s swipe on a title before making their own.',
+    ],
+    pt: [
+      '🍿 Decidir juntos: comece uma noite de filme no Início. Cada um desliza sim ou não nos mesmos pôsteres, no seu celular; o primeiro que todos curtirem ganha.',
+      'Os outros da casa recebem uma notificação para entrar. Ninguém vê o voto do outro num título antes de dar o seu.',
+    ],
+  },
+  {
     id: '2026-11-14-predictions',
     en: [
       '🔮 Predictions: on a show\'s page, ask a question and seal your guess. Everyone in your household adds theirs; nobody sees the others\' until you log the episode.',

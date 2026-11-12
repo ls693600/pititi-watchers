@@ -105,6 +105,24 @@ async function onRecommendation(id: string) {
   return { sent }
 }
 
+/** Someone started "Decide together": the rest of their household, in their language. */
+async function onMovieNight(id: string) {
+  const { data: n } = await db.from('movie_nights').select('id, household_id, created_by, titles').eq('id', id).single()
+  if (!n) return { sent: 0 }
+  const { data: people } = await db.from('people').select('id, name, household_id, notify_level, lang, is_viewer').eq('household_id', n.household_id)
+  const all = (people ?? []) as { id: string; name: string; notify_level: string | null; lang: string | null; is_viewer: boolean }[]
+  const starter = all.find((p) => p.id === n.created_by)?.name ?? 'Someone'
+  const to = all.filter((p) => p.id !== n.created_by && !p.is_viewer && p.notify_level !== 'off')
+  const lang = new Map(to.map((p) => [p.id, p.lang]))
+  const count = Array.isArray(n.titles) ? n.titles.length : 15
+  const sent = await deliver(await subsFor(to.map((p) => p.id)), (personId) =>
+    lang.get(personId) === 'pt'
+      ? { title: `🍿 ${starter} começou a noite de filme`, body: `${count} pôsteres para escolher juntos. Bora deslizar!`, open: `movienight:${n.id}`, tag: `night:${n.id}` }
+      : { title: `🍿 ${starter} started movie night`, body: `${count} posters to pick from together. Swipe now!`, open: `movienight:${n.id}`, tag: `night:${n.id}` },
+  )
+  return { sent }
+}
+
 async function onVoteRequest(id: string) {
   const { data: l } = await db.from('lists').select('*').eq('id', id).single()
   if (!l || !l.ask_votes) return { sent: 0 }
@@ -292,6 +310,7 @@ Deno.serve(async (req) => {
       body.type === 'comment' && id ? await onComment(id)
       : body.type === 'recommendation' && id ? await onRecommendation(id)
       : body.type === 'votes' && id ? await onVoteRequest(id)
+      : body.type === 'movienight' && id ? await onMovieNight(id)
       : body.type === 'reminders' ? await reminders().then(async (r) => (await heartbeat('reminders', r), r))
       : body.type === 'evening' ? await evening().then(async (r) => (await heartbeat('evening', r), r))
       : body.type === 'health' && Array.isArray(body.stale) ? await health(body.stale.filter((j: unknown) => typeof j === 'string'))

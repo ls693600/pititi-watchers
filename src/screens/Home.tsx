@@ -67,6 +67,8 @@ interface Props {
   /** Festive picks: what's already on the family's lists, and saving one */
   listItems?: ListItem[]
   onSaveTitle?: (title: Title) => void
+  /** "Decide together" card (null: not available here) */
+  movieNight?: { startedBy: string | null; left: number; match: string | null; active: boolean; onOpen: () => void; onNew: () => void } | null
   /** "It's back": start a finished show's new season */
   onStartSeason?: (head: Watch, season: SeasonInfo) => void
 }
@@ -108,7 +110,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<{ sort: MonthSort; kind: Kind | null } | null>(null)
@@ -378,6 +380,33 @@ export function Home(props: Props) {
         </>
       )}
       </>
+      )}
+
+      {!loading && movieNight && (
+        <button type="button" className={`night-entry ${movieNight.active ? 'live' : ''}`} onClick={movieNight.onOpen}>
+          <span className="night-entry-icon" aria-hidden="true">🍿</span>
+          <span className="night-entry-text">
+            <b>
+              {movieNight.match
+                ? t("Tonight's match: {title}", { title: movieNight.match })
+                : movieNight.active
+                  ? movieNight.startedBy
+                    ? t('{name} started movie night', { name: movieNight.startedBy })
+                    : t('Your movie night')
+                  : t('Decide together')}
+            </b>
+            <span>
+              {movieNight.match
+                ? t('You all said yes. Tap to watch it.')
+                : movieNight.active
+                  ? movieNight.left
+                    ? t('{n} posters left · swipe now', { n: movieNight.left })
+                    : t("You're done · waiting for the others")
+                  : t('Swipe on posters, each on your phone. First title you all like wins.')}
+            </span>
+          </span>
+          <Icon name="right" size={18} />
+        </button>
       )}
 
       {!loading && (prefs.back || prefs.picks || (prefs.festive && festive)) && (

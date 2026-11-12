@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, Prediction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
@@ -422,7 +422,7 @@ export const cloudStore: Store = {
       if (res.error) console.warn(`${what} unavailable:`, res.error.message)
       return res.error ? [] : (res.data ?? [])
     }
-    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph, pr, gs] = await Promise.all([
+    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph, pr, gs, mn, mv] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase()
         .from('ratings')
@@ -445,6 +445,9 @@ export const cloudStore: Store = {
       supabase().from('couch_photos').select('id, watch_id, person_id, path, night, created_at').order('night', { ascending: false }),
       supabase().from('predictions').select('id, household_id, show_id, season, episode, question, created_by, created_at').order('created_at'),
       supabase().from('prediction_guesses').select('prediction_id, person_id, guess, verdict, created_at'),
+      // Only recent movie nights matter (they last a few hours)
+      supabase().from('movie_nights').select('id, household_id, created_by, titles, created_at').gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
+      supabase().from('movie_night_votes').select('night_id, person_id, ref, yes, created_at').gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     ])
     // Migration 014: until it's run, photos stay hidden. A failed link request only hides them this time.
     const photos = ph.error ? [] : await withLinks(ph.data as PhotoRow[]).catch((e: Error) => (console.warn('Photo links unavailable:', e.message), []))
@@ -478,6 +481,15 @@ export const cloudStore: Store = {
       predictions: optional(pr, 'Predictions').map((x) => toPrediction(x as PredictionRow)),
       guesses: optional(gs, 'Guesses').map((x) => toGuess(x as GuessRow)),
       predictOn: !pr.error && !gs.error,
+      nights: optional(mn, 'Movie nights').map((x) => {
+        const r = x as { id: string; household_id: string | null; created_by: string | null; titles: MovieNight['titles']; created_at: string }
+        return { id: r.id, householdId: r.household_id, createdBy: r.created_by, titles: r.titles, createdAt: r.created_at }
+      }),
+      nightVotes: optional(mv, 'Movie night votes').map((x) => {
+        const r = x as { night_id: string; person_id: string; ref: string; yes: boolean; created_at: string }
+        return { nightId: r.night_id, personId: r.person_id, ref: r.ref, yes: r.yes, createdAt: r.created_at }
+      }),
+      nightOn: !mn.error && !mv.error,
     }
     cache.write(snap)
     return snap
@@ -544,6 +556,14 @@ export const cloudStore: Store = {
     const { data, error } = await supabase().from('predictions').delete().eq('id', id).select('id')
     if (error) throw error
     if (!data?.length) throw new Error(t('Only the person who asked it can remove it.'))
+  },
+  async startNight(n) {
+    const { error } = await supabase().from('movie_nights').insert({ id: n.id, titles: n.titles, created_at: n.createdAt })
+    if (error) throw error
+  },
+  async voteNight(v) {
+    const { error } = await supabase().from('movie_night_votes').upsert({ night_id: v.nightId, ref: v.ref, yes: v.yes, created_at: v.createdAt })
+    if (error) throw error
   },
   async addPhoto(p, image) {
     const household = (await supabase().rpc('my_household_id')).data as string | null
@@ -735,6 +755,11 @@ export const cloudStore: Store = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, ping)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'prediction_guesses' }, ping)
       .subscribe()
+    const nights = supabase()
+      .channel('family-nights')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'movie_nights' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'movie_night_votes' }, ping)
+      .subscribe()
     return () => {
       clearTimeout(t)
       supabase().removeChannel(channel)
@@ -742,6 +767,7 @@ export const cloudStore: Store = {
       supabase().removeChannel(episodes)
       supabase().removeChannel(photos)
       supabase().removeChannel(preds)
+      supabase().removeChannel(nights)
     }
   },
 }

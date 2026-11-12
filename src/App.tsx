@@ -17,6 +17,9 @@ import { useBackClose } from './hooks/useBackClose'
 import { useChat } from './hooks/useChat'
 import { usePhotos } from './hooks/usePhotos'
 import { useOpenedPredictions, usePredictions } from './hooks/usePredictions'
+import { useMovieNights } from './hooks/useMovieNights'
+import { activeNight, nightState } from './movieNight'
+import { lovedTitles } from './forUs'
 import { tonight } from './lib/photo'
 import { useFamilyAdmin } from './hooks/useFamilyAdmin'
 import { onOutbox, readOutbox, withOutbox } from './store/outbox'
@@ -46,9 +49,10 @@ const Stats = lazyPart(() => import('./screens/Stats').then((m) => m.Stats))
 const Family = lazyPart(() => import('./screens/Family').then((m) => m.Family))
 const TitleSheet = lazyPart(() => import('./components/TitleSheet').then((m) => m.TitleSheet))
 const MovieLog = lazyPart(() => import('./components/MovieLog').then((m) => m.MovieLog))
+const MovieNight = lazyPart(() => import('./components/MovieNight').then((m) => m.MovieNight))
 const Lists = lazyPart(() => import('./screens/Lists').then((m) => m.Lists))
 const ListEditor = lazyPart(() => import('./screens/Lists').then((m) => m.ListEditor))
-const PARTS = [QuickLog, Reveal, Detail, Login, PasswordSheet, Search, Settings, Help, Messages, Stats, Family, TitleSheet, MovieLog, Lists, ListEditor]
+const PARTS = [MovieNight, QuickLog, Reveal, Detail, Login, PasswordSheet, Search, Settings, Help, Messages, Stats, Family, TitleSheet, MovieLog, Lists, ListEditor]
 
 // Cloud changes made without signal wait on the phone (and in its offline copy) and sync when it's back
 const cloud = withOutbox(cloudStore, localStore)
@@ -202,6 +206,10 @@ export default function App() {
   const couch = usePhotos(store, mePerson?.id ?? null, flash)
   const predict = usePredictions(store, mePerson?.id ?? null, flash)
   const takePredictions = predict.take
+  const nights = useMovieNights(store, mePerson?.id ?? null, myHousehold, flash)
+  const takeNights = nights.take
+  /** Decide together: 'setup' for a new night, or the night's id */
+  const [nightOpen, setNightOpen] = useState<string | null>(null)
   // Logging the episode that opens a prediction: say so once, with a button to the show
   useOpenedPredictions(
     predict.predictions.filter((p) => p.householdId === myHousehold),
@@ -281,6 +289,7 @@ export default function App() {
       takeChat(snap)
       takePhotos(snap)
       takePredictions(snap)
+      takeNights(snap)
       setOffline(false)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
@@ -295,11 +304,12 @@ export default function App() {
       takeChat({ comments: snap.comments, reactions: snap.reactions, episodeReactions: snap.episodeReactions })
       takePhotos({ photos: snap.photos })
       takePredictions({ predictions: snap.predictions, guesses: snap.guesses })
+      takeNights({ nights: snap.nights, nightVotes: snap.nightVotes })
       setOffline(true)
     } finally {
       setLoaded(true)
     }
-  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, takePhotos, takePredictions, flash])
+  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, takePhotos, takePredictions, takeNights, flash])
   const familyAdmin = useFamilyAdmin(store, reload, flash)
 
   useEffect(() => {
@@ -344,6 +354,7 @@ export default function App() {
       setTab('family')
     } else if (kind === 'quickmark') setQuickMark(true)
     else if (kind === 'settings') setTab('settings')
+    else if (kind === 'movienight' && id) setNightOpen(id)
     else if (kind === 'add') {
       setAddMonth(currentMonth())
       setTab('search')
@@ -542,6 +553,21 @@ export default function App() {
   // Your household: its people are "Who watched?", Stats and Taste match (viewers never are)
   const members = householdMembers(people, myHousehold)
   const homeWatches = householdWatches(watches, myHousehold)
+  // Decide together: everyone in the household who swipes (not viewers); the card on Home
+  const swipers = members.filter((p) => !p.isViewer)
+  const night = activeNight(nights.nights, myHousehold)
+  const nightNow = night && me ? nightState(night, nights.votes, me, swipers.map((p) => p.id)) : null
+  const movieNightCard =
+    nights.nightOn && !(auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false) && swipers.length > 1 && me
+      ? {
+          startedBy: night ? (night.createdBy === me ? null : (people.find((p) => p.id === night.createdBy)?.name ?? null)) : null,
+          left: nightNow?.todo.length ?? 0,
+          match: nightNow?.matches[0]?.title ?? null,
+          active: !!night,
+          onOpen: () => setNightOpen(night ? night.id : 'setup'),
+          onNew: () => setNightOpen('setup'),
+        }
+      : null
   const detailHousehold = detail?.watch.householdId ?? myHousehold
   const readOnly = auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false
   const isAdmin = auth.session ? auth.session.isAdmin : true
@@ -691,6 +717,7 @@ export default function App() {
             familyChat={social ? familyChatSummary(comments, lastRead, me) : null}
             onFamilyChat={() => openThread(null)}
             listItems={circle.items}
+            movieNight={movieNightCard}
             onSaveTitle={(title) => setTitleSheet({ title, mode: 'save' })}
             onAdd={() => {
               setAddMonth(month)
@@ -954,6 +981,32 @@ export default function App() {
             setMovieDraft(null)
             setFromItem(null)
           }}
+        />
+      )}
+
+      {nightOpen && me && (
+        <MovieNight
+          night={nightOpen === 'setup' ? null : (nights.nights.find((n) => n.id === nightOpen) ?? null)}
+          votes={nights.votes}
+          members={swipers}
+          me={me}
+          household={myHousehold}
+          watches={watches}
+          lists={circle.lists}
+          items={circle.items}
+          loved={lovedTitles(homeWatches)}
+          onStart={async (titles) => {
+            const n = await nights.start(titles)
+            if (n) setNightOpen(n.id)
+            return n
+          }}
+          onVote={nights.vote}
+          onWatch={(title) => {
+            setNightOpen(null)
+            startLog(title, null, currentMonth())
+          }}
+          onNewRound={() => setNightOpen('setup')}
+          onClose={() => setNightOpen(null)}
         />
       )}
 
