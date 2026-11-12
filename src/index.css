@@ -6,16 +6,16 @@
   --surface-3: #e9e4dd;
   --text: #1a1720;
   --text-2: #4a4550;
-  --muted: #8a8490;
+  --muted: #6b6571;
   --line: rgba(26, 23, 32, 0.08);
   --brand: #ff4d6d;
   --brand-2: #ff8a3d;
-  --brand-ink: #e0294d;
+  --brand-ink: #c41f42;
   --brand-soft: #ffe8ec;
   --grad: linear-gradient(135deg, #ff4d6d 0%, #ff8a3d 100%);
   --gold: #f5a524;
   --ok: #16a34a;
-  --danger: #e11d48;
+  --danger: #be123c;
   --shadow-sm: 0 1px 2px rgba(26, 23, 32, 0.05);
   --shadow: 0 1px 2px rgba(26, 23, 32, 0.04), 0 8px 24px rgba(26, 23, 32, 0.07);
   --shadow-lg: 0 2px 6px rgba(26, 23, 32, 0.06), 0 20px 48px rgba(26, 23, 32, 0.14);
@@ -827,7 +827,7 @@ ul.queue .qrow:last-child { border-bottom: 0; }
 .feed-kicker { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .feed-title { font-size: 16px; line-height: 1.25; }
 .feed-note { font-size: 14px; color: var(--text-2); font-style: italic; }
-.feed-stars { font-size: 14px; color: var(--gold); font-weight: 750; }
+.feed-stars { font-size: 14px; color: var(--text); font-weight: 750; }
 .feed-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 .icon-btn.muted { color: var(--muted); }
 

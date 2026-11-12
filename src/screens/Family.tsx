@@ -219,7 +219,7 @@ export function Family(props: Props) {
                         </b>
                         {e.avg != null ? (
                           <p className="feed-stars">
-                            ★ {e.avg.toFixed(1)} <span className="muted">{e.watch.watchedBy.length > 1 ? t('their average') : t('stars')}</span>
+                            <b className="gold">★</b> {e.avg.toFixed(1)} <span className="muted">{e.watch.watchedBy.length > 1 ? t('their average') : t('stars')}</span>
                           </p>
                         ) : (
                           <p className="muted small">{t('Ratings coming')}</p>
