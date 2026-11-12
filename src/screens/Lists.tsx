@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
-import { canEditList, canSeeList, householdLabel, newId, rankedItems, visibilityLabel } from '../logic'
+import { TitleInfo } from '../components/TitleInfo'
+import { canEditList, canSeeList, householdLabel, newId, rankedItems, timeAgo, visibilityLabel } from '../logic'
 import { t } from '../i18n'
-import type { Household, ListItem, ListVisibility, Person, WatchList } from '../types'
+import type { Household, ListItem, ListVisibility, Person, Watch, WatchList } from '../types'
 
 interface Props {
   lists: WatchList[]
@@ -25,6 +26,8 @@ interface Props {
   onDelete: (l: WatchList) => void
   /** Save to another list / Recommend */
   onMore: (item: ListItem) => void
+  /** The family circle's logs, for "who already watched it" on a title */
+  watches?: Watch[]
 }
 
 const EMOJIS = ['🍿', '📌', '🎬', '📺', '❤️', '😂', '👻', '🧸', '🏆', '🌙']
@@ -178,7 +181,7 @@ export function ListEditor({
 }
 
 /** Your household's lists, lists the family shared with you, and votes on what to watch. */
-export function Lists({ lists, items, people, households, me, open, onOpen, onVote, onRemove, onWatch, onAdd, onSave, onDelete, onMore }: Props) {
+export function Lists({ lists, items, people, households, me, open, onOpen, onVote, onRemove, onWatch, onAdd, onSave, onDelete, onMore, watches = [] }: Props) {
   const [picked, setPicked] = useState<ListItem | null>(null)
   const [editing, setEditing] = useState<WatchList | 'new' | null>(null)
   const visible = lists.filter((l) => canSeeList(l, me))
@@ -284,17 +287,24 @@ export function Lists({ lists, items, people, households, me, open, onOpen, onVo
             <button className="sheet-dim" aria-label={t('Close')} onClick={() => setPicked(null)} />
             <div className="sheet">
               <div className="grabber" aria-hidden="true" />
-              <div className="sheet-show">
-                <Poster src={picked.poster} name={picked.title} w={52} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="label-sm">
-                    {picked.kind === 'movie' ? t('Movie') : t('TV show')}
-                    {picked.year ? ` · ${picked.year}` : ''}
+              <TitleInfo
+                title={picked}
+                watches={watches}
+                households={households}
+                people={people}
+                me={me}
+                byline={
+                  <p className="tinfo-byline">
+                    {picked.addedBy && (
+                      <span>
+                        {t('Added by {name}', { name: picked.addedBy === me?.id ? t('you') : (people.find((p) => p.id === picked.addedBy)?.name ?? t('someone')) })} ·{' '}
+                        {timeAgo(picked.createdAt)}
+                      </span>
+                    )}
+                    <Voters ids={picked.votes} people={people} />
                   </p>
-                  <h2 className="sheet-title">{picked.title}</h2>
-                  <Voters ids={picked.votes} people={people} />
-                </div>
-              </div>
+                }
+              />
               {mine && !readOnly && (
                 <button
                   className="btn primary block"

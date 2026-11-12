@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-11',
+    en: ['Tap a title in a list to see more: big poster, rating, seasons, where to watch, the story, next episode, the trailer, and who in the family already watched it.'],
+    pt: ['Toque num título de uma lista para ver mais: pôster grande, nota, temporadas, onde assistir, a história, o próximo episódio, o trailer e quem da família já assistiu.'],
+  },
+  {
     id: '2026-11-01-photos',
     en: [
       'Couch nights: add a photo of tonight on any show or movie (📷 on its page, or right after Quick mark).',

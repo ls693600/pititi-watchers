@@ -35,6 +35,7 @@ import {
   episodeTallies,
   bestEpisode,
   episodeOfYear,
+  familyWatched,
   rewatchPair,
   canReact,
   toggleReaction,
@@ -1060,5 +1061,23 @@ describe('episode reactions', () => {
     expect(best?.tally.count).toBe(2)
     expect(episodeOfYear(list, [log], ['l', 'a'], 2025)).toBeNull()
     expect(episodeOfYear(list, [], ['l', 'a'], 2026)).toBeNull()
+  })
+})
+
+describe('who in the family watched a title', () => {
+  const list = [
+    watch({ id: 'a1', householdId: 'h1', showId: 7, season: 1, status: 'done', watchedBy: ['l', 'a'], ratings: { l: 8, a: 6 } }),
+    watch({ id: 'a2', householdId: 'h1', showId: 7, season: 2, status: 'watching', watchedBy: ['l', 'a'], ratings: {} }),
+    watch({ id: 'b1', householdId: 'h2', showId: 7, season: 3, status: 'done', watchedBy: ['f'], ratings: { f: 9 } }),
+    watch({ id: 'c1', householdId: 'h3', kind: 'movie', showId: 7, season: 1, status: 'done', watchedBy: ['e'], ratings: { e: 10 } }),
+  ]
+  it('one line per household from its latest season; rated first; movies and shows never mix', () => {
+    const tv = familyWatched(list, { kind: 'tv', extId: 7 })
+    expect(tv.map((f) => [f.householdId, f.season, f.status, f.rating])).toEqual([
+      ['h2', 3, 'done', 9],
+      ['h1', 2, 'watching', null],
+    ])
+    expect(familyWatched(list, { kind: 'movie', extId: 7 }).map((f) => f.householdId)).toEqual(['h3'])
+    expect(familyWatched(list, { kind: 'tv', extId: 8 })).toEqual([])
   })
 })

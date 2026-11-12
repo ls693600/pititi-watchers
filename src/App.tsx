@@ -685,6 +685,7 @@ export default function App() {
               setListOpen(null)
             }}
             onMore={(item) => setTitleSheet({ title: item, mode: 'recommend' })}
+            watches={watches}
           />
         ) : tab === 'family' ? (
           <Family

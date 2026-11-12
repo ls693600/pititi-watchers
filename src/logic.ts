@@ -1072,6 +1072,30 @@ export function householdLabel(h: Household | undefined, people: Person[]): stri
   return names.length ? names.join(' & ') : t('Household')
 }
 
+/** Who in the family circle already watched a title: one line per household (latest season), with its average. */
+export function familyWatched(
+  watches: Watch[],
+  title: Pick<Title, 'kind' | 'extId'>,
+): { householdId: string | null; status: Watch['status']; season: number; rating: number | null; watchedBy: string[] }[] {
+  const heads = new Map<string, Watch>()
+  for (const w of watches) {
+    if (kindOf(w) !== title.kind || w.showId !== title.extId) continue
+    const key = w.householdId ?? ''
+    const cur = heads.get(key)
+    if (!cur || w.season > cur.season || (w.season === cur.season && w.updatedAt > cur.updatedAt)) heads.set(key, w)
+  }
+  return [...heads.values()]
+    .map((w) => ({ householdId: w.householdId ?? null, status: w.status, season: w.season, rating: averageRating(w), watchedBy: w.watchedBy }))
+    .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1))
+}
+
+/** TVmaze's show status in the family's words ("To Be Determined" reads like a bug otherwise). */
+export function showStatusLabel(status: string): string {
+  if (status === 'Running') return t('Still airing')
+  if (status === 'To Be Determined') return t('Awaiting renewal')
+  return t(status)
+}
+
 // ---- Lists ----
 
 /** Same rule as the database: your household's lists, lists shared with you, and family-wide lists. */

@@ -7,7 +7,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, CouchPhoto, EpisodeEmoji, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -396,7 +396,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
                 <b className="gold">★</b> {info.rating.toFixed(1)}
               </span>
             )}
-            {info.status && <span>{info.status === 'Running' ? t('Still airing') : t(info.status)}</span>}
+            {info.status && <span>{showStatusLabel(info.status)}</span>}
             {info.runtime != null && <span>~{info.runtime} min</span>}
             {seasons && seasons.length > 0 && (() => {
               const n = seasons.filter((x) => x.aired).length || seasons.length
