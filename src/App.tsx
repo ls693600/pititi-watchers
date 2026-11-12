@@ -718,6 +718,7 @@ export default function App() {
             onFamilyChat={() => openThread(null)}
             listItems={circle.items}
             movieNight={movieNightCard}
+            timeFit={{ lists: circle.lists, household: myHousehold, onWatch: (item) => startLog(item, item, currentMonth()) }}
             onSaveTitle={(title) => setTitleSheet({ title, mode: 'save' })}
             onAdd={() => {
               setAddMonth(month)

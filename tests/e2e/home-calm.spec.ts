@@ -4,6 +4,9 @@ import { openAs } from './family'
 test.describe('Calmer Home', () => {
   test('Currently watching comes first, then the month; Customize Home hides sections on this phone', async ({ page }) => {
     await openAs(page)
+    // Wait for Home to finish loading before reading its order
+    await page.locator('.hero').first().waitFor()
+    await page.locator('.monthbar').waitFor()
     const order = await page.evaluate(() => [...document.querySelectorAll('.hero, .monthbar')].map((el) => (el.classList.contains('hero') ? 'watching' : 'month')))
     expect(order[0]).toBe('watching')
     await page.getByRole('button', { name: 'Customize Home' }).click()

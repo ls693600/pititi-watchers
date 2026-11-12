@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-16-time',
+    en: ['⏱ We have time: in Tonight, pick 30 min, 1 hour, 2 hours or all night and see what fits: the next episodes of your shows, or a movie from your lists.'],
+    pt: ['⏱ Temos tempo: no Hoje à noite, escolha 30 min, 1 hora, 2 horas ou a noite toda e veja o que cabe: os próximos episódios das suas séries, ou um filme das suas listas.'],
+  },
+  {
     id: '2026-11-15-movie-night',
     en: [
       '🍿 Decide together: start a movie night from Home. Each of you swipes yes or no on the same posters on your own phone; the first title you all like wins.',

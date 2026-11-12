@@ -10,6 +10,7 @@ import { WhatsNewCard } from '../components/WhatsNew'
 import { WeeklyPicks } from '../components/WeeklyPicks'
 import { useBackClose } from '../hooks/useBackClose'
 import { ItsBack } from '../components/ItsBack'
+import { TimeFitPanel } from '../components/TimeFitPanel'
 import { lovedTitles } from '../forUs'
 import type { SeasonInfo } from '../tvmaze'
 import { FestiveDeco } from '../components/Festive'
@@ -31,7 +32,7 @@ import {
   watchesInMonth,
 } from '../logic'
 import { getLang, setLang, t } from '../i18n'
-import type { Comment, Kind, ListItem, Person, Title, Watch } from '../types'
+import type { Comment, Kind, ListItem, Person, Title, Watch, WatchList } from '../types'
 import type { Festive } from '../festive'
 import { lazyPart } from '../lib/lazy'
 
@@ -69,6 +70,8 @@ interface Props {
   onSaveTitle?: (title: Title) => void
   /** "Decide together" card (null: not available here) */
   movieNight?: { startedBy: string | null; left: number; match: string | null; active: boolean; onOpen: () => void; onNew: () => void } | null
+  /** "We have time": your household's lists, and starting a movie from them */
+  timeFit?: { lists: WatchList[]; household: string | null; onWatch: (item: ListItem) => void } | null
   /** "It's back": start a finished show's new season */
   onStartSeason?: (head: Watch, season: SeasonInfo) => void
 }
@@ -94,7 +97,7 @@ function readPrefs(): HomePrefs {
   }
 }
 
-type TonightChip = 'back' | 'forus' | 'week' | 'festive'
+type TonightChip = 'back' | 'time' | 'forus' | 'week' | 'festive'
 
 function tipSeen(): boolean {
   try {
@@ -110,7 +113,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null, timeFit = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<{ sort: MonthSort; kind: Kind | null } | null>(null)
@@ -137,6 +140,7 @@ export function Home(props: Props) {
     ...(prefs.picks && picksAvail.forus ? [{ id: 'forus' as const, label: `♥ ${t('For us')}` }] : []),
     ...(prefs.picks && picksAvail.week ? [{ id: 'week' as const, label: `🔥 ${t('Trending')}` }] : []),
     ...(prefs.festive && festive ? [{ id: 'festive' as const, label: `${festive.emoji} ${t(festive.name)}` }] : []),
+    ...(timeFit && (watches.some((w) => w.status === 'watching') || listItems.some((i) => i.kind === 'movie')) ? [{ id: 'time' as const, label: `⏱ ${t('We have time')}` }] : []),
   ]
   const [chipPick, setChipPick] = useState<TonightChip | null>(null)
   const chip: TonightChip | null = chips.some((c) => c.id === chipPick) ? chipPick : (chips[0]?.id ?? null)
@@ -424,6 +428,9 @@ export function Home(props: Props) {
             <div hidden={chip !== 'back'}>
               <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} bare onCount={onBackCount} />
             </div>
+          )}
+          {timeFit && chip === 'time' && (
+            <TimeFitPanel watching={watching} lists={timeFit.lists} items={listItems} household={timeFit.household} watches={watches} readOnly={readOnly} onOpen={onOpen} onWatch={timeFit.onWatch} />
           )}
           {prefs.picks && (
             <div hidden={chip !== 'forus' && chip !== 'week'}>
