@@ -90,6 +90,8 @@ test.describe('For us', () => {
   ]
 
   test('a For us tab from what you rated 8+, without what you already watched; Trending is one tap away', async ({ page }) => {
+    // Hold the drifting rail still so taps land on slow machines too
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     let asked = ''
     await open(page, L, {}, () =>
       page.route('**/functions/v1/tmdb**', (route) => {

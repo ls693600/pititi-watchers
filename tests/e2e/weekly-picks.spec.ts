@@ -53,6 +53,8 @@ test.describe('Picks of the week', () => {
   })
 
   test('a poster opens the picks with that title highlighted; Save goes to a list', async ({ page }) => {
+    // The rail drifts by itself; on slow machines a moving poster never counts as "still" for a tap (drift has its own test)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await openAs(page, L, { extra: thisWeek })
     const first = picks[0]
     await rail(page).getByRole('button', { name: new RegExp(`^Number 1: ${first.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).click()

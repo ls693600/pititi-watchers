@@ -1097,4 +1097,5 @@ export const PT: Record<string, string> = {
   "Thriller": "Suspense",
   "War": "Guerra",
   "Western": "Faroeste",
+  "Couldn't save your notification setting. Try again later.": "Não deu para salvar sua configuração de notificações. Tente mais tarde.",
 }

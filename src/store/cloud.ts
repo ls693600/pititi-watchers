@@ -645,8 +645,14 @@ export const cloudStore: Store = {
     if (error) throw error
   },
   async setNotifyLevel(personId, level) {
-    const { error } = await supabase().from('people').update({ notify_level: level }).eq('id', personId)
-    if (error) throw error
+    // Your own setting, through a function (a plain update only works for the admin: migration 015)
+    const { error } = await supabase().rpc('set_notify_level', { level })
+    if (!error) return
+    if (!/set_notify_level|PGRST202|function/i.test(`${error.code} ${error.message}`)) throw error
+    // Not migrated yet: the old way, but say so when it didn't save instead of pretending it did
+    const res = await supabase().from('people').update({ notify_level: level }).eq('id', personId).select('id')
+    if (res.error) throw res.error
+    if (!res.data?.length) throw new Error(t("Couldn't save your notification setting. Try again later."))
   },
   async addPerson(name, householdId = null) {
     const { data, error } = await supabase().from('people').insert({ name, ...(householdId ? { household_id: householdId } : {}) }).select('*').single()

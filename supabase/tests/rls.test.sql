@@ -2,7 +2,7 @@
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(23);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -42,9 +42,14 @@ select throws_ok(
   '42501', null, 'a member cannot add to another household''s log');
 select is_empty($$ update public.watches set show_name = 'Hacked' where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot edit another household''s log');
 select is_empty($$ delete from public.watches where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot delete another household''s log');
-select throws_ok(
-  $$ update public.people set is_admin = true where user_id = '11111111-1111-1111-1111-111111111111' $$,
-  'P0001', 'role_locked', 'a member cannot make herself admin');
+select is_empty(
+  $$ update public.people set is_admin = true where user_id = '11111111-1111-1111-1111-111111111111' returning 1 $$,
+  'a member cannot make herself admin (only the admin edits people)');
+select lives_ok($$ select public.set_notify_level('off') $$, 'a member changes her own notification setting');
+select is((select notify_level from public.people where user_id = '11111111-1111-1111-1111-111111111111'), 'off', '... and it is saved');
+select is_empty(
+  $$ update public.people set notify_level = 'off' where user_id = '22222222-2222-2222-2222-222222222222' returning 1 $$,
+  'a member cannot change someone else''s notification setting');
 select lives_ok(
   $$ insert into public.couch_photos (id, watch_id, path, night) values ('c0000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-00000000000a/c1.jpg', '2026-10-20') $$,
   'a member adds a photo to her household''s log');
