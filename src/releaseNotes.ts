@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-13',
+    en: [
+      'Tap a poster and it grows into the show page (off when your phone has Reduce motion on).',
+      'In Portuguese, series now show their story in Portuguese when there is one.',
+    ],
+    pt: [
+      'Toque num pôster e ele cresce até virar a página da série (desligado se o celular estiver com Reduzir movimento).',
+      'Em português, as séries agora mostram a história em português quando existe.',
+    ],
+  },
+  {
     id: '2026-11-12',
     en: [
       'A calmer Home: Currently watching first, then the month, then Tonight (It\'s back, For us, Trending) one row at a time. Customize Home at the bottom hides what you don\'t use.',
