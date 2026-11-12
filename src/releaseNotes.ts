@@ -12,11 +12,15 @@ export const RELEASE_NOTES: ReleaseNote[] = [
   {
     id: '2026-11-12',
     en: [
+      'A calmer Home: Currently watching first, then the month, then Tonight (It\'s back, For us, Trending) one row at a time. Customize Home at the bottom hides what you don\'t use.',
+      'Every poster has a ⋯ button for quick actions.',
       "The phone's Back now closes the sheet or page on top, one at a time, instead of leaving the app.",
       'Opens faster: each screen loads when you first open it.',
       'Easier to read: grey text and links have stronger contrast in the light look.',
     ],
     pt: [
+      'Um Início mais calmo: Vendo agora primeiro, depois o mês, depois Hoje à noite (Voltou!, Para nós, Em alta), uma fileira de cada vez. Personalizar o Início, no final, esconde o que você não usa.',
+      'Todo pôster tem um botão ⋯ para ações rápidas.',
       'O Voltar do celular agora fecha a janela ou página de cima, uma de cada vez, em vez de sair do app.',
       'Abre mais rápido: cada tela carrega quando você abre pela primeira vez.',
       'Mais fácil de ler: textos cinza e links com mais contraste no visual claro.',
