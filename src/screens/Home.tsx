@@ -201,6 +201,76 @@ export function Home(props: Props) {
 
       {prefs.chat && familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
 
+      {!loading && movieNight && (
+        <button type="button" className={`night-entry ${movieNight.active ? 'live' : ''}`} onClick={movieNight.onOpen}>
+          <span className="night-entry-icon" aria-hidden="true">🍿</span>
+          <span className="night-entry-text">
+            <b>
+              {movieNight.match
+                ? t("Tonight's match: {title}", { title: movieNight.match })
+                : movieNight.active
+                  ? movieNight.startedBy
+                    ? t('{name} started movie night', { name: movieNight.startedBy })
+                    : t('Your movie night')
+                  : t('Decide together')}
+            </b>
+            <span>
+              {movieNight.match
+                ? t('You all said yes. Tap to watch it.')
+                : movieNight.active
+                  ? movieNight.left
+                    ? t('{n} posters left · swipe now', { n: movieNight.left })
+                    : t("You're done · waiting for the others")
+                  : t('Swipe on posters, each on your phone. First title you all like wins.')}
+            </span>
+          </span>
+          <Icon name="right" size={18} />
+        </button>
+      )}
+
+      {!loading && (prefs.back || prefs.picks || (prefs.festive && festive)) && (
+        <section className="tonight" aria-labelledby="tonight-title" hidden={!chips.length}>
+          <h2 className="h2" id="tonight-title">{t('Tonight')}</h2>
+          <div className="tonight-chips" role="tablist" aria-label={t('What to show tonight')}>
+            {chips.map((c) => (
+              <button key={c.id} type="button" role="tab" aria-selected={chip === c.id} className={chip === c.id ? 'on' : ''} onClick={() => setChipPick(c.id)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {/* Both stay mounted so each can tell which chips have something; only the chosen one shows */}
+          {prefs.back && (
+            <div hidden={chip !== 'back'}>
+              <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} bare onCount={onBackCount} />
+            </div>
+          )}
+          {timeFit && chip === 'time' && (
+            <TimeFitPanel watching={watching} lists={timeFit.lists} items={listItems} household={timeFit.household} watches={watches} readOnly={readOnly} onOpen={onOpen} onWatch={timeFit.onWatch} />
+          )}
+          {prefs.picks && (
+            <div hidden={chip !== 'forus' && chip !== 'week'}>
+              <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} loved={lovedTitles(watches)} tab={chip === 'week' ? 'week' : 'forus'} onAvailable={onPicksAvail} />
+            </div>
+          )}
+          {prefs.festive && festive && chip === 'festive' && (
+            <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
+          <FestiveDeco festive={festive} />
+          <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
+          <span className="festive-text" aria-hidden="true">
+            <b>
+              {t(festive.name)}
+              {festive.country && <span className="festive-country">{festive.country === 'CA' ? t('🇨🇦 Canada') : t('🇧🇷 Brazil')}</span>}
+            </b>
+            {t(festive.greeting)}
+            <span className="festive-cta">
+              {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />
+            </span>
+          </span>
+        </button>
+          )}
+        </section>
+      )}
+
       {isCurrent && watching.length > 0 && (
         <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} readOnly={readOnly} />
       )}
@@ -386,75 +456,6 @@ export function Home(props: Props) {
       </>
       )}
 
-      {!loading && movieNight && (
-        <button type="button" className={`night-entry ${movieNight.active ? 'live' : ''}`} onClick={movieNight.onOpen}>
-          <span className="night-entry-icon" aria-hidden="true">🍿</span>
-          <span className="night-entry-text">
-            <b>
-              {movieNight.match
-                ? t("Tonight's match: {title}", { title: movieNight.match })
-                : movieNight.active
-                  ? movieNight.startedBy
-                    ? t('{name} started movie night', { name: movieNight.startedBy })
-                    : t('Your movie night')
-                  : t('Decide together')}
-            </b>
-            <span>
-              {movieNight.match
-                ? t('You all said yes. Tap to watch it.')
-                : movieNight.active
-                  ? movieNight.left
-                    ? t('{n} posters left · swipe now', { n: movieNight.left })
-                    : t("You're done · waiting for the others")
-                  : t('Swipe on posters, each on your phone. First title you all like wins.')}
-            </span>
-          </span>
-          <Icon name="right" size={18} />
-        </button>
-      )}
-
-      {!loading && (prefs.back || prefs.picks || (prefs.festive && festive)) && (
-        <section className="tonight" aria-labelledby="tonight-title" hidden={!chips.length}>
-          <h2 className="h2" id="tonight-title">{t('Tonight')}</h2>
-          <div className="tonight-chips" role="tablist" aria-label={t('What to show tonight')}>
-            {chips.map((c) => (
-              <button key={c.id} type="button" role="tab" aria-selected={chip === c.id} className={chip === c.id ? 'on' : ''} onClick={() => setChipPick(c.id)}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-          {/* Both stay mounted so each can tell which chips have something; only the chosen one shows */}
-          {prefs.back && (
-            <div hidden={chip !== 'back'}>
-              <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} bare onCount={onBackCount} />
-            </div>
-          )}
-          {timeFit && chip === 'time' && (
-            <TimeFitPanel watching={watching} lists={timeFit.lists} items={listItems} household={timeFit.household} watches={watches} readOnly={readOnly} onOpen={onOpen} onWatch={timeFit.onWatch} />
-          )}
-          {prefs.picks && (
-            <div hidden={chip !== 'forus' && chip !== 'week'}>
-              <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} loved={lovedTitles(watches)} tab={chip === 'week' ? 'week' : 'forus'} onAvailable={onPicksAvail} />
-            </div>
-          )}
-          {prefs.festive && festive && chip === 'festive' && (
-            <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
-          <FestiveDeco festive={festive} />
-          <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
-          <span className="festive-text" aria-hidden="true">
-            <b>
-              {t(festive.name)}
-              {festive.country && <span className="festive-country">{festive.country === 'CA' ? t('🇨🇦 Canada') : t('🇧🇷 Brazil')}</span>}
-            </b>
-            {t(festive.greeting)}
-            <span className="festive-cta">
-              {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />
-            </span>
-          </span>
-        </button>
-          )}
-        </section>
-      )}
 
       {!loading && (
         <button type="button" className="link-btn home-customize" onClick={() => setCustomizing(true)}>

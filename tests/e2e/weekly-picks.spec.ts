@@ -22,13 +22,14 @@ test.describe('Picks of the week', () => {
     await expect(r.getByRole('button', { name: /^Number 1: .*rated [\d.]+ out of 10/ })).toBeVisible()
     await expect(r.locator('.weekly-item:not([aria-hidden])', { hasText: 'Lioness' })).toContainText('You watched it')
     await expect(r.locator('.weekly-item:not([aria-hidden])', { hasText: 'Severance' })).toContainText('On a list')
-    // Calmer Home: discovery sits below Currently watching and the month
+    // A selling point: Tonight sits right under the Family chat, above Currently watching and the month
     const order = await page.evaluate(() => {
-      const all = [...document.querySelectorAll('.hero, .monthbar, .tonight')]
-      return all.map((el) => (el.classList.contains('tonight') ? 'tonight' : el.classList.contains('monthbar') ? 'month' : 'watching'))
+      const all = [...document.querySelectorAll('.chat-strip, .hero, .monthbar, .tonight')]
+      return all.map((el) => (el.classList.contains('tonight') ? 'tonight' : el.classList.contains('monthbar') ? 'month' : el.classList.contains('chat-strip') ? 'chat' : 'watching'))
     })
-    expect(order.indexOf('tonight')).toBeGreaterThan(order.indexOf('month'))
-    expect(order.indexOf('month')).toBeGreaterThan(order.indexOf('watching'))
+    expect(order.indexOf('tonight')).toBeGreaterThan(order.indexOf('chat'))
+    expect(order.indexOf('tonight')).toBeLessThan(order.indexOf('watching'))
+    expect(order.indexOf('watching')).toBeLessThan(order.indexOf('month'))
   })
 
   test('drifts by itself, and holds still once touched', async ({ page }) => {
