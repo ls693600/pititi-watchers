@@ -2,7 +2,7 @@
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(42);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -122,6 +122,31 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 select is((select count(*) from public.predictions) + (select count(*) from public.prediction_guesses), 0::bigint, 'other households never see your predictions');
 select throws_ok($$ select public.judge_guess('e0000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'wrong') $$, 'P0001', 'not_your_household', 'other households cannot judge');
+reset role;
+
+-- Movie night (018): you only see someone's vote on a title after you voted on it ---------------------------
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select lives_ok(
+  $$ insert into public.movie_nights (id, titles) values ('f0000000-0000-0000-0000-000000000001', '[{"kind":"movie","extId":1},{"kind":"movie","extId":2}]') $$,
+  'a member starts a movie night');
+insert into public.movie_night_votes (night_id, ref, yes) values ('f0000000-0000-0000-0000-000000000001', 'movie:1', true);
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+select is((select count(*) from public.movie_night_votes), 0::bigint, 'before voting on a title, you cannot see how others voted on it');
+insert into public.movie_night_votes (night_id, ref, yes) values ('f0000000-0000-0000-0000-000000000001', 'movie:1', true);
+select is((select count(*) from public.movie_night_votes where ref = 'movie:1'), 2::bigint, '... after you vote, you see everyone''s vote on it (a match)');
+select throws_ok(
+  $$ insert into public.movie_night_votes (night_id, person_id, ref, yes) values ('f0000000-0000-0000-0000-000000000001', (select id from public.people where name = 'Alice'), 'movie:2', false) $$,
+  '42501', null, 'nobody votes in someone else''s name');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+select is((select count(*) from public.movie_nights) + (select count(*) from public.movie_night_votes), 0::bigint, 'other households never see your movie nights');
+select throws_ok(
+  $$ insert into public.movie_night_votes (night_id, ref, yes) values ('f0000000-0000-0000-0000-000000000001', 'movie:2', true) $$,
+  '42501', null, 'other households cannot vote in yours');
 reset role;
 
 -- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
