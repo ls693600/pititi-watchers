@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { getLang, t } from '../i18n'
-import type { Festive } from '../festive'
-import { picksFor, type FestivePick } from '../festivePicks'
+import type { FestivePick } from '../festivePicks'
 import type { ListItem, Title, Watch } from '../types'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
 import { PosterPlay } from './TrailerSheet'
 
 interface Props {
-  festive: Festive
   /** Your household's logs: picks you already watched say so */
   watches: Watch[]
   /** Everything on the family's lists: picks already saved say so */
@@ -20,22 +18,7 @@ interface Props {
   onClose: () => void
 }
 
-/** Behind the festive card: a hand-picked selection of movies and shows for the day. */
-export function FestivePicks({ festive, ...rest }: Props) {
-  const name = t(festive.name)
-  return (
-    <PicksSheet
-      {...rest}
-      emoji={festive.emoji}
-      eyebrow={name}
-      title={t('{name} picks', { name })}
-      intro={t('We picked a few movies and shows for the occasion. Tap a poster to watch the trailer.')}
-      picks={picksFor(festive.id)}
-    />
-  )
-}
-
-type SheetProps = Omit<Props, 'festive'> & {
+export type SheetProps = Props & {
   emoji?: string
   eyebrow: string
   title: string

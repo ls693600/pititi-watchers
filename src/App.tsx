@@ -1,24 +1,10 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
 import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
-import { QuickLog } from './components/QuickLog'
-import { Reveal } from './components/Reveal'
-import { Detail } from './screens/Detail'
 import { Home } from './screens/Home'
-import { Login } from './screens/Login'
-import { PasswordSheet } from './components/PasswordSheet'
-import { Search } from './screens/Search'
-import { Settings } from './screens/Settings'
-import { Help } from './screens/Help'
-import { Messages } from './screens/Messages'
-import { Stats } from './screens/Stats'
-import { Lists, ListEditor } from './screens/Lists'
-import { Family } from './screens/Family'
-import { TitleSheet } from './components/TitleSheet'
-import { MovieLog } from './components/MovieLog'
 import { useCircle } from './circle'
 import { t, useLang } from './i18n'
 import { useFestive } from './useFestive'
@@ -41,6 +27,25 @@ import { changePassword, clearProblems, cloudStore, currentSession, onPasswordRe
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
+import { lazyPart, preloadWhenIdle } from './lib/lazy'
+
+// Screens and sheets load when first opened (Home stays in the first download); the rest follow when the phone is idle
+const QuickLog = lazyPart(() => import('./components/QuickLog').then((m) => m.QuickLog))
+const Reveal = lazyPart(() => import('./components/Reveal').then((m) => m.Reveal))
+const Detail = lazyPart(() => import('./screens/Detail').then((m) => m.Detail))
+const Login = lazyPart(() => import('./screens/Login').then((m) => m.Login))
+const PasswordSheet = lazyPart(() => import('./components/PasswordSheet').then((m) => m.PasswordSheet))
+const Search = lazyPart(() => import('./screens/Search').then((m) => m.Search))
+const Settings = lazyPart(() => import('./screens/Settings').then((m) => m.Settings))
+const Help = lazyPart(() => import('./screens/Help').then((m) => m.Help))
+const Messages = lazyPart(() => import('./screens/Messages').then((m) => m.Messages))
+const Stats = lazyPart(() => import('./screens/Stats').then((m) => m.Stats))
+const Family = lazyPart(() => import('./screens/Family').then((m) => m.Family))
+const TitleSheet = lazyPart(() => import('./components/TitleSheet').then((m) => m.TitleSheet))
+const MovieLog = lazyPart(() => import('./components/MovieLog').then((m) => m.MovieLog))
+const Lists = lazyPart(() => import('./screens/Lists').then((m) => m.Lists))
+const ListEditor = lazyPart(() => import('./screens/Lists').then((m) => m.ListEditor))
+const PARTS = [QuickLog, Reveal, Detail, Login, PasswordSheet, Search, Settings, Help, Messages, Stats, Family, TitleSheet, MovieLog, Lists, ListEditor]
 
 // Cloud changes made without signal wait on the phone (and in its offline copy) and sync when it's back
 const cloud = withOutbox(cloudStore, localStore)
@@ -237,6 +242,10 @@ export default function App() {
 
   /** First load finished: until then Home shows nothing rather than a misleading "nothing logged yet" */
   const [loaded, setLoaded] = useState(false)
+  // Once Home is up, fetch the other screens in the background so later taps are instant (and work offline)
+  useEffect(() => {
+    if (loaded) preloadWhenIdle(PARTS)
+  }, [loaded])
   const reload = useCallback(async () => {
     try {
       // Send what waited offline first, so the fresh copy already includes it
@@ -484,6 +493,7 @@ export default function App() {
     return (
       <div className="app">
         {auth.error && <p className="error banner" role="alert">{auth.error}</p>}
+        <Suspense fallback={null}>
         <Login
           loadOptions={joinOptions}
           onForgot={sendPasswordReset}
@@ -498,6 +508,7 @@ export default function App() {
             return true
           }}
         />
+        </Suspense>
       </div>
     )
   }
@@ -536,6 +547,7 @@ export default function App() {
       {festive && tab === 'home' && !detail && <FestiveAmbient key={`a-${festive.id}`} festive={festive} />}
 
       <main>
+        <Suspense fallback={<div className="screen-loading" role="status" aria-label={t('Loading')} />}>
         {detail ? (
           <Detail
             key={detail.watch.id}
@@ -808,7 +820,10 @@ export default function App() {
             }}
           />
         )}
+        </Suspense>
       </main>
+
+      <Suspense fallback={null}>
 
       {quick && (
         <QuickLog
@@ -973,6 +988,7 @@ export default function App() {
       )}
 
       {toast && <Toast toast={toast} onDismiss={dismissToast} />}
+      </Suspense>
 
       {!detail && (
         <nav className="tabbar" aria-label={t('Main')}>

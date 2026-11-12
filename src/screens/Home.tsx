@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Avatar, PersonFilter } from '../components/Avatar'
 import { LongPress } from '../components/LongPress'
 import { Icon } from '../components/Icon'
@@ -7,7 +7,6 @@ import { ReleaseCarousel } from '../components/ReleaseCarousel'
 import { WatchedSheet } from '../components/WatchedSheet'
 import { SeasonsSheet } from '../components/SeasonsSheet'
 import { WhatsNewCard } from '../components/WhatsNew'
-import { FestivePicks } from '../components/FestivePicks'
 import { WeeklyPicks } from '../components/WeeklyPicks'
 import { ItsBack } from '../components/ItsBack'
 import { lovedTitles } from '../forUs'
@@ -33,6 +32,9 @@ import {
 import { getLang, setLang, t } from '../i18n'
 import type { Comment, Kind, ListItem, Person, Title, Watch } from '../types'
 import type { Festive } from '../festive'
+import { lazyPart } from '../lib/lazy'
+
+const FestivePicks = lazyPart(() => import('../components/FestiveSheet').then((m) => m.FestivePicks))
 
 interface Props {
   watches: Watch[]
@@ -180,7 +182,9 @@ export function Home(props: Props) {
         />
       )}
       {festive && picks && (
-        <FestivePicks festive={festive} watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} onClose={() => setPicks(false)} />
+        <Suspense fallback={null}>
+          <FestivePicks festive={festive} watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} onClose={() => setPicks(false)} />
+        </Suspense>
       )}
 
       {isCurrent && watching.length > 0 && (
