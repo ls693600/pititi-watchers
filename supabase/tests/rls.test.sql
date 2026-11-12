@@ -1,8 +1,8 @@
--- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-014 (CI: supabase test db).
+-- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-019 (CI: supabase test db).
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(58);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -147,6 +147,58 @@ select is((select count(*) from public.movie_nights) + (select count(*) from pub
 select throws_ok(
   $$ insert into public.movie_night_votes (night_id, ref, yes) values ('f0000000-0000-0000-0000-000000000001', 'movie:2', true) $$,
   '42501', null, 'other households cannot vote in yours');
+reset role;
+
+-- Watch parties (019): only the host and invited households see a party; joined people control it ------------
+insert into public.households (id, name, share_log) values ('c0000000-0000-0000-0000-00000000000c', 'Home C', true);
+insert into public.household_invites (household_id, code) values ('c0000000-0000-0000-0000-00000000000c', 'TESTCCCC');
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data) values
+  ('66666666-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'carl@test.local', '{"invite_code":"TESTCCCC","name":"Carl"}');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select lives_ok(
+  $$ select public.create_watch_party('a1000000-0000-0000-0000-000000000001', array['b0000000-0000-0000-0000-00000000000b'::uuid], 'tv', 1, 'Show A', null, 1, 2, 50, now() + interval '1 hour') $$,
+  'a member plans a watch party with another household');
+select throws_ok(
+  $$ insert into public.watch_parties (id, host_household_id, kind, ext_id, title, season, episode, starts_at) values ('a1000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000b', 'tv', 1, 'Fake', 1, 1, now()) $$,
+  '42501', null, 'parties are only created through the app''s function (never in another household''s name)');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+select is((select count(*) from public.watch_parties), 1::bigint, 'the invited household sees the party');
+select throws_ok($$ select public.party_control('a1000000-0000-0000-0000-000000000001', 'pause') $$, 'P0001', 'not_playing', 'nobody pauses a party that has not started');
+select throws_ok(
+  $$ insert into public.watch_party_people (party_id, person_id, answer) values ('a1000000-0000-0000-0000-000000000001', (select id from public.people where name = 'Alice'), 'no') $$,
+  '42501', null, 'nobody answers in someone else''s name');
+select lives_ok($$ insert into public.watch_party_people (party_id, answer) values ('a1000000-0000-0000-0000-000000000001', 'join') $$, 'an invited person says Join');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select is((select public.party_control('a1000000-0000-0000-0000-000000000001', 'start') ->> 'state'), 'playing', 'the host starts the party (shared 3-2-1)');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+select is((select public.party_control('a1000000-0000-0000-0000-000000000001', 'pause', 1112) ->> 'position_sec'), '1112', 'a guest who joined pauses for everyone');
+select throws_ok($$ select public.party_control('a1000000-0000-0000-0000-000000000001', 'end') $$, 'P0001', 'host_only', 'only the host household ends the party');
+select lives_ok(
+  $$ insert into public.watch_party_messages (id, party_id, kind, body, at_sec) values ('a2000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 'text', 'NO WAY', 1112) $$,
+  'a guest chats in the party');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+select is((select count(*) from public.watch_parties) + (select count(*) from public.watch_party_messages) + (select count(*) from public.watch_party_people), 0::bigint, 'a household that was not invited sees nothing of the party');
+select throws_ok($$ select public.party_control('a1000000-0000-0000-0000-000000000001', 'resume') $$, 'P0001', 'not_your_party', '... and cannot control it');
+select throws_ok(
+  $$ insert into public.watch_party_messages (id, party_id, body) values ('a2000000-0000-0000-0000-000000000002', 'a1000000-0000-0000-0000-000000000001', 'hi') $$,
+  '42501', null, '... or post in its chat');
+select throws_ok($$ select public.pititi_party_tick() $$, '42501', null, 'members cannot run the party job');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select is((select public.party_control('a1000000-0000-0000-0000-000000000001', 'end') ->> 'state'), 'ended', 'the host ends the party');
+select throws_ok(
+  $$ insert into public.watch_party_messages (id, party_id, body) values ('a2000000-0000-0000-0000-000000000003', 'a1000000-0000-0000-0000-000000000001', 'late') $$,
+  '42501', null, 'the chat closes when the party ends (but stays readable)');
 reset role;
 
 -- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
