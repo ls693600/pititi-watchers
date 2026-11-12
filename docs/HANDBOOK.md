@@ -58,6 +58,17 @@ export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=credential.https://github.com.helper 
 After a deploy, GitHub Pages can take a few minutes. Check the live `assets/index-*.js` name changed, or run
 `gh api -X POST repos/<owner>/pititi-watchers/pages/builds` to nudge it.
 
+### Automatic checks (CI)
+
+Every push to `main` runs `.github/workflows/ci.yml` on GitHub:
+- **checks:** type check, lint, unit tests.
+- **e2e:** all browser tests (iPhone + Android engines, plus the sign-in screens). This includes `tests/e2e/accessibility.spec.ts`
+  (axe, WCAG 2.1 AA on every screen, light and dark) and `back-gesture.spec.ts`.
+- **database:** builds a throwaway Supabase from migrations 001–014 and runs `supabase/tests/rls.test.sql`
+  (who can read and change what). A new migration must keep it green; add a check there for every new table or rule.
+
+Don't deploy with a red run: `gh run list -R ls693600/pititi-watchers --workflow CI --limit 1`.
+
 ## 5. Database changes (migrations)
 
 `supabase/migrations/001…014` were all run in order in **Supabase → SQL Editor** (by Leandro, by hand).

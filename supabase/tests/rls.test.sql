@@ -40,8 +40,8 @@ select lives_ok(
 select throws_ok(
   $$ insert into public.watches (id, show_id, show_name, season, month, status, household_id) values ('aaaaaaaa-0000-0000-0000-000000000003', 4, 'Sneaky', 1, '2026-10', 'done', 'b0000000-0000-0000-0000-00000000000b') $$,
   '42501', null, 'a member cannot add to another household''s log');
-select is((with u as (update public.watches set show_name = 'Hacked' where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1) select count(*) from u), 0::bigint, 'a member cannot edit another household''s log');
-select is((with d as (delete from public.watches where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1) select count(*) from d), 0::bigint, 'a member cannot delete another household''s log');
+select is_empty($$ update public.watches set show_name = 'Hacked' where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot edit another household''s log');
+select is_empty($$ delete from public.watches where id = 'bbbbbbbb-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot delete another household''s log');
 select throws_ok(
   $$ update public.people set is_admin = true where user_id = '11111111-1111-1111-1111-111111111111' $$,
   'P0001', 'role_locked', 'a member cannot make herself admin');
@@ -65,7 +65,7 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 select is((select count(*) from public.watches where household_id = 'a0000000-0000-0000-0000-00000000000a'), 0::bigint, 'a private household log is hidden from other households');
 select is((select count(*) from public.couch_photos), 1::bigint, 'the whole family sees couch photos');
-select is((with d as (delete from public.couch_photos where id = 'c0000000-0000-0000-0000-000000000001' returning 1) select count(*) from d), 0::bigint, 'a member cannot remove someone else''s photo');
+select is_empty($$ delete from public.couch_photos where id = 'c0000000-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot remove someone else''s photo');
 reset role;
 
 -- Vera (viewer) ----------------------------------------------------------------------------------------------

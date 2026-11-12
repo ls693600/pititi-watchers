@@ -10,6 +10,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-12',
+    en: [
+      "The phone's Back now closes the sheet or page on top, one at a time, instead of leaving the app.",
+      'Opens faster: each screen loads when you first open it.',
+      'Easier to read: grey text and links have stronger contrast in the light look.',
+    ],
+    pt: [
+      'O Voltar do celular agora fecha a janela ou página de cima, uma de cada vez, em vez de sair do app.',
+      'Abre mais rápido: cada tela carrega quando você abre pela primeira vez.',
+      'Mais fácil de ler: textos cinza e links com mais contraste no visual claro.',
+    ],
+  },
+  {
     id: '2026-11-11',
     en: ['Tap a title in a list to see more: big poster, rating, seasons, where to watch, the story, next episode, the trailer, and who in the family already watched it.'],
     pt: ['Toque num título de uma lista para ver mais: pôster grande, nota, temporadas, onde assistir, a história, o próximo episódio, o trailer e quem da família já assistiu.'],
