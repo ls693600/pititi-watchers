@@ -1182,3 +1182,10 @@ body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: fi
 .pcard-more { position: absolute; bottom: 8px; right: 6px; z-index: 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(20, 16, 24, 0.55); color: #fff; font-size: 18px; font-weight: 800; line-height: 1; backdrop-filter: blur(4px); }
 .custom-rows .toggle { flex: none; }
 .tonight .weekly-head { align-items: center; }
+
+/* Screen transitions (View Transitions): the tapped poster grows into the show page; screens cross-fade */
+.vt-poster { view-transition-name: poster; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .22s; }
+::view-transition-group(poster) { animation-duration: .34s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+::view-transition-image-pair(poster) { isolation: auto; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }

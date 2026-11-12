@@ -80,8 +80,10 @@ export const seed = {
 }
 
 /** Loads the app as a person (?as=), with the test family and fixed answers for TVmaze and movies. */
-export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt'; path?: string; extra?: Record<string, unknown>; query?: Record<string, string> } = {}) {
+export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt'; path?: string; extra?: Record<string, unknown>; query?: Record<string, string>; transitions?: boolean } = {}) {
   await page.clock.setFixedTime(TEST_NOW)
+  // Screen animations (View Transitions) ignore taps for ~0.3 s; tests tap faster than people, so they're off unless asked for
+  if (!opts.transitions) await page.addInitScript(() => delete (Document.prototype as { startViewTransition?: unknown }).startViewTransition)
   await page.addInitScript(
     ({ data, lang }) => {
       // Only on the first load of this test: later reloads keep what the test changed

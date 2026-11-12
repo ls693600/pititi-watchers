@@ -29,6 +29,7 @@ import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
 import { lazyPart, preloadWhenIdle } from './lib/lazy'
+import { animate } from './lib/transition'
 
 // Screens and sheets load when first opened (Home stays in the first download); the rest follow when the phone is idle
 const QuickLog = lazyPart(() => import('./components/QuickLog').then((m) => m.QuickLog))
@@ -633,7 +634,7 @@ export default function App() {
               }
               setDetail(null)
             }}
-            onClose={() => setDetail(null)}
+            onClose={() => animate(() => setDetail(null))}
           />
         ) : tab === 'home' ? (
           <Home
@@ -647,7 +648,7 @@ export default function App() {
             onFilter={setFilter}
             month={month}
             onMonth={setMonth}
-            onOpen={(w) => setDetail({ watch: w, isNew: false })}
+            onOpen={(w) => animate(() => setDetail({ watch: w, isNew: false }), true)}
             onAddEpisode={(w) => {
               const next = addEpisode(w)
               quickSave(next, next.status === 'done' ? t('{show} S{season} finished', { show: w.showName, season: w.season }) : t('Episode {n} logged', { n: next.episodesWatched }))
@@ -721,7 +722,7 @@ export default function App() {
             me={mePerson}
             household={householdOpen}
             onHousehold={setHouseholdOpen}
-            onOpenWatch={(w) => setDetail({ watch: w, isNew: false })}
+            onOpenWatch={(w) => animate(() => setDetail({ watch: w, isNew: false }), true)}
             onOpenList={(id) => {
               setListOpen(id)
               setTab('lists')
@@ -755,7 +756,7 @@ export default function App() {
             people={members}
             filter={filter}
             onFilter={setFilter}
-            onOpen={(w) => setDetail({ watch: w, isNew: false })}
+            onOpen={(w) => animate(() => setDetail({ watch: w, isNew: false }), true)}
             episodeReactions={chat.episodeReactions}
             photos={couch.photos}
           />

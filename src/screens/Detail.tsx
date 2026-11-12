@@ -247,7 +247,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         )}
         <div className="dhead-id">
           {/* The banner's poster plays the trailer */}
-          <button type="button" className="poster-play" onClick={() => setTrailer(true)} aria-label={t('Watch the trailer of {title}', { title: w.showName })}>
+          <button type="button" className="poster-play vt-poster" onClick={() => setTrailer(true)} aria-label={t('Watch the trailer of {title}', { title: w.showName })}>
             <Poster src={bigPoster(w.poster)} name={w.showName} w={108} />
             <span className="play-badge" aria-hidden="true">
               <Icon name="play" size={18} stroke={2.6} />
