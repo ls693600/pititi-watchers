@@ -102,8 +102,10 @@ test.describe('For us', () => {
       }),
     )
     await expect.poll(() => asked).toBe('tv:503,tv:501')
-    const rail = page.getByRole('region', { name: 'What to watch' })
-    await expect(rail.getByRole('tab', { name: /For us/ })).toHaveAttribute('aria-selected', 'true')
+    // News comes first in Tonight; For us is the next chip
+    await page.getByRole('tab', { name: /For us/ }).click()
+    const rail = page.getByRole('region', { name: 'For us' })
+    await expect(page.getByRole('tab', { name: /For us/ })).toHaveAttribute('aria-selected', 'true')
     await expect(rail).toContainText('Because you loved Severance and Slow Horses')
     await expect(rail.getByRole('button', { name: /Because you loved/ })).toHaveCount(7)
     await expect(rail.getByRole('button', { name: /^Hacks, series 2023, rated 8\.2 out of 10\. Because you loved Slow Horses/ })).toBeVisible()

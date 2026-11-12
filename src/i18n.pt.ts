@@ -1098,4 +1098,14 @@ export const PT: Record<string, string> = {
   "War": "Guerra",
   "Western": "Faroeste",
   "Couldn't save your notification setting. Try again later.": "Não deu para salvar sua configuração de notificações. Tente mais tarde.",
+  // Calmer Home
+  "Tonight": "Hoje à noite",
+  "What to show tonight": "O que mostrar hoje à noite",
+  "Customize Home": "Personalizar o Início",
+  "Always on": "Sempre aparece",
+  "Festive picks": "Dicas da data",
+  "Only on special days": "Só em datas especiais",
+  "Only on this phone. Everyone sets their own.": "Só neste celular. Cada um ajusta o seu.",
+  "Reset to default": "Voltar ao padrão",
+  "tap ⋯ on a poster (or press and hold it) to mark episodes, finish it or rate it, without opening it.": "toque em ⋯ no pôster (ou segure o pôster) para marcar episódios, terminar ou dar nota, sem abrir.",
 }

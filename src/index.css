@@ -1164,3 +1164,21 @@ body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: fi
 
 /* While a screen's code is still loading (first open only) */
 .screen-loading { min-height: 60vh; }
+
+/* Calmer Home: Tonight (one discovery row at a time) and Customize Home */
+.tonight { display: flex; flex-direction: column; gap: 12px; }
+.tonight[hidden] { display: none; }
+.tonight-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: -4px -2px 0; padding: 2px; }
+.tonight-chips::-webkit-scrollbar { display: none; }
+.tonight-chips button { flex: none; min-height: 38px; padding: 0 14px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-sm); font-size: 14px; font-weight: 650; color: var(--text-2); white-space: nowrap; }
+.tonight-chips button.on { background: var(--text); color: var(--bg); box-shadow: none; }
+.tonight-sub { font-size: 13.5px; color: var(--muted); }
+.tonight .back .back-list { margin-top: 0; }
+.home-customize { display: inline-flex; align-items: center; gap: 6px; margin: 4px auto 0; font-size: 14px; }
+.custom-rows { list-style: none; display: flex; flex-direction: column; }
+.custom-rows li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.custom-rows li:last-child { border-bottom: 0; }
+.custom-rows .toggle:disabled { opacity: .45; }
+.pcard-more { position: absolute; bottom: 8px; right: 6px; z-index: 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(20, 16, 24, 0.55); color: #fff; font-size: 18px; font-weight: 800; line-height: 1; backdrop-filter: blur(4px); }
+.custom-rows .toggle { flex: none; }
+.tonight .weekly-head { align-items: center; }

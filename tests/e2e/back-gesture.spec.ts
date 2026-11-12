@@ -6,7 +6,7 @@ const back = async (page: Page) => {
   await page.goBack()
   await page.waitForTimeout(150)
 }
-const onHome = (page: Page) => expect(page.getByRole('button', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+const onHome = (page: Page) => expect(page.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page')
 
 test.describe('Back gesture', () => {
   test('show page → Back → Home', async ({ page }) => {

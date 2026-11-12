@@ -6,14 +6,15 @@ import fs from 'node:fs'
 const picks = JSON.parse(fs.readFileSync(new URL('./weekly-picks.data.json', import.meta.url), 'utf8')) as { title: string }[]
 
 const thisWeek = { 'pititi.weekly.v1': { week: weekOf(TEST_NOW), items: picks } }
-const rail = (page: Page) => page.getByRole('region', { name: 'Picks of the week' })
+// Home's Tonight area: the Trending chip shows the week's picks
+const rail = (page: Page) => page.getByRole('region', { name: 'Trending' })
 const scrollX = (page: Page) => page.locator('.weekly-rail').evaluate((el) => el.scrollLeft)
 
 test.describe('Picks of the week', () => {
-  test('a ranked rail of at least 10 picks under Family chat, marking what you watched or saved', async ({ page }) => {
+  test('a ranked rail of at least 10 picks in Tonight, marking what you watched or saved', async ({ page }) => {
     await openAs(page, L, { extra: thisWeek })
     const r = rail(page)
-    await expect(r.getByRole('heading', { name: 'Picks of the week' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Trending/ })).toHaveAttribute('aria-selected', 'true')
     // Only the first copy is reachable; the looping copy is hidden from screen readers
     const cards = r.getByRole('button', { name: /^Number \d+:/ })
     await expect(cards).toHaveCount(picks.length)
@@ -21,17 +22,20 @@ test.describe('Picks of the week', () => {
     await expect(r.getByRole('button', { name: /^Number 1: .*rated [\d.]+ out of 10/ })).toBeVisible()
     await expect(r.locator('.weekly-item:not([aria-hidden])', { hasText: 'Lioness' })).toContainText('You watched it')
     await expect(r.locator('.weekly-item:not([aria-hidden])', { hasText: 'Severance' })).toContainText('On a list')
-    // It sits right under the Family chat strip
+    // Calmer Home: discovery sits below Currently watching and the month
     const order = await page.evaluate(() => {
-      const chat = document.querySelector('.chat-strip')
-      return chat?.nextElementSibling?.classList.contains('weekly')
+      const all = [...document.querySelectorAll('.hero, .monthbar, .tonight')]
+      return all.map((el) => (el.classList.contains('tonight') ? 'tonight' : el.classList.contains('monthbar') ? 'month' : 'watching'))
     })
-    expect(order).toBe(true)
+    expect(order.indexOf('tonight')).toBeGreaterThan(order.indexOf('month'))
+    expect(order.indexOf('month')).toBeGreaterThan(order.indexOf('watching'))
   })
 
   test('drifts by itself, and holds still once touched', async ({ page }) => {
     await openAs(page, L, { extra: thisWeek })
     await expect(rail(page).getByRole('button', { name: /^Number 1:/ })).toBeVisible()
+    // It only drifts while on screen
+    await page.locator('.weekly-rail').scrollIntoViewIfNeeded()
     const a = await scrollX(page)
     await page.waitForTimeout(1500)
     const b = await scrollX(page)
@@ -89,7 +93,7 @@ test.describe('Picks of the week', () => {
 
   test('in Portuguese, with Brazilian titles', async ({ page }) => {
     await openAs(page, L, { extra: thisWeek, lang: 'pt' })
-    const r = page.getByRole('region', { name: 'Destaques da semana' })
+    const r = page.getByRole('region', { name: 'Em alta' })
     await expect(r.getByText('Em alta no mundo · muda toda segunda')).toBeVisible()
     await expect(r.locator('.weekly-item:not([aria-hidden])', { hasText: 'Ruptura' })).toContainText('Numa lista')
   })

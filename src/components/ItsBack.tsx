@@ -14,6 +14,10 @@ interface Props {
   /** Start the new season from the show's latest log */
   onStart: (head: Watch, season: SeasonInfo) => void
   readOnly?: boolean
+  /** Inside Home's "Tonight": no heading of its own */
+  bare?: boolean
+  /** How many news items there are (Home shows the chip only when there's news) */
+  onCount?: (n: number) => void
 }
 
 /** Shown before "See all" */
@@ -70,11 +74,14 @@ function useComebacks(watches: Watch[]): Comeback[] {
 }
 
 /** Home's "It's back": a new season out, a premiere date, a renewal or the end, for shows you finished. */
-export function ItsBack({ watches, onOpen, onStart, readOnly = false }: Props) {
+export function ItsBack({ watches, onOpen, onStart, readOnly = false, bare = false, onCount }: Props) {
   const all = useComebacks(watches)
   const [seen, setSeen] = useState(seenComebacks)
   const [more, setMore] = useState(false)
   const news = all.filter((c) => !seen.has(c.key))
+  useEffect(() => {
+    onCount?.(news.length)
+  }, [news.length, onCount])
   if (!news.length) return null
   const today = localToday()
   const shown = more ? news : news.slice(0, VISIBLE)
@@ -104,11 +111,15 @@ export function ItsBack({ watches, onOpen, onStart, readOnly = false }: Props) {
   const icon: Record<Comeback['type'], string> = { out: '🎉', dated: '⏳', renewed: '✅', ended: '🏁' }
 
   return (
-    <section className="back" aria-labelledby="back-title">
-      <h2 className="h2" id="back-title">
-        {t("It's back")}
-        <small>{t('news on shows you finished')}</small>
-      </h2>
+    <section className="back" aria-labelledby={bare ? undefined : 'back-title'} aria-label={bare ? t("It's back") : undefined}>
+      {bare ? (
+        <p className="tonight-sub">{t('news on shows you finished')}</p>
+      ) : (
+        <h2 className="h2" id="back-title">
+          {t("It's back")}
+          <small>{t('news on shows you finished')}</small>
+        </h2>
+      )}
       <ul className="back-list">
         {shown.map((c) => {
           const { what, when } = line(c)

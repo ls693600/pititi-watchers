@@ -1,4 +1,4 @@
-import { useState, Suspense } from 'react'
+import { Suspense, useCallback, useState } from 'react'
 import { Avatar, PersonFilter } from '../components/Avatar'
 import { LongPress } from '../components/LongPress'
 import { Icon } from '../components/Icon'
@@ -8,6 +8,7 @@ import { WatchedSheet } from '../components/WatchedSheet'
 import { SeasonsSheet } from '../components/SeasonsSheet'
 import { WhatsNewCard } from '../components/WhatsNew'
 import { WeeklyPicks } from '../components/WeeklyPicks'
+import { useBackClose } from '../hooks/useBackClose'
 import { ItsBack } from '../components/ItsBack'
 import { lovedTitles } from '../forUs'
 import type { SeasonInfo } from '../tvmaze'
@@ -72,6 +73,27 @@ interface Props {
 
 const TIP_KEY = 'pititi.tip.hold.v1'
 
+/** What this phone shows on Home (Customize Home). Currently watching always shows. */
+interface HomePrefs {
+  chat: boolean
+  month: boolean
+  back: boolean
+  picks: boolean
+  festive: boolean
+}
+const PREFS_KEY = 'pititi.home.v1'
+const DEFAULT_PREFS: HomePrefs = { chat: true, month: true, back: true, picks: true, festive: true }
+
+function readPrefs(): HomePrefs {
+  try {
+    return { ...DEFAULT_PREFS, ...(JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') as Partial<HomePrefs>) }
+  } catch {
+    return DEFAULT_PREFS
+  }
+}
+
+type TonightChip = 'back' | 'forus' | 'week' | 'festive'
+
 function tipSeen(): boolean {
   try {
     return localStorage.getItem(TIP_KEY) === '1'
@@ -93,6 +115,29 @@ export function Home(props: Props) {
   const [picks, setPicks] = useState(false)
   /** A show with several seasons this month: its seasons */
   const [seasonsFor, setSeasonsFor] = useState<ShowGroup | null>(null)
+  const [prefs, setPrefs] = useState<HomePrefs>(readPrefs)
+  const [customizing, setCustomizing] = useState(false)
+  const savePrefs = (next: HomePrefs) => {
+    setPrefs(next)
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next))
+    } catch {
+      // Applies until the app restarts
+    }
+  }
+  // Tonight: one discovery row at a time. Chips appear only for rows that have something.
+  const [backCount, setBackCount] = useState(0)
+  const [picksAvail, setPicksAvail] = useState({ forus: false, week: false })
+  const onBackCount = useCallback((n: number) => setBackCount(n), [])
+  const onPicksAvail = useCallback((a: { forus: boolean; week: boolean }) => setPicksAvail((cur) => (cur.forus === a.forus && cur.week === a.week ? cur : a)), [])
+  const chips: { id: TonightChip; label: string }[] = [
+    ...(prefs.back && backCount > 0 ? [{ id: 'back' as const, label: `${t("It's back")} · ${backCount}` }] : []),
+    ...(prefs.picks && picksAvail.forus ? [{ id: 'forus' as const, label: `♥ ${t('For us')}` }] : []),
+    ...(prefs.picks && picksAvail.week ? [{ id: 'week' as const, label: `🔥 ${t('Trending')}` }] : []),
+    ...(prefs.festive && festive ? [{ id: 'festive' as const, label: `${festive.emoji} ${t(festive.name)}` }] : []),
+  ]
+  const [chipPick, setChipPick] = useState<TonightChip | null>(null)
+  const chip: TonightChip | null = chips.some((c) => c.id === chipPick) ? chipPick : (chips[0]?.id ?? null)
   const hideTip = () => {
     setShowTip(false)
     try {
@@ -148,28 +193,12 @@ export function Home(props: Props) {
 
       {!loading && <WhatsNewCard />}
 
-      {familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
-      {!loading && <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} />}
-      {!loading && (
-        <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} loved={lovedTitles(watches)} />
+      {prefs.chat && familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
+
+      {isCurrent && watching.length > 0 && (
+        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} readOnly={readOnly} />
       )}
 
-      {festive && (
-        <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
-          <FestiveDeco festive={festive} />
-          <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
-          <span className="festive-text" aria-hidden="true">
-            <b>
-              {t(festive.name)}
-              {festive.country && <span className="festive-country">{festive.country === 'CA' ? t('🇨🇦 Canada') : t('🇧🇷 Brazil')}</span>}
-            </b>
-            {t(festive.greeting)}
-            <span className="festive-cta">
-              {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />
-            </span>
-          </span>
-        </button>
-      )}
       {seasonsFor && (
         <SeasonsSheet
           group={seasonsFor}
@@ -187,10 +216,8 @@ export function Home(props: Props) {
         </Suspense>
       )}
 
-      {isCurrent && watching.length > 0 && (
-        <ReleaseCarousel watching={watching} people={people} onOpen={onOpen} onAddEpisode={onAddEpisode} onActions={actions} readOnly={readOnly} />
-      )}
-
+      {prefs.month && (
+      <>
       <div className="monthbar">
         <button className="icon-btn" aria-label={t('Previous month')} onClick={() => onMonth(shiftMonth(month, -1))}>
           <Icon name="left" size={20} />
@@ -274,7 +301,7 @@ export function Home(props: Props) {
                 <Icon name="sparkle" size={16} stroke={2.2} />
               </span>
               <p>
-                <b>{t('Tip:')}</b> {t('press and hold any show to mark episodes, finish it or rate it, without opening it.')}
+                <b>{t('Tip:')}</b> {t('tap ⋯ on a poster (or press and hold it) to mark episodes, finish it or rate it, without opening it.')}
               </p>
               <button className="icon-btn" aria-label={t('Got it')} onClick={hideTip}>
                 <Icon name="close" size={16} />
@@ -305,6 +332,11 @@ export function Home(props: Props) {
                     <button className="pcard-hit" onClick={open} aria-label={many ? t('{name}: see its {n} seasons', { name: w.showName, n: g.logs.length }) : t('Open {name}', { name: w.showName })}>
                       <PosterFill src={w.poster} name={w.showName} />
                     </button>
+                    {!readOnly && (
+                      <button type="button" className="pcard-more" aria-label={t('Quick actions for {show}', { show: w.showName })} onClick={() => actions(w)}>
+                        <span aria-hidden="true">⋯</span>
+                      </button>
+                    )}
                     {g.logs.some((x) => x.isRewatch) && (
                       <span className="pcard-badge" title={t('Rewatch')} aria-label={t('Rewatch')}>
                         <Icon name="repeat" size={12} stroke={2.6} />
@@ -345,6 +377,109 @@ export function Home(props: Props) {
           </div>
         </>
       )}
+      </>
+      )}
+
+      {!loading && (prefs.back || prefs.picks || (prefs.festive && festive)) && (
+        <section className="tonight" aria-labelledby="tonight-title" hidden={!chips.length}>
+          <h2 className="h2" id="tonight-title">{t('Tonight')}</h2>
+          <div className="tonight-chips" role="tablist" aria-label={t('What to show tonight')}>
+            {chips.map((c) => (
+              <button key={c.id} type="button" role="tab" aria-selected={chip === c.id} className={chip === c.id ? 'on' : ''} onClick={() => setChipPick(c.id)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {/* Both stay mounted so each can tell which chips have something; only the chosen one shows */}
+          {prefs.back && (
+            <div hidden={chip !== 'back'}>
+              <ItsBack watches={watches} onOpen={onOpen} onStart={(head, season) => onStartSeason?.(head, season)} readOnly={readOnly || !onStartSeason} bare onCount={onBackCount} />
+            </div>
+          )}
+          {prefs.picks && (
+            <div hidden={chip !== 'forus' && chip !== 'week'}>
+              <WeeklyPicks watches={watches} items={listItems} readOnly={readOnly || !onSaveTitle} onSave={(title) => onSaveTitle?.(title)} loved={lovedTitles(watches)} tab={chip === 'week' ? 'week' : 'forus'} onAvailable={onPicksAvail} />
+            </div>
+          )}
+          {prefs.festive && festive && chip === 'festive' && (
+            <button className={`festive-card festive-${festive.id}`} onClick={() => setPicks(true)} aria-label={t('{name}: see our picks for today', { name: t(festive.name) })}>
+          <FestiveDeco festive={festive} />
+          <span className="festive-emoji" aria-hidden="true">{festive.emoji}</span>
+          <span className="festive-text" aria-hidden="true">
+            <b>
+              {t(festive.name)}
+              {festive.country && <span className="festive-country">{festive.country === 'CA' ? t('🇨🇦 Canada') : t('🇧🇷 Brazil')}</span>}
+            </b>
+            {t(festive.greeting)}
+            <span className="festive-cta">
+              {t('See our picks')} <Icon name="right" size={14} stroke={2.6} />
+            </span>
+          </span>
+        </button>
+          )}
+        </section>
+      )}
+
+      {!loading && (
+        <button type="button" className="link-btn home-customize" onClick={() => setCustomizing(true)}>
+          <Icon name="settings" size={15} /> {t('Customize Home')}
+        </button>
+      )}
+      {customizing && <CustomizeHome prefs={prefs} festive={!!festive} onChange={savePrefs} onClose={() => setCustomizing(false)} />}
+    </div>
+  )
+}
+
+/** Customize Home: which sections this phone shows. Saved on the phone only. */
+function CustomizeHome({ prefs, festive, onChange, onClose }: { prefs: HomePrefs; festive: boolean; onChange: (p: HomePrefs) => void; onClose: () => void }) {
+  useBackClose(true, onClose)
+  const rows: [keyof HomePrefs | null, string, string?][] = [
+    [null, t('Currently watching'), t('Always on')],
+    ['chat', t('Family chat')],
+    ['month', t('This month')],
+    ['back', `${t('Tonight')} · ${t("It's back")}`],
+    ['picks', `${t('Tonight')} · ${t('For us')} / ${t('Trending')}`],
+    ['festive', `${t('Tonight')} · ${t('Festive picks')}`, festive ? undefined : t('Only on special days')],
+  ]
+  return (
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={t('Customize Home')}>
+      <button className="sheet-dim" aria-label={t('Close')} onClick={onClose} />
+      <div className="sheet">
+        <div className="grabber" aria-hidden="true" />
+        <div className="topbar" style={{ paddingTop: 0 }}>
+          <div>
+            <h2 className="sheet-title">{t('Customize Home')}</h2>
+            <p className="muted small">{t('Only on this phone. Everyone sets their own.')}</p>
+          </div>
+          <button className="icon-btn" aria-label={t('Close')} onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <ul className="custom-rows">
+          {rows.map(([key, label, note]) => (
+            <li key={label}>
+              <span>
+                {label}
+                {note && <small className="muted"> · {note}</small>}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={key ? prefs[key] : true}
+                aria-label={label}
+                disabled={!key}
+                className={`toggle ${key ? (prefs[key] ? 'on' : '') : 'on'}`}
+                onClick={() => key && onChange({ ...prefs, [key]: !prefs[key] })}
+              >
+                <span />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button type="button" className="btn ghost block" onClick={() => onChange(DEFAULT_PREFS)}>
+          {t('Reset to default')}
+        </button>
+      </div>
     </div>
   )
 }

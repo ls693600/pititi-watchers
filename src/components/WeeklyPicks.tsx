@@ -15,9 +15,13 @@ interface Props {
   onSave: (title: Title) => void
   /** What the household loved (8+): adds the "For us" tab */
   loved?: Loved[]
+  /** Inside Home's "Tonight": the chip above picks the tab, so no heading or tabs here */
+  tab?: Tab
+  /** Which tabs have picks (Home shows a chip for each) */
+  onAvailable?: (a: { forus: boolean; week: boolean }) => void
 }
 
-type Tab = 'forus' | 'week'
+export type Tab = 'forus' | 'week'
 const TAB_KEY = 'pititi.picks.tab'
 
 function savedTab(): Tab {
@@ -42,7 +46,7 @@ const HOLD_MS = 8000
  * Home's picks: the week's trending movies and series, and (once the household loved a few titles) "For us",
  * titles like the ones you rated 8 or more. They drift by; touch to stop it; tap a poster for the trailer and Save.
  */
-export function WeeklyPicks({ watches, items, readOnly = false, onSave, loved = [] }: Props) {
+export function WeeklyPicks({ watches, items, readOnly = false, onSave, loved = [], tab: forced, onAvailable }: Props) {
   const [weekly, setWeekly] = useState<WeeklyPick[] | null>(null)
   const [forUs, setForUs] = useState<ForUsPick[]>([])
   const [tab, setTab] = useState<Tab>(savedTab)
@@ -73,7 +77,11 @@ export function WeeklyPicks({ watches, items, readOnly = false, onSave, loved = 
   const mine = unwatched(forUs, watches)
   const hasForUs = mine.length >= MIN_FOR_US
   const hasWeek = weekly != null && weekly.length > 0
-  const current: Tab = hasForUs && (tab === 'forus' || !hasWeek) ? 'forus' : 'week'
+  const want = forced ?? tab
+  const current: Tab = hasForUs && (want === 'forus' || !hasWeek) ? 'forus' : 'week'
+  useEffect(() => {
+    if (weekly != null) onAvailable?.({ forus: hasForUs, week: hasWeek })
+  }, [hasForUs, hasWeek, weekly, onAvailable])
   const picks: (WeeklyPick & { because?: string[] })[] | null = current === 'forus' ? mine : weekly
   const choose = (next: Tab) => {
     setTab(next)
@@ -205,8 +213,18 @@ export function WeeklyPicks({ watches, items, readOnly = false, onSave, loved = 
     )
   }
 
+  const sub = current === 'forus' ? t('Because you loved {names}', { names: namesOf(loved.map((l) => l.title)) }) : t('Trending worldwide · updated every Monday')
   return (
-    <section className="weekly" aria-labelledby="weekly-title">
+    <section className="weekly" aria-labelledby={forced ? undefined : 'weekly-title'} aria-label={forced ? (current === 'forus' ? t('For us') : t('Trending')) : undefined}>
+      {forced ? (
+        <div className="weekly-head">
+          <p className="tonight-sub">{sub}</p>
+          <button type="button" className="link-btn" onClick={() => setSheet({ focus: null })}>
+            {t('See all')}
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="weekly-head">
         <div style={{ minWidth: 0 }}>
           <h2 className="h2" id="weekly-title">
@@ -234,12 +252,10 @@ export function WeeklyPicks({ watches, items, readOnly = false, onSave, loved = 
                 </button>
               ))}
           </div>
-          <p className="weekly-sub tabbed">
-            {current === 'forus'
-              ? t('Because you loved {names}', { names: namesOf(loved.map((l) => l.title)) })
-              : t('Trending worldwide · updated every Monday')}
-          </p>
+          <p className="weekly-sub tabbed">{sub}</p>
         </>
+      )}
+      </>
       )}
       <ul className="weekly-rail" ref={rail} key={current}>
         {picks.map((p, i) => card(p, i + 1, false))}
