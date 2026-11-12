@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState, type FormEvent } from 'react'
 import { t } from '../i18n'
 import { Icon } from './Icon'
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function PasswordSheet({ mode, email, onSave, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')

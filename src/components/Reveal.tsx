@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect } from 'react'
 import { averageRating, canReact, raters, ratingSpread, verdict } from '../logic'
 import { bigPoster } from '../tvmaze'
@@ -22,6 +23,8 @@ interface Props {
 }
 
 export function Reveal({ watch, people, viewer, reactions, onReact, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const avg = averageRating(watch) ?? 0
   const spread = ratingSpread(watch)
   const ids = raters(watch)

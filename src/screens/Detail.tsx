@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
 import { CouchPhotos } from '../components/CouchPhotos'
@@ -59,6 +60,8 @@ interface Props {
 }
 
 export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, couch = null, onClose }: Props) {
+  // The phone's Back leaves the show page
+  useBackClose(true, onClose)
   const [w, setW] = useState<Watch>(initial)
   // The latest saved version: instant ratings and the other phone's changes land here
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)

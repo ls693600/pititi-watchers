@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { averageRating, episodesIn, monthLabel, summarize, watchesInMonth } from '../logic'
 import { drawMonthCard, shareImage } from '../share'
@@ -22,6 +23,8 @@ interface Props {
 
 /** Everything watched in one month, right inside Stats, with a share card. */
 export function MonthSheet({ month, watches, people, personId, onOpen, onClose, onFlash }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const list = watchesInMonth(watches, month)
   const sum = summarize(list, month)
   const [sharing, setSharing] = useState(false)

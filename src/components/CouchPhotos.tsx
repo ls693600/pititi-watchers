@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../i18n'
 import { nightLabel } from '../lib/photo'
@@ -95,6 +96,8 @@ interface ViewerProps {
 
 /** Full screen, one photo at a time. Remove asks twice (it can't be undone). */
 export function PhotoViewer({ photos, index, nameOf, canRemove, onIndex, onRemove, onClose }: ViewerProps) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   // Asked on this photo; moving to another one starts over
   const [confirmAt, setConfirmAt] = useState<number | null>(null)
   const confirm = confirmAt === index

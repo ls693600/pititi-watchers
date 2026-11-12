@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -59,6 +60,7 @@ export function ListEditor({
   onDelete: (l: WatchList) => void
   onClose: () => void
 }) {
+  useBackClose(true, onClose)
   const [name, setName] = useState(list?.name ?? '')
   const [emoji, setEmoji] = useState(list?.emoji ?? '🍿')
   const [visibility, setVisibility] = useState<ListVisibility>(list?.visibility ?? 'household')
@@ -183,6 +185,7 @@ export function ListEditor({
 /** Your household's lists, lists the family shared with you, and votes on what to watch. */
 export function Lists({ lists, items, people, households, me, open, onOpen, onVote, onRemove, onWatch, onAdd, onSave, onDelete, onMore, watches = [] }: Props) {
   const [picked, setPicked] = useState<ListItem | null>(null)
+  useBackClose(picked != null, () => setPicked(null))
   const [editing, setEditing] = useState<WatchList | 'new' | null>(null)
   const visible = lists.filter((l) => canSeeList(l, me))
   const ours = visible

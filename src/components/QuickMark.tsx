@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import type { EpisodeEmoji, Watch } from '../types'
@@ -20,6 +21,8 @@ interface Props {
 
 /** "What did you watch today?": one tap per show marks the next episode (each with Undo). */
 export function QuickMark({ watching, onNext, onOther, onClose, react = null, photo = null }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   // Only the last episode you marked asks "how was it?" (the others can be filled in on the show page)
   const [asked, setAsked] = useState<{ watch: Watch; episode: number } | null>(null)
   const now = asked && watching.find((x) => x.id === asked.watch.id)

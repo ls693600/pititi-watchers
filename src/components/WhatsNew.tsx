@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { getLang, t } from '../i18n'
 import { RELEASE_NOTES } from '../releaseNotes'
@@ -47,6 +48,8 @@ export function WhatsNewCard() {
 
 /** Settings → What's new: every release, newest first. */
 export function WhatsNewSheet({ onClose }: { onClose: () => void }) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)

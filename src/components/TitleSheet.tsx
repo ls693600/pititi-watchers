@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useState } from 'react'
 import { canEditList, householdLabel } from '../logic'
 import { t } from '../i18n'
@@ -22,6 +23,8 @@ interface Props {
 
 /** "Save to a list" or "Recommend to someone" for any show or movie. */
 export function TitleSheet({ title, mode: start, lists, items, people, households, me, onSave, onRecommend, onNewList, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [mode, setMode] = useState(start)
   const [to, setTo] = useState<string[]>([])
   const [note, setNote] = useState('')

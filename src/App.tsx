@@ -13,6 +13,7 @@ import { hourLabel } from './lib/hours'
 import { useToast } from './hooks/useToast'
 import { usePush } from './hooks/usePush'
 import { useReadState } from './hooks/useReadState'
+import { useBackClose } from './hooks/useBackClose'
 import { useChat } from './hooks/useChat'
 import { usePhotos } from './hooks/usePhotos'
 import { tonight } from './lib/photo'
@@ -137,6 +138,8 @@ export default function App() {
       return t
     })
   }
+  // Back from a tab returns Home; from Settings or Help, to where you came from (one step per layer, never out of the app)
+  useBackClose(tab !== 'home', () => setTab(tab === 'settings' || tab === 'help' || tab === 'members' ? prevTab.current : 'home'), tab)
   const openHelp = (topic: string | null = null) => {
     setHelpTopic(topic)
     setTab('help')
@@ -215,6 +218,9 @@ export default function App() {
   const { lastRead, markRead } = useReadState()
   /** Open chat on the Messages tab: undefined = the list, null = Family chat, id = a show's chat */
   const [thread, setThread] = useState<string | null | undefined>(undefined)
+  useBackClose(thread !== undefined, () => setThread(undefined))
+  useBackClose(listOpen != null, () => setListOpen(null))
+  useBackClose(householdOpen != null, () => setHouseholdOpen(null))
   const openThread = useCallback((watchId: string | null | undefined) => {
     setActionsFor(null)
     setDetail(null)

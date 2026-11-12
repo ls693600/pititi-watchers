@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { t } from '../i18n'
@@ -19,6 +20,8 @@ type State = { s: 'loading' } | { s: 'ready'; trailer: Trailer } | { s: 'error' 
 
 /** Pop-up that plays the trailer right in the app (YouTube's privacy-enhanced player). */
 export function TrailerSheet({ kind, extId, title, year, season = 0, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [state, setState] = useState<State>({ s: 'loading' })
   const [attempt, setAttempt] = useState(0)
 

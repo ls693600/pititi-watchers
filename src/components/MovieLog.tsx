@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { getMovie } from '../movies'
 import { isPriorWatch, monthLabel, movieWatch, togetherWatchers } from '../logic'
@@ -23,6 +24,8 @@ interface Props {
 
 /** Log a movie: one sitting, so it's just together-or-not and your stars. */
 export function MovieLog({ draft, watches, people, me, saving, onLog, onSaveForLater, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [w, setW] = useState<Watch>(() =>
     movieWatch({ ...draft, status: 'done', isRewatch: isPriorWatch(watches, draft.showId, 1, draft.id, 'movie', draft.householdId ?? null) }),
   )

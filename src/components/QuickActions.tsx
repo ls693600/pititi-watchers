@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { averageRating, canEditRating } from '../logic'
 import { getSeasonEpisodesCached } from '../tvmaze'
@@ -22,6 +23,8 @@ interface Props {
 
 /** Press-and-hold menu: the everyday things without opening the show page. Every action can be undone. */
 export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin, onRate, onOpen, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   // Aired episodes decide between "Finished" and "Caught up"; null until known (or offline)
   const [aired, setAired] = useState<number | null>(null)
   const meP = people.find((p) => p.id === me)

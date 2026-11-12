@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { currentMonth, episodeOfYear, monthLabel, yearReview, type YearReview as Review } from '../logic'
 import { drawMonthCard, shareImage } from '../share'
@@ -243,6 +244,8 @@ function buildSlides(r: Review, watches: Watch[], people: Person[], soFar: boole
 
 /** "Pititi Wrapped": a story of the family's year. Tap right for next, left for back; hold to pause. */
 export function YearReview({ year, watches, people, episodeReactions = [], photos = [], onClose, onFlash }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const r = yearReview(watches, people.map((p) => p.id), year)
   const soFar = year === Number(currentMonth().slice(0, 4))
   const [i, setI] = useState(0)

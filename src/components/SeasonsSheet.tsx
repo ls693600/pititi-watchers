@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect } from 'react'
 import { t } from '../i18n'
 import { averageRating, episodesIn, monthLabel, type ShowGroup } from '../logic'
@@ -14,6 +15,8 @@ interface Props {
 
 /** Behind a show's poster on Home when several of its seasons were watched: one row per season. */
 export function SeasonsSheet({ group, month, onOpen, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const { head, logs } = group
   const avg = averageRating(head)
   const monthName = monthLabel(month, 'long').split(' ')[0]

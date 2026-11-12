@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useRef } from 'react'
 import { getLang, t } from '../i18n'
 import type { FestivePick } from '../festivePicks'
@@ -32,6 +33,8 @@ export type SheetProps = Props & {
 
 /** A sheet of movie and show picks: trailer on the poster, Save to a list, and what you already watched or saved. */
 export function PicksSheet({ watches, items, readOnly = false, onSave, onClose, emoji, eyebrow, title, intro, picks, focus = null, noteFor }: SheetProps) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const pt = getLang() === 'pt'
   const focused = useRef<HTMLLIElement>(null)
   useEffect(() => {

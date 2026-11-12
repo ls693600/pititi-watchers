@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 import { monthBreakdown, monthLabel, sortMonthRows, type MonthSort } from '../logic'
@@ -28,6 +29,8 @@ const hm = (minutes: number) => {
 
 /** Behind the Home tiles: every show and movie of the month, with its episodes and time. */
 export function WatchedSheet({ list, month, who, sort: initial, kind: initialKind = null, together = false, onOpen, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [sort, setSort] = useState<MonthSort>(initial)
   const [kind, setKind] = useState<Kind | null>(initialKind)
   const all = monthBreakdown(list, month)

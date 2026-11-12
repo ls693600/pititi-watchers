@@ -1,3 +1,4 @@
+import { useBackClose } from '../hooks/useBackClose'
 import { useEffect, useRef, useState } from 'react'
 import { defaultSeason, logForSeason, monthLabel, premiereMonthFix, togetherWatchers, withSeason } from '../logic'
 import { getAiredCount, getSeasons, type SeasonInfo } from '../tvmaze'
@@ -35,6 +36,8 @@ async function withAired(s: SeasonInfo): Promise<SeasonInfo> {
 
 /** Bottom sheet: log a show in three taps. Month, rewatch and notes live under More options. */
 export function QuickLog({ draft, watches, people, me, saving, onLog, onMore, onOpenExisting, onClose }: Props) {
+  // The phone's Back closes it
+  useBackClose(true, onClose)
   const [w, setW] = useState<Watch>(draft)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
