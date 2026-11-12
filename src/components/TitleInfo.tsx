@@ -4,6 +4,7 @@ import { airLabel, familyWatched, householdLabel, showStatusLabel } from '../log
 import { getMovie, type MovieInfo } from '../movies'
 import { bigPoster, getSeasons, getShowInfoCached, type ShowInfo } from '../tvmaze'
 import type { Household, Person, Title, Watch } from '../types'
+import { useStory } from '../hooks/useStory'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { PosterFill } from './Poster'
@@ -49,7 +50,7 @@ export function TitleInfo({ title, watches, households, people, me, byline }: Pr
   const family = familyWatched(watches, title)
   const rating = state.s === 'tv' || state.s === 'movie' ? state.info.rating : null
   const runtime = state.s === 'movie' ? state.info.runtime : state.s === 'tv' ? state.info.runtime : title.runtime
-  const synopsis = state.s === 'movie' ? state.info.overview : state.s === 'tv' ? state.info.summary : null
+  const synopsis = useStory(title.kind, title.extId, state.s === 'movie' ? state.info.overview : state.s === 'tv' ? state.info.summary : null)
 
   return (
     <div className="tinfo">

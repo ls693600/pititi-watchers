@@ -126,6 +126,8 @@ export async function openAs(page: Page, personId = L, opts: { lang?: 'en' | 'pt
       const season = url.searchParams.get('season')
       return route.fulfill({ json: { key: `yt-${trailer}-${id}${season ? `-s${season}` : ''}`, name: `Official Trailer${season ? ` · Season ${season}` : ''}` } })
     }
+    // Portuguese story texts for series (TVmaze only has English)
+    if (url.searchParams.get('story')) return route.fulfill({ json: { overview: 'Uma série.' } })
     if (url.searchParams.get('q'))
       return route.fulfill({ json: [{ id: 693134, title: 'Dune: Part Two', year: '2024', poster: null, genres: ['Science-Fiction'], overview: 'Paul joins the Fremen.', rating: 8.1 }] })
     return route.fulfill({

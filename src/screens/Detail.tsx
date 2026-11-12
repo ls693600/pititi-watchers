@@ -1,3 +1,4 @@
+import { useStory } from '../hooks/useStory'
 import { useBackClose } from '../hooks/useBackClose'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
@@ -67,6 +68,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const stored = isNew ? initial : (watches.find((x) => x.id === initial.id) ?? initial)
   const [seasons, setSeasons] = useState<SeasonInfo[] | null>(null)
   const [info, setInfo] = useState<ShowInfo | null>(null)
+  // Portuguese: the show's story from TMDB in Portuguese when TVmaze only has English
+  const story = useStory(initial.kind === 'movie' ? 'movie' : 'tv', initial.showId, info?.summary ?? null)
   const [movie, setMovie] = useState<MovieInfo | null>(null)
   const isMovie = initial.kind === 'movie'
   const [episodes, setEpisodes] = useState<EpisodeInfo[] | null>(null)
@@ -430,9 +433,9 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               )}
             </a>
           )}
-          {info.summary && (
+          {story && (
             <button className={`synopsis ${moreSynopsis ? 'open' : ''}`} onClick={() => setMoreSynopsis(!moreSynopsis)} aria-expanded={moreSynopsis}>
-              {info.summary}
+              {story}
             </button>
           )}
           {info.nextEpisode && (

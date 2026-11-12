@@ -213,6 +213,14 @@ Deno.serve(async (req) => {
       // "None" is re-checked sooner: TMDB adds trailers for new seasons
       return json(v ? { key: v.key, name: v.name } : { key: null }, 200, v ? 'public, max-age=86400' : 'public, max-age=3600')
     }
+    // GET ?story=<TVmaze id>&lang=pt → a show's synopsis in Brazilian Portuguese from TMDB (TVmaze only has English)
+    const story = Number(u.searchParams.get('story'))
+    if (story > 0) {
+      const tv = await tvIdFromTvmaze(story)
+      const d = tv ? await tmdb(`/tv/${tv}`, { language: lang }).catch(() => null) : null
+      const overview = typeof d?.overview === 'string' && d.overview.trim() ? d.overview.trim() : null
+      return json({ overview }, 200, overview ? 'public, max-age=604800' : 'public, max-age=86400')
+    }
     if (u.searchParams.get('trending') === 'week') return json(await trendingWeek(), 200, 'public, max-age=21600')
     const loved = u.searchParams.get('forus')
     if (loved) return json(await forUs(loved.split(',')), 200, 'public, max-age=86400')

@@ -96,3 +96,40 @@ export async function getTrendingWeek(): Promise<unknown> {
 export async function getForUs(loved: string[]): Promise<unknown> {
   return call<unknown>({ forus: loved.join(',') })
 }
+
+const STORY_KEY = 'pititi.story.v1'
+const STORY_TTL = 14 * 86_400_000
+const NO_STORY_TTL = 86_400_000
+const storyMemo = new Map<number, Promise<string | null>>()
+
+/** A show's synopsis in Brazilian Portuguese (TMDB), cached on the phone for two weeks. Null when TMDB has none. */
+export function getStoryPt(tvmazeId: number): Promise<string | null> {
+  const hit = storyMemo.get(tvmazeId)
+  if (hit) return hit
+  let stored: Record<string, { at: number; text: string | null }> = {}
+  try {
+    stored = JSON.parse(localStorage.getItem(STORY_KEY) || '{}')
+  } catch {
+    stored = {}
+  }
+  const s = stored[tvmazeId]
+  if (s && Date.now() - s.at < (s.text ? STORY_TTL : NO_STORY_TTL)) {
+    const p = Promise.resolve(s.text)
+    storyMemo.set(tvmazeId, p)
+    return p
+  }
+  const p = call<{ overview: string | null }>({ story: String(tvmazeId) }).then(({ overview }) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORY_KEY) || '{}')
+      all[tvmazeId] = { at: Date.now(), text: overview }
+      localStorage.setItem(STORY_KEY, JSON.stringify(all))
+    } catch {
+      // Cache is a nice-to-have
+    }
+    return overview
+  })
+  p.catch(() => storyMemo.delete(tvmazeId))
+  storyMemo.set(tvmazeId, p)
+  return p
+}
+
