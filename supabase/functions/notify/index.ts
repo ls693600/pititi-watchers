@@ -257,6 +257,32 @@ async function evening() {
   return { due: due.length, sent }
 }
 
+/** The scheduled jobs report each good run (App health; before migration 016 the table doesn't exist: ignored). */
+async function heartbeat(job: 'reminders' | 'evening', result: unknown) {
+  const { error } = await db.from('job_runs').upsert({ job, last_ok: new Date().toISOString(), last_result: result })
+  if (error) console.warn('heartbeat skipped:', error.message)
+}
+
+/** The watchdog found a late job: tell the admin (only them), in their language. */
+async function health(stale: string[]) {
+  const { data: admins } = await db.from('people').select('id, lang').eq('is_admin', true)
+  const list = (admins ?? []) as { id: string; lang: string | null }[]
+  if (!list.length || !stale.length) return { sent: 0 }
+  const lang = new Map(list.map((a) => [a.id, a.lang]))
+  const names = (pt: boolean) =>
+    stale.map((j) => (j === 'reminders' ? (pt ? 'o lembrete diário das 21h' : 'the 21:00 daily reminder') : pt ? 'o lembrete da noite' : 'the evening reminder')).join(pt ? ' e ' : ' and ')
+  const sent = await deliver(await subsFor(list.map((a) => a.id)), (personId) => {
+    const pt = lang.get(personId) === 'pt'
+    return {
+      title: pt ? 'Pititi · Saúde do app' : 'Pititi · App health',
+      body: pt ? `${names(true)} não rodou no horário. As notificações podem estar paradas.` : `${names(false)} didn't run on time. Notifications may be off for everyone.`,
+      open: 'settings',
+      tag: 'health',
+    }
+  })
+  return { sent }
+}
+
 Deno.serve(async (req) => {
   if (!SECRET || req.headers.get('x-pititi-secret') !== SECRET) return new Response('Unauthorized', { status: 401 })
   try {
@@ -266,8 +292,9 @@ Deno.serve(async (req) => {
       body.type === 'comment' && id ? await onComment(id)
       : body.type === 'recommendation' && id ? await onRecommendation(id)
       : body.type === 'votes' && id ? await onVoteRequest(id)
-      : body.type === 'reminders' ? await reminders()
-      : body.type === 'evening' ? await evening()
+      : body.type === 'reminders' ? await reminders().then(async (r) => (await heartbeat('reminders', r), r))
+      : body.type === 'evening' ? await evening().then(async (r) => (await heartbeat('evening', r), r))
+      : body.type === 'health' && Array.isArray(body.stale) ? await health(body.stale.filter((j: unknown) => typeof j === 'string'))
       : null
     if (!result) return new Response('Unknown request', { status: 400 })
     return Response.json(result)

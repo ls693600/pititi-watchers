@@ -2,7 +2,7 @@
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(27);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -92,6 +92,16 @@ select throws_ok(
   $$ insert into public.comments (id, watch_id, body) values ('d0000000-0000-0000-0000-000000000002', null, 'spam') $$,
   '42501', null, 'a stranger cannot post');
 reset role;
+
+-- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select is((select count(*) from public.job_runs), 0::bigint, 'app health is hidden from non-admins');
+select throws_ok($$ select public.pititi_health_check() $$, '42501', null, 'members cannot run the health watchdog');
+reset role;
+update public.job_runs set last_ok = now() - interval '3 days', last_alert = null where job = 'reminders';
+select is(public.pititi_health_check(), array['reminders'], 'a late daily reminder is reported');
+select is(public.pititi_health_check(), '{}'::text[], '... only once in 12 hours');
 
 select * from finish();
 rollback;

@@ -36,6 +36,7 @@ import {
   bestEpisode,
   episodeOfYear,
   familyWatched,
+  jobLate,
   rewatchPair,
   canReact,
   toggleReaction,
@@ -1079,5 +1080,15 @@ describe('who in the family watched a title', () => {
     ])
     expect(familyWatched(list, { kind: 'movie', extId: 7 }).map((f) => f.householdId)).toEqual(['h3'])
     expect(familyWatched(list, { kind: 'tv', extId: 8 })).toEqual([])
+  })
+})
+
+describe('app health', () => {
+  const now = new Date('2026-11-12T22:30:00Z')
+  it('the daily reminder may be up to 25 hours old, the evening one 2 hours', () => {
+    expect(jobLate('reminders', '2026-11-11T21:00:00Z', new Date('2026-11-12T21:30:00Z'))).toBe(false)
+    expect(jobLate('reminders', '2026-11-11T21:00:00Z', new Date('2026-11-12T22:01:00Z'))).toBe(true)
+    expect(jobLate('evening', '2026-11-12T21:00:00Z', now)).toBe(false)
+    expect(jobLate('evening', '2026-11-12T20:00:00Z', now)).toBe(true)
   })
 })

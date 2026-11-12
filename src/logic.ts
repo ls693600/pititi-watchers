@@ -1096,6 +1096,13 @@ export function showStatusLabel(status: string): string {
   return t(status)
 }
 
+/** App health: how late each scheduled job may be before it counts as missed (same rule as the database watchdog). */
+export const JOB_GRACE_HOURS: Record<'reminders' | 'evening', number> = { reminders: 25, evening: 2 }
+
+export function jobLate(job: 'reminders' | 'evening', lastOk: string, now = new Date()): boolean {
+  return now.getTime() - new Date(lastOk).getTime() > JOB_GRACE_HOURS[job] * 3_600_000
+}
+
 // ---- Lists ----
 
 /** Same rule as the database: your household's lists, lists shared with you, and family-wide lists. */

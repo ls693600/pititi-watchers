@@ -1108,4 +1108,13 @@ export const PT: Record<string, string> = {
   "Only on this phone. Everyone sets their own.": "Só neste celular. Cada um ajusta o seu.",
   "Reset to default": "Voltar ao padrão",
   "tap ⋯ on a poster (or press and hold it) to mark episodes, finish it or rate it, without opening it.": "toque em ⋯ no pôster (ou segure o pôster) para marcar episódios, terminar ou dar nota, sem abrir.",
+  // App health (admin)
+  "App health": "Saúde do app",
+  "Needs a look": "Precisa de atenção",
+  "All good": "Tudo certo",
+  "Daily reminders (21:00)": "Lembretes diários (21h)",
+  "Evening reminders (hourly)": "Lembretes da noite (de hora em hora)",
+  "Late: last good run {when} ago": "Atrasado: última vez que rodou bem há {when}",
+  "Last good run {when} ago": "Rodou bem há {when}",
+  "Checked every hour. If a job misses its slot, you get one notification.": "Verificado de hora em hora. Se um deles atrasar, você recebe uma notificação.",
 }

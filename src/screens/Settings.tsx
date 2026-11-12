@@ -9,9 +9,10 @@ import { getThemePref, setThemePref, type ThemePref } from '../theme'
 import type { Household, Person, Watch } from '../types'
 import { FamilyAdmin } from '../components/FamilyAdmin'
 import { hourLabel } from '../lib/hours'
+import { AppHealth } from '../components/AppHealth'
 import { Problems } from '../components/Problems'
 import { PasswordSheet } from '../components/PasswordSheet'
-import type { ProblemReport } from '../store/cloud'
+import type { ProblemReport, JobRun } from '../store/cloud'
 import { setFestivePref, useFestivePref } from '../useFestive'
 import { getLang, setLang, t } from '../i18n'
 
@@ -45,6 +46,8 @@ interface Props {
   evening?: { hour: number | null; onChange: (hour: number | null) => void } | null
   /** Admin: problems reported from family phones */
   problems?: { load: () => Promise<ProblemReport[]>; clear: () => Promise<void> } | null
+  /** Admin: are the scheduled notifications running (migration 016) */
+  health?: { load: () => Promise<JobRun[]> } | null
   admin?: {
     onAddHousehold: (name: string) => Promise<string | null>
     onUpdateHousehold: (h: Household) => Promise<void>
@@ -60,7 +63,7 @@ interface Props {
 }
 
 
-export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, evening, onChangePassword }: Props) {
+export function Settings({ mode, session, isAdmin, people, watches, onAddPerson, loadInvite, renewInvite, onSignOut, view, onOpenSettings, onOpenFamily, notify, onBack, onOpenHelp, loadViewerInvite, onSetViewer, households = [], admin, meId, problems, health = null, evening, onChangePassword }: Props) {
   const [pwOpen, setPwOpen] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -474,6 +477,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
 
       {whatsNew && <WhatsNewSheet onClose={() => setWhatsNew(false)} />}
 
+      {isAdmin && health && <AppHealth load={health.load} />}
       {isAdmin && problems && <Problems load={problems.load} clear={problems.clear} people={people} />}
 
       {session && (

@@ -737,3 +737,16 @@ export async function clearProblems(): Promise<void> {
   const { error } = await supabase().from('client_errors').delete().gte('created_at', '1970-01-01')
   if (error) throw error
 }
+
+export interface JobRun {
+  job: 'reminders' | 'evening'
+  lastOk: string
+}
+
+/** Admin: when the scheduled notification jobs last ran fine (migration 016; throws before it's run). */
+export async function appHealth(): Promise<JobRun[]> {
+  const { data, error } = await supabase().from('job_runs').select('job, last_ok').order('job')
+  if (error) throw error
+  return ((data ?? []) as { job: JobRun['job']; last_ok: string }[]).map((r) => ({ job: r.job, lastOk: r.last_ok }))
+}
+

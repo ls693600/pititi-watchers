@@ -15,7 +15,7 @@ const user = { id: 'u2', aud: 'authenticated', role: 'authenticated', email: EMA
 const person = { id: 'p-ana', name: 'Ana', user_id: 'u2', is_admin: false, is_viewer: false, household_id: 'h1', created_at: '2026-01-01T00:00:00Z' }
 const session = () => ({ access_token: 'test-token', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'test-refresh', user })
 
-export async function fakeSupabase(page: Page, password = 'old-pass-1'): Promise<FakeState> {
+export async function fakeSupabase(page: Page, password = 'old-pass-1', opts: { admin?: boolean; jobRuns?: { job: string; last_ok: string }[] } = {}): Promise<FakeState> {
   const state: FakeState = { password, resets: [], passwordUpdates: 0 }
   await page.addInitScript(() => {
     if (sessionStorage.getItem('seeded')) return
@@ -57,8 +57,10 @@ export async function fakeSupabase(page: Page, password = 'old-pass-1'): Promise
     if (path === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' })
     if (path === '/rest/v1/people') {
       const single = (req.headers()['accept'] ?? '').includes('vnd.pgrst.object')
-      return route.fulfill({ json: single ? person : [person] })
+      const me = opts.admin ? { ...person, is_admin: true } : person
+      return route.fulfill({ json: single ? me : [me] })
     }
+    if (path === '/rest/v1/job_runs') return opts.jobRuns ? route.fulfill({ json: opts.jobRuns }) : route.fulfill({ status: 404, json: { code: '42P01', message: 'relation "public.job_runs" does not exist' } })
     if (path.startsWith('/rest/v1/rpc/')) return route.fulfill({ json: null })
     if (path.startsWith('/rest/v1/')) return route.fulfill(req.method() === 'GET' ? { json: [] } : { status: 201, json: [] })
     return route.fulfill({ json: {} })

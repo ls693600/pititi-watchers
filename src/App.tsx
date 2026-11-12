@@ -24,7 +24,7 @@ import { Toast } from './components/Toast'
 import { SEEN_KEY, readSet, writeSet } from './lib/seen'
 import { announceNew, celebrateBadges } from './lib/announce'
 import { FestiveAmbient, FestiveRain } from './components/Festive'
-import { changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
+import { appHealth, changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
 import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
@@ -328,6 +328,7 @@ export default function App() {
       setFamilyView('activity')
       setTab('family')
     } else if (kind === 'quickmark') setQuickMark(true)
+    else if (kind === 'settings') setTab('settings')
     else if (kind === 'add') {
       setAddMonth(currentMonth())
       setTab('search')
@@ -770,6 +771,7 @@ export default function App() {
             households={circle.households}
             meId={me}
             problems={store.mode === 'cloud' ? { load: recentProblems, clear: clearProblems } : null}
+            health={store.mode === 'cloud' ? { load: appHealth } : null}
             admin={familyAdmin}
             onSetViewer={async (id, viewer) => {
               const prev = people
