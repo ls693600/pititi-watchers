@@ -50,3 +50,19 @@ jobs:
             tests/e2e-report
             test-results
           retention-days: 7
+
+  database:
+    name: Database rules (fresh Supabase from migrations)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+      # Builds a throwaway local Supabase and runs migrations 001-014 in order: a migration that breaks fails here
+      - run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor
+      # supabase/tests: who can read and change what (households, viewers, strangers, photos, reactions, sign-up codes)
+      - run: supabase test db
+      - if: always()
+        run: supabase stop --no-backup
