@@ -1,4 +1,4 @@
-import type { Comment, CouchPhoto, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 
 export interface Snapshot {
   watches: Watch[]
@@ -20,6 +20,11 @@ export interface Snapshot {
   photos: CouchPhoto[]
   /** False until migration 014 is run: couch night photos stay hidden */
   photosOn: boolean
+  predictions: Prediction[]
+  /** Your own guesses, and the others' once they're open (the server keeps the rest sealed) */
+  guesses: Guess[]
+  /** False until migration 017 is run: predictions stay hidden */
+  predictOn: boolean
 }
 
 export interface Store {
@@ -62,6 +67,12 @@ export interface Store {
   removePhoto(p: CouchPhoto): Promise<void>
   /** Puts back a photo's row (Undo on removing its log; the file was kept) */
   restorePhoto(p: CouchPhoto): Promise<void>
+  addPrediction(p: Prediction, first: Guess): Promise<void>
+  /** Your guess (new or changed), only before the reveal */
+  setGuess(g: Guess): Promise<void>
+  /** After the reveal: mark someone's guess right, wrong, or clear it */
+  judgeGuess(predictionId: string, personId: string, verdict: Guess['verdict']): Promise<void>
+  removePrediction(id: string): Promise<void>
   addComment(c: Comment): Promise<void>
   removeComment(id: string): Promise<void>
   /** This phone's notification subscription (Web Push) */

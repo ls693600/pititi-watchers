@@ -1,5 +1,5 @@
 import { newId, sameEpisodeReaction } from '../logic'
-import type { Comment, CouchPhoto, EpisodeReaction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import type { Snapshot, Store } from './store'
 
 const WATCHES = 'pititi.watches.v2'
@@ -9,12 +9,14 @@ const REACTIONS = 'pititi.reactions.v1'
 const COMMENTS = 'pititi.comments.v1'
 const EPISODE_REACTIONS = 'pititi.epreactions.v1'
 const PHOTOS = 'pititi.photos.v1'
+const PREDICTIONS = 'pititi.predictions.v1'
+const GUESSES = 'pititi.guesses.v1'
 const HOUSEHOLDS = 'pititi.households.v1'
 const LISTS = 'pititi.lists.v1'
 const ITEMS = 'pititi.listitems.v1'
 const RECS = 'pititi.recs.v1'
 const MUTES = 'pititi.mutes.v1'
-const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS]
+const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS, PREDICTIONS, GUESSES]
 
 const DEFAULT_PEOPLE: Person[] = [
   { id: 'local-leandro', name: 'Leandro', userId: null, isAdmin: true },
@@ -95,6 +97,9 @@ function read(): Snapshot {
     episodeFx: true,
     photos: readJson<CouchPhoto[]>(PHOTOS, []),
     photosOn: true,
+    predictions: readJson<Prediction[]>(PREDICTIONS, []),
+    guesses: readJson<Guess[]>(GUESSES, []),
+    predictOn: true,
   }
 }
 
@@ -111,6 +116,8 @@ function write(snap: Snapshot) {
   localStorage.setItem(REACTIONS, JSON.stringify(snap.reactions ?? []))
   localStorage.setItem(COMMENTS, JSON.stringify(snap.comments ?? []))
   localStorage.setItem(EPISODE_REACTIONS, JSON.stringify(snap.episodeReactions ?? []))
+  localStorage.setItem(PREDICTIONS, JSON.stringify(snap.predictions ?? []))
+  localStorage.setItem(GUESSES, JSON.stringify(snap.guesses ?? []))
   // Photos are big: the cloud copy keeps rows only (links are re-signed on load)
   try {
     localStorage.setItem(PHOTOS, JSON.stringify(snap.photos ?? []))
@@ -222,6 +229,18 @@ export const localStore: Store = {
       const rest = (s.episodeReactions ?? []).filter((x) => !sameEpisodeReaction(x, r))
       return { episodeReactions: r.emoji ? [...rest, { ...r, emoji: r.emoji }] : rest }
     })
+  },
+  async addPrediction(p, first) {
+    update((s) => ({ predictions: [...(s.predictions ?? []).filter((x) => x.id !== p.id), p], guesses: [...(s.guesses ?? []).filter((g) => !(g.predictionId === p.id && g.personId === first.personId)), first] }))
+  },
+  async setGuess(g) {
+    update((s) => ({ guesses: [...(s.guesses ?? []).filter((x) => !(x.predictionId === g.predictionId && x.personId === g.personId)), g] }))
+  },
+  async judgeGuess(predictionId, personId, verdict) {
+    update((s) => ({ guesses: (s.guesses ?? []).map((g) => (g.predictionId === predictionId && g.personId === personId ? { ...g, verdict } : g)) }))
+  },
+  async removePrediction(id) {
+    update((s) => ({ predictions: (s.predictions ?? []).filter((p) => p.id !== id), guesses: (s.guesses ?? []).filter((g) => g.predictionId !== id) }))
   },
   // This phone only: the photo itself is kept as a data URL
   async addPhoto(p, image) {

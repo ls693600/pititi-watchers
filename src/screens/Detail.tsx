@@ -3,6 +3,7 @@ import { useBackClose } from '../hooks/useBackClose'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
 import { CouchPhotos } from '../components/CouchPhotos'
+import { Predictions } from '../components/Predictions'
 import { EpisodeReactions } from '../components/EpisodeReactions'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
@@ -11,7 +12,7 @@ import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
 import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
-import type { Comment, CouchPhoto, EpisodeEmoji, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
+import type { Comment, CouchPhoto, EpisodeEmoji, Guess, Prediction, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
 import { getMovie, type MovieInfo } from '../movies'
 import { t } from '../i18n'
@@ -55,12 +56,23 @@ interface Props {
   onSwitchLog: (w: Watch, isNew: boolean) => void
   /** "How was each episode?": everyone's emoji (null hides it: migration 013 not run, or a new log) */
   episodeFx?: { reactions: EpisodeReaction[]; onReact: (episode: number, emoji: EpisodeEmoji) => void } | null
+  /** Predictions for this show (null hides them: migration 017 not run, a movie, another household's log or a new log) */
+  predict?: {
+    predictions: Prediction[]
+    guesses: Guess[]
+    householdWatches: Watch[]
+    isAdmin: boolean
+    onAdd: (p: Omit<Prediction, 'createdBy' | 'createdAt'>, guess: string) => Promise<boolean>
+    onGuess: (predictionId: string, text: string) => Promise<boolean>
+    onJudge: (predictionId: string, personId: string, verdict: Guess['verdict']) => void
+    onRemove: (p: Prediction) => void
+  } | null
   /** Couch night photos on this log (null hides them: migration 014 not run, or a new log) */
   couch?: { photos: CouchPhoto[]; canAdd: boolean; uploading: boolean; isAdmin: boolean; onAdd: (f: File) => void; onRemove: (p: CouchPhoto) => Promise<boolean> } | null
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, couch = null, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, couch = null, predict = null, onClose }: Props) {
   // The phone's Back leaves the show page
   useBackClose(true, onClose)
   const [w, setW] = useState<Watch>(initial)
@@ -631,6 +643,23 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           me={me}
           canReact={me != null && (!readOnly || stored.watchedBy.includes(me))}
           onReact={episodeFx.onReact}
+        />
+      )}
+
+      {predict && !isMovie && (
+        <Predictions
+          log={stored}
+          watches={predict.householdWatches}
+          predictions={predict.predictions}
+          guesses={predict.guesses}
+          people={people}
+          me={me}
+          isAdmin={predict.isAdmin}
+          totalEpisodes={stored.totalEpisodes ?? episodes?.length ?? null}
+          onAdd={predict.onAdd}
+          onGuess={predict.onGuess}
+          onJudge={predict.onJudge}
+          onRemove={predict.onRemove}
         />
       )}
 

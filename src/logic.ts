@@ -1,6 +1,6 @@
 import { locale, t } from './i18n'
 import type { SeasonInfo } from './tvmaze'
-import { EPISODE_EMOJIS, type Comment, type EpisodeEmoji, type EpisodeReaction, type Household, type Kind, type ListItem, type Person, type Reaction, type Recommendation, type Title, type Watch, type WatchList } from './types'
+import { EPISODE_EMOJIS, type Comment, type Guess, type Prediction, type EpisodeEmoji, type EpisodeReaction, type Household, type Kind, type ListItem, type Person, type Reaction, type Recommendation, type Title, type Watch, type WatchList } from './types'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
 export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
@@ -1101,6 +1101,30 @@ export const JOB_GRACE_HOURS: Record<'reminders' | 'evening', number> = { remind
 
 export function jobLate(job: 'reminders' | 'evening', lastOk: string, now = new Date()): boolean {
   return now.getTime() - new Date(lastOk).getTime() > JOB_GRACE_HOURS[job] * 3_600_000
+}
+
+// ---- Predictions ----
+
+/** Guesses open once the household logs the episode (a later season counts too). Same rule as the database. */
+export function predictionOpen(p: Prediction, watches: Watch[]): boolean {
+  return watches.some(
+    (w) =>
+      kindOf(w) === 'tv' &&
+      w.showId === p.showId &&
+      (w.householdId ?? null) === p.householdId &&
+      (w.season > p.season || (w.season === p.season && (w.episodesWatched >= p.episode || w.status === 'done'))),
+  )
+}
+
+/** Each person's record: guesses judged right, out of those judged. Most right first. */
+export function predictionScores(guesses: Guess[], personIds: string[]): { personId: string; right: number; judged: number }[] {
+  return personIds
+    .map((personId) => {
+      const mine = guesses.filter((g) => g.personId === personId && g.verdict)
+      return { personId, right: mine.filter((g) => g.verdict === 'right').length, judged: mine.length }
+    })
+    .filter((s) => s.judged > 0)
+    .sort((a, b) => b.right - a.right || a.judged - b.judged)
 }
 
 // ---- Lists ----

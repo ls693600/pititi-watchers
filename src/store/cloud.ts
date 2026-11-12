@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Comment, CouchPhoto, EpisodeReaction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, Prediction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
@@ -230,6 +230,11 @@ interface PhotoRow {
   created_at: string
 }
 
+interface PredictionRow { id: string; household_id: string | null; show_id: number; season: number; episode: number; question: string; created_by: string | null; created_at: string }
+interface GuessRow { prediction_id: string; person_id: string; guess: string; verdict: Guess['verdict']; created_at: string }
+const toPrediction = (r: PredictionRow): Prediction => ({ id: r.id, householdId: r.household_id, showId: r.show_id, season: r.season, episode: r.episode, question: r.question, createdBy: r.created_by, createdAt: r.created_at })
+const toGuess = (r: GuessRow): Guess => ({ predictionId: r.prediction_id, personId: r.person_id, guess: r.guess, verdict: r.verdict, createdAt: r.created_at })
+
 const PHOTO_BUCKET = 'couch-photos'
 /** Signed links last a week: the app reloads long before that */
 const PHOTO_LINK_SECONDS = 7 * 86_400
@@ -417,7 +422,7 @@ export const cloudStore: Store = {
       if (res.error) console.warn(`${what} unavailable:`, res.error.message)
       return res.error ? [] : (res.data ?? [])
     }
-    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph] = await Promise.all([
+    const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph, pr, gs] = await Promise.all([
       supabase().from('watches').select('*'),
       supabase()
         .from('ratings')
@@ -438,6 +443,8 @@ export const cloudStore: Store = {
       supabase().from('chat_mutes').select('thread'),
       supabase().from('episode_reactions').select('kind, show_id, season, episode, person_id, emoji, created_at'),
       supabase().from('couch_photos').select('id, watch_id, person_id, path, night, created_at').order('night', { ascending: false }),
+      supabase().from('predictions').select('id, household_id, show_id, season, episode, question, created_by, created_at').order('created_at'),
+      supabase().from('prediction_guesses').select('prediction_id, person_id, guess, verdict, created_at'),
     ])
     // Migration 014: until it's run, photos stay hidden. A failed link request only hides them this time.
     const photos = ph.error ? [] : await withLinks(ph.data as PhotoRow[]).catch((e: Error) => (console.warn('Photo links unavailable:', e.message), []))
@@ -467,6 +474,10 @@ export const cloudStore: Store = {
       episodeFx: !er.error,
       photos,
       photosOn: !ph.error,
+      // Migration 017; the server only returns guesses you're allowed to see (yours, and the others' once open)
+      predictions: optional(pr, 'Predictions').map((x) => toPrediction(x as PredictionRow)),
+      guesses: optional(gs, 'Guesses').map((x) => toGuess(x as GuessRow)),
+      predictOn: !pr.error && !gs.error,
     }
     cache.write(snap)
     return snap
@@ -514,6 +525,25 @@ export const cloudStore: Store = {
       ? await supabase().from('episode_reactions').upsert({ ...key, emoji: r.emoji, created_at: r.createdAt })
       : await supabase().from('episode_reactions').delete().match(key)
     if (error) throw error
+  },
+  async addPrediction(p, first) {
+    const { error } = await supabase().from('predictions').insert({ id: p.id, show_id: p.showId, season: p.season, episode: p.episode, question: p.question, created_at: p.createdAt })
+    if (error) throw error
+    const g = await supabase().from('prediction_guesses').insert({ prediction_id: first.predictionId, guess: first.guess, created_at: first.createdAt })
+    if (g.error) throw g.error
+  },
+  async setGuess(g) {
+    const { error } = await supabase().from('prediction_guesses').upsert({ prediction_id: g.predictionId, person_id: g.personId, guess: g.guess, created_at: g.createdAt })
+    if (error) throw error
+  },
+  async judgeGuess(predictionId, personId, verdict) {
+    const { error } = await supabase().rpc('judge_guess', { prediction: predictionId, person: personId, result: verdict })
+    if (error) throw error
+  },
+  async removePrediction(id) {
+    const { data, error } = await supabase().from('predictions').delete().eq('id', id).select('id')
+    if (error) throw error
+    if (!data?.length) throw new Error(t('Only the person who asked it can remove it.'))
   },
   async addPhoto(p, image) {
     const household = (await supabase().rpc('my_household_id')).data as string | null
@@ -700,12 +730,18 @@ export const cloudStore: Store = {
       .channel('family-photos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'couch_photos' }, ping)
       .subscribe()
+    const preds = supabase()
+      .channel('family-predictions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prediction_guesses' }, ping)
+      .subscribe()
     return () => {
       clearTimeout(t)
       supabase().removeChannel(channel)
       supabase().removeChannel(social)
       supabase().removeChannel(episodes)
       supabase().removeChannel(photos)
+      supabase().removeChannel(preds)
     }
   },
 }

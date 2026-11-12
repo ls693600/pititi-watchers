@@ -16,6 +16,7 @@ import { useReadState } from './hooks/useReadState'
 import { useBackClose } from './hooks/useBackClose'
 import { useChat } from './hooks/useChat'
 import { usePhotos } from './hooks/usePhotos'
+import { useOpenedPredictions, usePredictions } from './hooks/usePredictions'
 import { tonight } from './lib/photo'
 import { useFamilyAdmin } from './hooks/useFamilyAdmin'
 import { onOutbox, readOutbox, withOutbox } from './store/outbox'
@@ -199,6 +200,18 @@ export default function App() {
   const { comments, reactions, social } = chat
   const takeChat = chat.take
   const couch = usePhotos(store, mePerson?.id ?? null, flash)
+  const predict = usePredictions(store, mePerson?.id ?? null, flash)
+  const takePredictions = predict.take
+  // Logging the episode that opens a prediction: say so once, with a button to the show
+  useOpenedPredictions(
+    predict.predictions.filter((p) => p.householdId === myHousehold),
+    useMemo(() => householdWatches(watches, myHousehold), [watches, myHousehold]),
+    (p) => {
+      const log = watches.filter((w) => w.householdId === myHousehold && w.showId === p.showId && (w.kind ?? 'tv') === 'tv').sort((a, b) => b.season - a.season)[0]
+      // After the "Episode logged" message, so this one isn't covered by it
+      setTimeout(() => flash(t('🔮 Predictions are open: {show} E{n}', { show: log?.showName ?? '', n: p.episode }), log ? () => (setQuickMark(false), setActionsFor(null), setDetail({ watch: log, isNew: false })) : undefined, t('See')), 1800)
+    },
+  )
   const takePhotos = couch.take
 
   /** Opened from a "Forgot password?" email: ask for the new password once signed in */
@@ -267,6 +280,7 @@ export default function App() {
       takeCircle(snap)
       takeChat(snap)
       takePhotos(snap)
+      takePredictions(snap)
       setOffline(false)
       queueReveals(snap.watches)
       checkBadges(snap.watches)
@@ -280,11 +294,12 @@ export default function App() {
       takeCircle(snap)
       takeChat({ comments: snap.comments, reactions: snap.reactions, episodeReactions: snap.episodeReactions })
       takePhotos({ photos: snap.photos })
+      takePredictions({ predictions: snap.predictions, guesses: snap.guesses })
       setOffline(true)
     } finally {
       setLoaded(true)
     }
-  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, takePhotos, flash])
+  }, [queueReveals, checkBadges, announce, takeCircle, takeChat, takePhotos, takePredictions, flash])
   const familyAdmin = useFamilyAdmin(store, reload, flash)
 
   useEffect(() => {
@@ -584,6 +599,20 @@ export default function App() {
                 ? {
                     reactions: chat.episodeReactions,
                     onReact: (episode, emoji) => chat.reactEpisode({ kind: 'tv', showId: detail.watch.showId, season: detail.watch.season, episode }, emoji),
+                  }
+                : null
+            }
+            predict={
+              predict.predictOn && !detail.isNew && !detailReadOnly && (detail.watch.kind ?? 'tv') === 'tv' && (detail.watch.householdId ?? myHousehold) === myHousehold
+                ? {
+                    predictions: predict.predictions.filter((p) => p.householdId === (detail.watch.householdId ?? null)),
+                    guesses: predict.guesses,
+                    householdWatches: householdWatches(watches, myHousehold),
+                    isAdmin: !!mePerson?.isAdmin,
+                    onAdd: predict.add,
+                    onGuess: predict.guess,
+                    onJudge: predict.judge,
+                    onRemove: predict.remove,
                   }
                 : null
             }

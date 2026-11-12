@@ -37,6 +37,8 @@ import {
   episodeOfYear,
   familyWatched,
   jobLate,
+  predictionOpen,
+  predictionScores,
   rewatchPair,
   canReact,
   toggleReaction,
@@ -92,7 +94,7 @@ import {
 } from './logic'
 import { resolveTheme } from './theme'
 import { plainText } from './tvmaze'
-import type { EpisodeReaction, Watch } from './types'
+import type { EpisodeReaction, Guess, Prediction, Watch } from './types'
 
 function watch(over: Partial<Watch> = {}): Watch {
   return {
@@ -1090,5 +1092,26 @@ describe('app health', () => {
     expect(jobLate('reminders', '2026-11-11T21:00:00Z', new Date('2026-11-12T22:01:00Z'))).toBe(true)
     expect(jobLate('evening', '2026-11-12T21:00:00Z', now)).toBe(false)
     expect(jobLate('evening', '2026-11-12T20:00:00Z', now)).toBe(true)
+  })
+})
+
+describe('predictions', () => {
+  const p: Prediction = { id: 'p1', householdId: 'h1', showId: 7, season: 2, episode: 5, question: '', createdBy: 'l', createdAt: '' }
+  const log = (extra: Partial<Watch>) => watch({ householdId: 'h1', showId: 7, season: 2, episodesWatched: 4, status: 'watching', ...extra })
+  it('opens when the household logs the episode, finishes the season, or moves on to a later one', () => {
+    expect(predictionOpen(p, [log({})])).toBe(false)
+    expect(predictionOpen(p, [log({ episodesWatched: 5 })])).toBe(true)
+    expect(predictionOpen(p, [log({ status: 'done' })])).toBe(true)
+    expect(predictionOpen(p, [log({ season: 3, episodesWatched: 0 })])).toBe(true)
+  })
+  it("another household's progress or another show never opens it", () => {
+    expect(predictionOpen(p, [log({ householdId: 'h2', episodesWatched: 9 })])).toBe(false)
+    expect(predictionOpen(p, [log({ showId: 8, episodesWatched: 9 })])).toBe(false)
+    expect(predictionOpen(p, [log({ kind: 'movie', episodesWatched: 9 })])).toBe(false)
+  })
+  it('scores: right out of judged, best first; nobody without judged guesses', () => {
+    const g = (personId: string, verdict: Guess['verdict'], id = Math.random().toString()) => ({ predictionId: id, personId, guess: 'x', verdict, createdAt: '' })
+    const s = predictionScores([g('a', 'right'), g('a', 'right'), g('a', 'wrong'), g('l', 'right'), g('l', null), g('k', null)], ['l', 'a', 'k'])
+    expect(s).toEqual([{ personId: 'a', right: 2, judged: 3 }, { personId: 'l', right: 1, judged: 1 }])
   })
 })

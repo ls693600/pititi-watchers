@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-14-predictions',
+    en: [
+      '🔮 Predictions: on a show\'s page, ask a question and seal your guess. Everyone in your household adds theirs; nobody sees the others\' until you log the episode.',
+      'Then mark each guess Nailed it or Nope and keep score. Only your household sees them.',
+    ],
+    pt: [
+      '🔮 Palpites: na página da série, faça uma pergunta e lacre seu palpite. Cada um da casa dá o seu; ninguém vê o dos outros até vocês marcarem o episódio.',
+      'Depois marque cada palpite como Acertou ou Errou e acompanhe o placar. Só a sua casa vê.',
+    ],
+  },
+  {
     id: '2026-11-13',
     en: [
       'Tap a poster and it grows into the show page (off when your phone has Reduce motion on).',

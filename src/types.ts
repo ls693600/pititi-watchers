@@ -97,6 +97,28 @@ export interface EpisodeReaction {
   createdAt: string
 }
 
+/** A household's question about a show, answered by sealed guesses that open with an episode. */
+export interface Prediction {
+  id: string
+  householdId: string | null
+  showId: number
+  season: number
+  /** The episode that opens the guesses */
+  episode: number
+  question: string
+  createdBy: string | null
+  createdAt: string
+}
+
+/** One person's sealed guess (others see it once the episode is logged), then judged right or wrong. */
+export interface Guess {
+  predictionId: string
+  personId: string
+  guess: string
+  verdict: 'right' | 'wrong' | null
+  createdAt: string
+}
+
 /** A photo of the night, on a log. The whole family sees them. */
 export interface CouchPhoto {
   id: string
