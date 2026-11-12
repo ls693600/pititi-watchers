@@ -1231,3 +1231,6 @@ body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: fi
 .predict-new input, .predict-new select { min-height: 40px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font: inherit; font-size: 14.5px; color: var(--text); width: 100%; }
 .predict-new .field { flex-direction: column; align-items: stretch; gap: 6px; }
 .predict-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.predict-new .field input, .predict-new .field select { width: 100%; max-width: none; flex: none; text-align: left; }
+.predict-new .field > span { font-size: 14px; font-weight: 650; color: var(--text-2); }
+.predict-new .field select { height: 44px; min-height: 44px; border-radius: 12px; }
