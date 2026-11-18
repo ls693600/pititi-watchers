@@ -72,7 +72,7 @@ export function OnThisDay({ watches, photos, episodeReactions, people, household
     <section className="otd" aria-label={t('On this day')}>
       <div className="otd-head">
         <p className="otd-kicker">
-          <span aria-hidden="true">📅</span> {t('On this day')} · {anchorLabel(memories.anchor)}
+          <span aria-hidden="true">🕰️</span> {t('On this day')} · {anchorLabel(memories.anchor)}
         </p>
         {items.length > 1 && (
           <span className="otd-count" aria-hidden="true">
