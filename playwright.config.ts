@@ -2,9 +2,10 @@ import { defineConfig, devices } from '@playwright/test'
 
 // End-to-end tests of the real screens, in single-phone mode (no Supabase) with fixed test data.
 // TVmaze and the movie function are answered from fixtures, so runs are repeatable and offline-safe.
-const PORT = 5299
+// E2E_PORT lets several copies of the repo run their tests at once without sharing a server
+const PORT = Number(process.env.E2E_PORT ?? 5299)
 // Sign-in screens only exist with Supabase: a second copy runs against a pretend Supabase (tests/e2e-cloud)
-const CLOUD_PORT = 5300
+const CLOUD_PORT = PORT + 1
 
 export default defineConfig({
   testDir: 'tests',
