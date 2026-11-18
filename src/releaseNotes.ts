@@ -10,6 +10,21 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-21-phase-c',
+    en: [
+      '🕰️ On this day: Home brings back a couch photo or a show you finished on this day, 1 year ago (or 6 months, or 1 month while the app is still young).',
+      '🎬 Year in Review is now a video: at the end, tap "Share as a video" and send your year straight to WhatsApp.',
+      '🔗 Share to Pititi: on Android, share a show or movie from Netflix, IMDb or YouTube right into the app. On iPhone, copy the link and tap "Paste link" in Search.',
+      '🔴 The app icon now shows how many things are waiting for you (iPhone, with notifications on).',
+    ],
+    pt: [
+      '🕰️ Neste dia: o Início relembra uma foto no sofá ou uma série que vocês terminaram neste dia, há 1 ano (ou 6 meses, ou 1 mês enquanto o app ainda é novinho).',
+      '🎬 A Retrospectiva agora vira vídeo: no final, toque em "Compartilhar como vídeo" e mande o ano de vocês direto no WhatsApp.',
+      '🔗 Compartilhar no Pititi: no Android, compartilhe uma série ou filme da Netflix, IMDb ou YouTube direto no app. No iPhone, copie o link e toque em "Colar link" na Busca.',
+      '🔴 O ícone do app agora mostra quantas coisas estão esperando por você (iPhone, com notificações ligadas).',
+    ],
+  },
+  {
     id: '2026-11-20-watch-party',
     en: [
       '🎉 Watch party: on a show\'s page, invite other households to watch the same episode (or movie) at the same time, each on your own couch.',
