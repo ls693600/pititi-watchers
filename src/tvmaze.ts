@@ -1,4 +1,5 @@
 // TVmaze public API — free, no key. https://www.tvmaze.com/api
+import { localDay } from './lib/dates'
 const BASE = 'https://api.tvmaze.com'
 
 export interface ShowResult {
@@ -67,7 +68,7 @@ export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
   const rows = await get<{ id: number; number: number; episodeOrder: number | null; premiereDate: string | null; endDate: string | null }[]>(
     `/shows/${showId}/seasons`,
   )
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDay()
   return rows
     .filter((s) => s.number > 0)
     .map((s) => ({
@@ -82,7 +83,7 @@ export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
 
 /** How many episodes of a season have aired by today. */
 export async function getAiredCount(seasonId: number): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDay()
   const eps = await getEpisodes(seasonId)
   return eps.filter((e) => e.airdate != null && e.airdate <= today).length
 }
@@ -129,12 +130,13 @@ export function plainText(html: string | null | undefined): string | null {
 
 const INFO_KEY = 'pititi.showinfo.v2'
 const INFO_TTL = 6 * 60 * 60 * 1000
-const infoMemo = new Map<number, Promise<ShowInfo>>()
+// In memory too, but only as long as the 6 hours: a phone can keep the app open for days
+const infoMemo = new Map<number, { at: number; p: Promise<ShowInfo> }>()
 
 /** Show info with a 6-hour cache (memory + phone storage), so Home doesn't refetch on every open. */
 export function getShowInfoCached(showId: number): Promise<ShowInfo> {
   const memo = infoMemo.get(showId)
-  if (memo) return memo
+  if (memo && Date.now() - memo.at < INFO_TTL) return memo.p
   let stored: Record<string, { at: number; info: ShowInfo }> = {}
   try {
     stored = JSON.parse(localStorage.getItem(INFO_KEY) || '{}')
@@ -144,7 +146,7 @@ export function getShowInfoCached(showId: number): Promise<ShowInfo> {
   const hit = stored[showId]
   if (hit && Date.now() - hit.at < INFO_TTL) {
     const p = Promise.resolve(hit.info)
-    infoMemo.set(showId, p)
+    infoMemo.set(showId, { at: hit.at, p })
     return p
   }
   const p = getShowInfo(showId).then((info) => {
@@ -158,7 +160,7 @@ export function getShowInfoCached(showId: number): Promise<ShowInfo> {
     return info
   })
   p.catch(() => infoMemo.delete(showId))
-  infoMemo.set(showId, p)
+  infoMemo.set(showId, { at: Date.now(), p })
   return p
 }
 
@@ -194,17 +196,17 @@ export async function getEpisodes(seasonId: number): Promise<EpisodeInfo[]> {
 
 const CACHE_KEY = 'pititi.tvcache.v1'
 const CACHE_TTL = 6 * 60 * 60 * 1000
-const memo = new Map<string, Promise<unknown>>()
+const memo = new Map<string, { at: number; p: Promise<unknown> }>()
 
 /** Runs a TVmaze lookup at most every 6 hours per key (memory + phone storage). */
 function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
   const hit = memo.get(key)
-  if (hit) return hit as Promise<T>
+  if (hit && Date.now() - hit.at < CACHE_TTL) return hit.p as Promise<T>
   try {
     const stored = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')[key]
     if (stored && Date.now() - stored.at < CACHE_TTL) {
       const p = Promise.resolve(stored.value as T)
-      memo.set(key, p)
+      memo.set(key, { at: stored.at, p })
       return p
     }
   } catch {
@@ -221,7 +223,7 @@ function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
     return value
   })
   p.catch(() => memo.delete(key))
-  memo.set(key, p)
+  memo.set(key, { at: Date.now(), p })
   return p
 }
 

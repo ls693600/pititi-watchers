@@ -2,6 +2,7 @@
 import { kindOf } from './logic'
 import type { SeasonInfo } from './tvmaze'
 import type { Watch } from './types'
+import { localDay } from './lib/dates'
 
 /** What TVmaze says about a show right now */
 export interface ShowNews {
@@ -95,7 +96,7 @@ export async function getShowNews(showId: number, now = Date.now()): Promise<Sho
   const res = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=seasons`)
   if (!res.ok) throw new Error(`TVmaze ${res.status}`)
   const s = await res.json()
-  const today = new Date(now).toISOString().slice(0, 10)
+  const today = localDay(now)
   const seasons: SeasonInfo[] = ((s._embedded?.seasons ?? []) as { id: number; number: number; episodeOrder: number | null; premiereDate: string | null; endDate: string | null }[])
     .filter((x) => x.number > 0)
     .map((x) => ({

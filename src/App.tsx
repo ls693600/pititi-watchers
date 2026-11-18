@@ -153,6 +153,26 @@ export default function App() {
   const [month, setMonth] = useState(currentMonth())
   /** Month new shows are logged into: this month by default, or the past month you chose to fill in */
   const [addMonth, setAddMonth] = useState(currentMonth())
+  // The app stays open for days on phones: when a new month starts, move Home along (unless you're browsing another month)
+  const seenMonth = useRef(currentMonth())
+  useEffect(() => {
+    const roll = () => {
+      const now = currentMonth()
+      const was = seenMonth.current
+      if (now === was) return
+      seenMonth.current = now
+      setMonth((m) => (m === was ? now : m))
+      setAddMonth((m) => (m === was ? now : m))
+    }
+    document.addEventListener('visibilitychange', roll)
+    window.addEventListener('focus', roll)
+    const tick = window.setInterval(roll, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', roll)
+      window.removeEventListener('focus', roll)
+      window.clearInterval(tick)
+    }
+  }, [])
   const [detail, setDetail] = useState<{ watch: Watch; isNew: boolean } | null>(null)
   const [saving, setSaving] = useState(false)
   const { toast, flash, dismiss: dismissToast } = useToast()
@@ -251,7 +271,7 @@ export default function App() {
     setTabState('family')
   }, [])
 
-  const { push, turnOn: turnOnPush, turnOff: turnOffPush } = usePush(store, auth.state === 'ready', flash)
+  const { push, turnOn: turnOnPush, turnOff: turnOffPush, forget: forgetPush } = usePush(store, auth.state === 'ready', flash)
 
   /** Opens a show page from a message, scrolled to its family chat. */
   const openShow = useCallback((w: Watch) => {
@@ -342,7 +362,8 @@ export default function App() {
   }, [reload])
   useEffect(() => {
     const open = pendingOpen.current
-    if (!open || !watches.length) return
+    // Wait for the first load (not for logs: a household with none yet still opens Settings, movie night...)
+    if (!open || !loaded) return
     pendingOpen.current = null
     window.history.replaceState(null, '', window.location.pathname)
     const [kind, id] = open.split(':')
@@ -364,7 +385,7 @@ export default function App() {
       const w = watches.find((x) => x.id === id)
       if (w) openShow(w)
     }
-  }, [watches, openThread, openShow])
+  }, [loaded, watches, openThread, openShow])
 
   // Notifications follow the phone's language
   const eveningHour = mePerson?.eveningHour ?? null
@@ -885,6 +906,7 @@ export default function App() {
               // Send what's waiting first; anything still unsent belongs to the person leaving, not the next one
               if (CLOUD_ENABLED && readOutbox().length) await cloud.flush().catch(() => undefined)
               clearOutbox()
+              if (CLOUD_ENABLED) await forgetPush()
               await signOut()
               setWatches([])
               setPeople([])

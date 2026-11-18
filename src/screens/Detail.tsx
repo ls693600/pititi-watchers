@@ -17,6 +17,7 @@ import { drawShowCard, shareImage } from '../share'
 import { getMovie, type MovieInfo } from '../movies'
 import { t } from '../i18n'
 import { TrailerSheet } from '../components/TrailerSheet'
+import { localDay } from '../lib/dates'
 
 interface Props {
   initial: Watch
@@ -89,7 +90,7 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const [sharing, setSharing] = useState(false)
   const [trailer, setTrailer] = useState(false)
   // Fixed for the life of the page; used to fade episodes that haven't aired
-  const [today] = useState(() => new Date().toISOString().slice(0, 10))
+  const [today] = useState(() => localDay())
   const [error, setError] = useState<string | null>(null)
   // Read the latest list without re-running the season fetch on every live sync
   const watchesRef = useRef(watches)

@@ -10,6 +10,19 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-19-dates',
+    en: [
+      '📅 Episodes airing tomorrow no longer show as out tonight, and "It\'s back" no longer comes a day early.',
+      'Ready for New Year: an episode after midnight on the 31st counts in December, Home moves to January by itself, and in January Stats opens on your 2026.',
+      '🔔 "New episode today" now reaches every household watching the show (in your language), and respects notifications set to Off. Signing out stops notifications on that phone.',
+    ],
+    pt: [
+      '📅 Episódios que saem amanhã não aparecem mais como lançados hoje à noite, e o "Voltou!" não chega mais um dia antes.',
+      'Pronto para o Ano-Novo: um episódio depois da meia-noite do dia 31 conta em dezembro, o Início passa para janeiro sozinho, e em janeiro as Estatísticas abrem no seu 2026.',
+      '🔔 O "Episódio novo hoje" agora chega a todas as casas que assistem à série (no seu idioma) e respeita as notificações desligadas. Sair da conta desliga as notificações daquele celular.',
+    ],
+  },
+  {
     id: '2026-11-18-safe-saves',
     en: [
       '🛡 Safer saving: when two of you change the same show at once (or one phone was offline), each change keeps the other\'s. A rating can no longer disappear.',

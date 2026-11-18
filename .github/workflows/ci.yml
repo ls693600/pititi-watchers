@@ -26,6 +26,9 @@ jobs:
       - run: npx tsc -b
       - run: npx oxlint src tests
       - run: npx vitest run
+      # Dates must follow the phone's own calendar: run again where the family lives
+      - run: TZ=America/Edmonton npx vitest run
+      - run: TZ=America/Sao_Paulo npx vitest run
 
   e2e:
     name: Browser tests (iPhone + Android engines)

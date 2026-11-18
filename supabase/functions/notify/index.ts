@@ -146,35 +146,49 @@ async function onVoteRequest(id: string) {
 /** Shows you're watching with a new episode out today (TVmaze dates, Eastern time). */
 async function reminders() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date())
-  const [{ data: watches }, { data: subs }] = await Promise.all([
-    db.from('watches').select('id, show_id, show_name, watched_by, updated_at').eq('status', 'watching').eq('kind', 'tv').is('deleted_at', null),
+  const [{ data: watches }, { data: subs }, { data: people }] = await Promise.all([
+    db.from('watches').select('id, show_id, show_name, watched_by, household_id, updated_at').eq('status', 'watching').eq('kind', 'tv').is('deleted_at', null),
     db.from('push_subscriptions').select('endpoint, person_id, p256dh, auth'),
+    db.from('people').select('id, notify_level, lang'),
   ])
-  // One log per show (the latest), so a show never pings twice
-  const byShow = new Map<number, { id: string; show_id: number; show_name: string; watched_by: string[]; updated_at: string }>()
-  for (const w of watches ?? []) if (!byShow.has(w.show_id) || byShow.get(w.show_id)!.updated_at < w.updated_at) byShow.set(w.show_id, w)
-  const due: { w: { id: string; show_name: string; watched_by: string[] }; ep: { season: number; number: number; name: string } }[] = []
-  for (const w of byShow.values()) {
+  const who = new Map(((people ?? []) as { id: string; notify_level: string | null; lang: string | null }[]).map((p) => [p.id, p]))
+  // One log per show in each household (the latest), so every household watching it hears, and none hears twice
+  type Log = { id: string; show_id: number; show_name: string; watched_by: string[]; household_id: string | null; updated_at: string }
+  const byHome = new Map<string, Log>()
+  for (const w of (watches ?? []) as Log[]) {
+    const k = `${w.household_id}:${w.show_id}`
+    if (!byHome.has(k) || byHome.get(k)!.updated_at < w.updated_at) byHome.set(k, w)
+  }
+  // TVmaze once per show, however many households watch it
+  const next = new Map<number, { season: number; number: number; name: string } | null>()
+  for (const w of byHome.values()) {
+    if (next.has(w.show_id)) continue
     try {
       const res = await fetch(`https://api.tvmaze.com/shows/${w.show_id}?embed=nextepisode`)
-      const show = await res.json()
-      const ep = show?._embedded?.nextepisode
-      if (ep?.airdate === today) due.push({ w, ep })
+      const ep = (await res.json())?._embedded?.nextepisode
+      next.set(w.show_id, ep?.airdate === today ? ep : null)
     } catch {
       // TVmaze hiccup: no reminder for that show today
+      next.set(w.show_id, null)
     }
   }
+  const due = [...byHome.values()].flatMap((w) => (next.get(w.show_id) ? [{ w, ep: next.get(w.show_id)! }] : []))
   let sent = 0
   for (const { w, ep } of due) {
-    sent += await deliver(((subs ?? []) as Sub[]).filter((s) => w.watched_by.includes(s.person_id)), () => ({
-      title: `New episode today · ${w.show_name}`,
-      body: `S${ep.season} · E${ep.number}${ep.name ? ` “${short(ep.name, 60)}”` : ''} is out. Couch time?`,
-      open: `show:${w.id}`,
-      tag: `ep:${w.id}`,
-    }))
+    const to = w.watched_by.filter((id) => who.get(id)?.notify_level !== 'off')
+    sent += await deliver(((subs ?? []) as Sub[]).filter((s) => to.includes(s.person_id)), (personId) => {
+      const pt = who.get(personId)?.lang === 'pt'
+      const name = ep.name ? ` “${short(ep.name, 60)}”` : ''
+      return {
+        title: pt ? `Episódio novo hoje · ${w.show_name}` : `New episode today · ${w.show_name}`,
+        body: pt ? `T${ep.season} · E${ep.number}${name} saiu. Bora pro sofá?` : `S${ep.season} · E${ep.number}${name} is out. Couch time?`,
+        open: `show:${w.id}`,
+        tag: `ep:${w.id}`,
+      }
+    })
   }
   const back = await premieres(today, (subs ?? []) as Sub[])
-  return { checked: byShow.size, due: due.length, sent: sent + back.sent, premieres: back.due }
+  return { checked: byHome.size, due: due.length, sent: sent + back.sent, premieres: back.due }
 }
 
 /**

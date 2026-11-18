@@ -44,5 +44,16 @@ export function usePush(store: Store, ready: boolean, flash: Flash) {
     }
   }
 
-  return { push, turnOn, turnOff }
+  /** Signing out: this phone stops getting that person's notifications (quietly; sign-out goes ahead regardless). */
+  async function forget() {
+    try {
+      const endpoint = await disablePush()
+      if (endpoint) await store.removePush(endpoint)
+    } catch {
+      // Not supported or already off
+    }
+    setPush('off')
+  }
+
+  return { push, turnOn, turnOff, forget }
 }

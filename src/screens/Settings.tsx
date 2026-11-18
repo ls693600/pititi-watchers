@@ -15,6 +15,7 @@ import { PasswordSheet } from '../components/PasswordSheet'
 import type { ProblemReport, JobRun } from '../store/cloud'
 import { setFestivePref, useFestivePref } from '../useFestive'
 import { getLang, setLang, t } from '../i18n'
+import { localDay } from '../lib/dates'
 
 interface Props {
   mode: 'local' | 'cloud'
@@ -154,7 +155,7 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
     const blob = new Blob([JSON.stringify({ people, watches }, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `pititi-watchers-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `pititi-watchers-backup-${localDay()}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }

@@ -42,12 +42,7 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not read the photo'))), 'image/jpeg', QUALITY))
 }
 
-/** Tonight, as the phone sees it (YYYY-MM-DD). Just after midnight still counts as the evening before. */
-export function tonight(now = new Date()): string {
-  const d = new Date(now)
-  if (d.getHours() < 5) d.setDate(d.getDate() - 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+export { tonight } from './dates'
 
 /** "Fri, Oct 31" in the app's language. */
 export function nightLabel(night: string): string {

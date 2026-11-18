@@ -1,6 +1,7 @@
 import { locale, t } from './i18n'
 import type { SeasonInfo } from './tvmaze'
 import { EPISODE_EMOJIS, type Comment, type Guess, type Prediction, type EpisodeEmoji, type EpisodeReaction, type Household, type Kind, type ListItem, type Person, type Reaction, type Recommendation, type Title, type Watch, type WatchList } from './types'
+import { watchMonth } from './lib/dates'
 
 /** Whose rating counts for this log: the people who watched it, or anyone who rated if nobody is marked. */
 export function raters(w: Pick<Watch, 'watchedBy' | 'ratings'>): string[] {
@@ -145,14 +146,15 @@ export function personAverages(list: Watch[], personIds: string[]): Record<strin
   )
 }
 
+/** This month as the family lives it: until 5 AM on the 1st it's still last month (see lib/dates). */
 export function currentMonth(now = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  return watchMonth(now)
 }
 
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return currentMonth(d)
+  const d = new Date(y, m - 1 + delta, 15)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export function monthLabel(month: string, style: 'long' | 'short' = 'long'): string {
@@ -635,7 +637,8 @@ export interface Badge {
 
 /** Longest run of consecutive months with at least one log. */
 export function monthStreak(list: Watch[]): number {
-  const months = [...new Set(list.map((w) => w.month))].sort()
+  // Every month a show had episodes in, not just the month it's filed under
+  const months = [...new Set(list.flatMap((w) => [w.month, ...Object.keys(monthBuckets(w))]))].sort()
   let best = 0
   let run = 0
   let prev: string | null = null

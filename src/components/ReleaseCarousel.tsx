@@ -8,6 +8,7 @@ import { LongPress } from './LongPress'
 import { PosterFill } from './Poster'
 import { TrailerSheet } from './TrailerSheet'
 import { locale, t } from '../i18n'
+import { localDay } from '../lib/dates'
 
 interface Props {
   watching: Watch[]
@@ -24,7 +25,7 @@ function useOutlooks(watching: Watch[]): Record<string, Outlook> {
   const key = watching.map((w) => `${w.id}:${w.season}:${w.episodesWatched}`).join('|')
   useEffect(() => {
     let alive = true
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     watching.forEach((w) => {
       Promise.all([getShowInfoCached(w.showId), getSeasonEpisodesCached(w.showId, w.season).catch(() => null)])
         .then(([info, episodes]) => {
@@ -56,7 +57,7 @@ export function ReleaseCarousel({ watching, people, onOpen, onAddEpisode, onActi
   const [index, setIndex] = useState(0)
   const [trailerFor, setTrailerFor] = useState<Watch | null>(null)
   // "Coming up" looks a month ahead; fixed while the screen is open
-  const [horizon] = useState(() => new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10))
+  const [horizon] = useState(() => localDay(new Date(), 30))
 
   const coming = cards
     .flatMap((w) => (outlooks[w.id]?.next ? [{ w, next: outlooks[w.id].next! }] : []))

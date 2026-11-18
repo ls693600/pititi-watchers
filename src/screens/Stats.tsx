@@ -26,12 +26,14 @@ interface Props {
 
 export function Stats({ watches, people, filter, onFilter, onOpen, onHelp, onFlash, episodeReactions = [], photos = [] }: Props) {
   const thisYear = Number(currentMonth().slice(0, 4))
-  const [year, setYear] = useState(thisYear)
+  // In January the year that matters is the one that just ended (Year in Review), not the empty new one
+  const [year, setYear] = useState(() => (currentMonth().endsWith('-01') ? thisYear - 1 : thisYear))
   const mine = watchedByPerson(watches, filter)
   const s = yearStats(mine, year)
   const [openMonth, setOpenMonth] = useState<string | null>(null)
   const [review, setReview] = useState(false)
-  const yearLogs = watches.filter((w) => w.month.startsWith(`${year}-`))
+  // A show watched across December and January counts in both years
+  const yearLogs = watches.filter((w) => w.month.startsWith(`${year}-`) || Object.keys(w.episodesByMonth ?? {}).some((m) => m.startsWith(`${year}-`)))
   const averages = personAverages(yearLogs, people.map((p) => p.id))
   const who = people.find((p) => p.id === filter)
   // With a person picked, rank by their own stars; otherwise by the family average

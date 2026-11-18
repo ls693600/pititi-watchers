@@ -1202,4 +1202,5 @@ export const PT: Record<string, string> = {
   "{count} episodes · S{s} E{from}–E{to}": "{count} episódios · T{s} E{from}–E{to}",
   "on your list": "na sua lista",
   "We're watching {title}": "Vamos assistir {title}",
+  "Cancel": "Cancelar",
 }

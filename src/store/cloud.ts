@@ -645,6 +645,10 @@ export const cloudStore: Store = {
     if (!data?.length) throw new Error(t('You can only remove your own messages.'))
   },
   async savePush(sub) {
+    // 022: the phone moves to whoever turns notifications on, even if someone else used it before
+    const claim = await supabase().rpc('claim_push', { phone: sub.endpoint, key_p256dh: sub.keys?.p256dh, key_auth: sub.keys?.auth, agent: navigator.userAgent.slice(0, 200) })
+    if (!claim.error) return
+    if (!missingFunction(claim.error)) throw claim.error
     const { error } = await supabase()
       .from('push_subscriptions')
       .upsert({ endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth, user_agent: navigator.userAgent.slice(0, 200) }, { onConflict: 'endpoint' })

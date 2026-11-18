@@ -8,6 +8,7 @@ import { Icon } from './Icon'
 import { Poster } from './Poster'
 import { Stars } from './Stars'
 import { t } from '../i18n'
+import { localDay } from '../lib/dates'
 
 interface Props {
   watch: Watch
@@ -34,7 +35,7 @@ export function QuickActions({ watch: w, people, me, onEpisode, onFinish, onJoin
 
   useEffect(() => {
     let alive = true
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localDay()
     getSeasonEpisodesCached(w.showId, w.season)
       .then((eps) => alive && eps && setAired(eps.filter((e) => e.airdate != null && e.airdate <= today).length))
       .catch(() => undefined)
