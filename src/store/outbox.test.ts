@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { isNetworkError, readOutbox, withOutbox } from './outbox'
+import { clearOutbox, isNetworkError, isRetryable, readOutbox, withOutbox } from './outbox'
+import { LogGone } from './diff'
 import type { Store } from './store'
 
 // Minimal localStorage for node
@@ -21,6 +22,8 @@ function fakeStores() {
   const cloud = {
     save: vi.fn(async (w: { id: string }) => {
       if (!online) throw offline()
+      if (w.id === 'gone') throw new LogGone()
+      if (w.id === 'busy') throw Object.assign(new Error('JWT expired'), { code: 'PGRST301' })
       calls.push(`save:${w.id}`)
     }),
     addComment: vi.fn(async (c: { id: string }) => {
@@ -76,6 +79,35 @@ describe('offline saving', () => {
     goOnline()
     const s = withOutbox(cloud, mirror)
     await expect(s.addComment({ id: 'nope' } as never)).rejects.toThrow(/row-level security/)
+    expect(readOutbox()).toHaveLength(0)
+  })
+  it('a late change to a log someone removed meanwhile is dropped quietly, never bringing it back', async () => {
+    const { cloud, mirror, calls, goOnline } = fakeStores()
+    const s = withOutbox(cloud, mirror)
+    await s.save({ id: 'gone' } as never)
+    await s.save({ id: 'a' } as never)
+    goOnline()
+    expect(await s.flush()).toEqual({ sent: 2, dropped: 0 })
+    expect(calls).toEqual(['save:a'])
+  })
+
+  it('an expired sign-in or a server hiccup waits for the next try instead of losing the change', async () => {
+    expect(isRetryable({ message: 'JWT expired', code: 'PGRST301' })).toBe(true)
+    expect(isRetryable({ message: 'x', status: 503 })).toBe(true)
+    expect(isRetryable({ message: 'new row violates row-level security policy', code: '42501' })).toBe(false)
+    const { cloud, mirror, goOnline } = fakeStores()
+    const s = withOutbox(cloud, mirror)
+    await s.save({ id: 'busy' } as never)
+    goOnline()
+    expect(await s.flush()).toEqual({ sent: 0, dropped: 0 })
+    expect(readOutbox()).toHaveLength(1)
+  })
+
+  it('signing out clears what this phone was holding for the person leaving', async () => {
+    const { cloud, mirror } = fakeStores()
+    const s = withOutbox(cloud, mirror)
+    await s.save({ id: 'a' } as never)
+    clearOutbox()
     expect(readOutbox()).toHaveLength(0)
   })
 })

@@ -22,7 +22,7 @@ import { activeNight, nightState } from './movieNight'
 import { lovedTitles } from './forUs'
 import { tonight } from './lib/photo'
 import { useFamilyAdmin } from './hooks/useFamilyAdmin'
-import { onOutbox, readOutbox, withOutbox } from './store/outbox'
+import { clearOutbox, onOutbox, readOutbox, withOutbox } from './store/outbox'
 import { setErrorScreen } from './errors'
 import { Toast } from './components/Toast'
 import { SEEN_KEY, readSet, writeSet } from './lib/seen'
@@ -392,7 +392,7 @@ export default function App() {
     const put = (list: Watch[], w: Watch | null) => (w ? [...list.filter((x) => x.id !== next.id), w] : list.filter((x) => x.id !== next.id))
     setWatches((list) => put(list, next))
     try {
-      await store.save(next)
+      await store.save(next, before)
       const after = put(watchesRef.current, next)
       flash(okMsg, opts.undo ? () => (before ? persist(before, t('Undone'), { exact: true }) : removeLog(next, t('Undone'))) : undefined)
       queueReveals(after)
@@ -435,9 +435,12 @@ export default function App() {
   async function restoreLog(w: Watch, lines: Comment[] = [], reacts: Reaction[] = [], photos: CouchPhoto[] = []) {
     setWatches((list) => [...list.filter((x) => x.id !== w.id), w])
     try {
-      await store.save(w)
-      await chat.restore(w.id, lines, reacts)
-      await couch.restore(photos)
+      // With 021 the server brings back everyone's chat and photos itself; before it, re-send what we had
+      if (await store.undoRemove(w)) await reload()
+      else {
+        await chat.restore(w.id, lines, reacts)
+        await couch.restore(photos)
+      }
       flash(t('{name} is back', { name: w.showName }))
     } catch {
       setWatches((list) => list.filter((x) => x.id !== w.id))
@@ -681,7 +684,8 @@ export default function App() {
               const dropChat = comments.filter((c) => c.watchId === drop.id)
               const dropReacts = reactions.filter((r) => r.watchId === drop.id)
               try {
-                await store.remove(drop.id)
+                // Its chat, reactions and photos move to the log you keep (021); then show them there
+                if (await store.mergeInto(keep.id, drop.id)) await reload()
                 flash(t('Merged into one log'), async () => {
                   await persist(keepBefore, t('Undone'), { exact: true })
                   await restoreLog(drop, dropChat, dropReacts)
@@ -878,6 +882,9 @@ export default function App() {
               flash(t('Password changed. Use the new one next time you sign in.'))
             } : null}
             onSignOut={async () => {
+              // Send what's waiting first; anything still unsent belongs to the person leaving, not the next one
+              if (CLOUD_ENABLED && readOutbox().length) await cloud.flush().catch(() => undefined)
+              clearOutbox()
               await signOut()
               setWatches([])
               setPeople([])

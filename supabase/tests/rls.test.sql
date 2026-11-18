@@ -1,8 +1,8 @@
--- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-020 (CI: supabase test db).
+-- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-021 (CI: supabase test db).
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(61);
+select plan(72);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -212,6 +212,32 @@ update public.people set household_id = 'b0000000-0000-0000-0000-00000000000b' w
 select is((select watched_by from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000001'), array[(select id from public.people where name = 'Alice')], 'moving a person to another household takes them off the old household''s logs');
 select is((select count(*) from public.ratings where watch_id = 'aaaaaaaa-0000-0000-0000-000000000001' and person_id = (select id from public.people where name = 'Ann')), 0::bigint, '... and their rating there no longer blocks the average');
 update public.people set household_id = 'a0000000-0000-0000-0000-00000000000a' where name = 'Ann';
+
+-- Safe saves (021): removing keeps the log 30 days; merge moves the chat; ratings stay in the household --------
+insert into public.watches (id, show_id, show_name, season, month, status, household_id, created_by) values
+  ('aaaaaaaa-0000-0000-0000-000000000005', 1, 'Show A', 1, '2026-09', 'watching', 'a0000000-0000-0000-0000-00000000000a', (select id from public.people where name = 'Alice'));
+insert into public.comments (id, watch_id, person_id, body) values
+  ('d0000000-0000-0000-0000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000005', (select id from public.people where name = 'Ann'), 'On the copy');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-5555-5555-555555555555","role":"authenticated"}';
+select throws_ok($$ select public.remove_log('aaaaaaaa-0000-0000-0000-000000000001') $$, 'P0001', 'not_allowed', 'only the admin or the person who added a log removes it');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+select lives_ok($$ select public.merge_logs('aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000005') $$, 'merging two logs of the same show');
+select is((select watch_id from public.comments where id = 'd0000000-0000-0000-0000-000000000005'), 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, '... moves everyone''s chat to the log you keep');
+select is((select count(*) from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000005'), 0::bigint, '... and the copy is gone for everyone');
+select throws_ok($$ select public.merge_logs('aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001') $$, 'P0001', 'not_allowed', 'nobody merges another household''s log into theirs');
+select lives_ok($$ select public.remove_log('aaaaaaaa-0000-0000-0000-000000000001') $$, 'the author removes a log');
+select is((select count(*) from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000001') + (select count(*) from public.comments where watch_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 0::bigint, '... it and its chat disappear');
+select lives_ok($$ select public.restore_log('aaaaaaaa-0000-0000-0000-000000000001') $$, 'Undo brings it back');
+select is((select count(*) from public.comments where watch_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 1::bigint, '... with everyone''s chat, not only yours');
+select throws_ok(
+  $$ insert into public.ratings (watch_id, person_id, stars) values ('aaaaaaaa-0000-0000-0000-000000000001', (select id from public.people where name = 'Bob'), 3) $$,
+  '42501', null, 'nobody rates in the name of someone from another household');
+update public.watches set updated_at = '2000-01-01' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+select ok((select updated_at > now() - interval '1 minute' from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000001'), 'a log''s last-changed time comes from the server, not the phone');
+reset role;
 
 -- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
 set local role authenticated;

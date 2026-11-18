@@ -9,14 +9,16 @@ export interface FakeState {
   password: string
   resets: string[]
   passwordUpdates: number
+  /** Every write the app sent to the database: method, table, filters, body */
+  writes: { method: string; table: string; query: string; body: unknown }[]
 }
 
 const user = { id: 'u2', aud: 'authenticated', role: 'authenticated', email: EMAIL, app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' }
 const person = { id: 'p-ana', name: 'Ana', user_id: 'u2', is_admin: false, is_viewer: false, household_id: 'h1', created_at: '2026-01-01T00:00:00Z' }
 const session = () => ({ access_token: 'test-token', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'test-refresh', user })
 
-export async function fakeSupabase(page: Page, password = 'old-pass-1', opts: { admin?: boolean; jobRuns?: { job: string; last_ok: string }[] } = {}): Promise<FakeState> {
-  const state: FakeState = { password, resets: [], passwordUpdates: 0 }
+export async function fakeSupabase(page: Page, password = 'old-pass-1', opts: { admin?: boolean; jobRuns?: { job: string; last_ok: string }[]; tables?: Record<string, { id?: string }[]> } = {}): Promise<FakeState> {
+  const state: FakeState = { password, resets: [], passwordUpdates: 0, writes: [] }
   await page.addInitScript(() => {
     if (sessionStorage.getItem('seeded')) return
     sessionStorage.setItem('seeded', '1')
@@ -62,7 +64,15 @@ export async function fakeSupabase(page: Page, password = 'old-pass-1', opts: { 
     }
     if (path === '/rest/v1/job_runs') return opts.jobRuns ? route.fulfill({ json: opts.jobRuns }) : route.fulfill({ status: 404, json: { code: '42P01', message: 'relation "public.job_runs" does not exist' } })
     if (path.startsWith('/rest/v1/rpc/')) return route.fulfill({ json: null })
-    if (path.startsWith('/rest/v1/')) return route.fulfill(req.method() === 'GET' ? { json: [] } : { status: 201, json: [] })
+    if (path.startsWith('/rest/v1/')) {
+      const table = path.slice('/rest/v1/'.length)
+      const rows = opts.tables?.[table] ?? []
+      if (req.method() === 'GET') return route.fulfill({ json: Number(url.searchParams.get('offset') ?? 0) > 0 ? [] : rows })
+      state.writes.push({ method: req.method(), table, query: url.search, body })
+      // An update answers with the rows it changed (none if the row isn't there)
+      if (req.method() === 'PATCH') return route.fulfill({ json: rows.filter((r) => url.searchParams.get('id') === `eq.${r.id}`).map((r) => ({ id: r.id })) })
+      return route.fulfill({ status: 201, json: [] })
+    }
     return route.fulfill({ json: {} })
   })
   return state

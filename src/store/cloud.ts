@@ -4,6 +4,10 @@ import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, Predictio
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
+import { changedColumns, LogGone, ratingChanges } from './diff'
+
+/** The database doesn't have this function yet (its migration hasn't been run) */
+const missingFunction = (e: { code?: string; message?: string }) => e.code === 'PGRST202' || /could not find the function/i.test(e.message ?? '')
 
 interface WatchRow {
   id: string
@@ -414,6 +418,18 @@ export async function renewInviteCode(): Promise<string> {
   return code
 }
 
+/** The server sends at most 1,000 rows per request: read page after page so nothing is silently cut off. */
+const PAGE = 1000
+async function all<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>) {
+  const rows: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const res = await page(from, from + PAGE - 1)
+    if (res.error) return { data: null, error: res.error }
+    rows.push(...(res.data ?? []))
+    if ((res.data ?? []).length < PAGE) return { data: rows, error: null }
+  }
+}
+
 export const cloudStore: Store = {
   mode: 'cloud',
   async load() {
@@ -423,28 +439,25 @@ export const cloudStore: Store = {
       return res.error ? [] : (res.data ?? [])
     }
     const [w, r, p, rx, cm, hh, ls, li, rc, mu, er, ph, pr, gs, mn, mv] = await Promise.all([
-      supabase().from('watches').select('*'),
-      supabase()
-        .from('ratings')
-        .select('watch_id, person_id, stars, score')
-        .then(async (res) => {
-          if (!res.error || !/score/.test(res.error.message)) return res
-          // Not migrated yet: read the 1–5 stars and show them out of 10
-          hasScore = false
-          return supabase().from('ratings').select('watch_id, person_id, stars')
-        }),
+      all((a, b) => supabase().from('watches').select('*').order('id').range(a, b)),
+      all((a, b) => supabase().from('ratings').select('watch_id, person_id, stars, score').order('watch_id').order('person_id').range(a, b)).then(async (res) => {
+        if (!res.error || !/score/.test(res.error.message)) return res
+        // Not migrated yet: read the 1–5 stars and show them out of 10
+        hasScore = false
+        return all((a, b) => supabase().from('ratings').select('watch_id, person_id, stars').order('watch_id').order('person_id').range(a, b))
+      }),
       supabase().from('people').select('*').order('created_at'),
-      supabase().from('reactions').select('watch_id, person_id, target_id, emoji'),
-      supabase().from('comments').select('id, watch_id, person_id, body, created_at').order('created_at'),
+      all((a, b) => supabase().from('reactions').select('watch_id, person_id, target_id, emoji').order('watch_id').order('person_id').order('target_id').range(a, b)),
+      all((a, b) => supabase().from('comments').select('id, watch_id, person_id, body, created_at').order('created_at').order('id').range(a, b)),
       supabase().from('households').select('*').order('created_at'),
       supabase().from('lists').select('*').order('created_at'),
-      supabase().from('list_items').select('*'),
-      supabase().from('recommendations').select('*').order('created_at', { ascending: false }),
+      all((a, b) => supabase().from('list_items').select('*').order('id').range(a, b)),
+      all((a, b) => supabase().from('recommendations').select('*').order('created_at', { ascending: false }).order('id').range(a, b)),
       supabase().from('chat_mutes').select('thread'),
-      supabase().from('episode_reactions').select('kind, show_id, season, episode, person_id, emoji, created_at'),
-      supabase().from('couch_photos').select('id, watch_id, person_id, path, night, created_at').order('night', { ascending: false }),
-      supabase().from('predictions').select('id, household_id, show_id, season, episode, question, created_by, created_at').order('created_at'),
-      supabase().from('prediction_guesses').select('prediction_id, person_id, guess, verdict, created_at'),
+      all((a, b) => supabase().from('episode_reactions').select('kind, show_id, season, episode, person_id, emoji, created_at').order('show_id').order('season').order('episode').order('person_id').order('kind').range(a, b)),
+      all((a, b) => supabase().from('couch_photos').select('id, watch_id, person_id, path, night, created_at').order('night', { ascending: false }).order('id').range(a, b)),
+      all((a, b) => supabase().from('predictions').select('id, household_id, show_id, season, episode, question, created_by, created_at').order('created_at').order('id').range(a, b)),
+      all((a, b) => supabase().from('prediction_guesses').select('prediction_id, person_id, guess, verdict, created_at').order('prediction_id').order('person_id').range(a, b)),
       // Only recent movie nights matter (they last a few hours)
       supabase().from('movie_nights').select('id, household_id, created_by, titles, created_at').gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
       supabase().from('movie_night_votes').select('night_id, person_id, ref, yes, created_at').gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
@@ -494,35 +507,62 @@ export const cloudStore: Store = {
     cache.write(snap)
     return snap
   },
-  async save(w) {
-    let { error } = await supabase().from('watches').upsert(toRow(w))
+  async save(w, before = null) {
+    // Ask for the row back: an update that matched nothing means the log was removed meanwhile (or isn't yours)
+    const write = async (row: Partial<WatchRow>) => {
+      if (!before) return (await supabase().from('watches').upsert(row)).error
+      const res = await supabase().from('watches').update(row).eq('id', w.id).select('id')
+      if (!res.error && !res.data?.length) throw new LogGone()
+      return res.error
+    }
+    // Only what this change touched, so someone else's edits from meanwhile stay
+    const row: Partial<WatchRow> = before ? changedColumns(toRow(before), toRow(w)) : toRow(w)
+    if (before) delete row.created_at
+    let error = Object.keys(row).length ? await write(row) : null
     if (error && /episodes_by_month/.test(error.message)) {
       // Database not migrated yet (005): save without the monthly breakdown rather than failing
-      const row: Partial<WatchRow> = toRow(w)
       delete row.episodes_by_month
-      ;({ error } = await supabase().from('watches').upsert(row))
+      error = await write(row)
     }
     if (error) throw error
-    const rated = Object.entries(w.ratings)
-    // Clear ratings that were removed, then write the current ones
-    let del = supabase().from('ratings').delete().eq('watch_id', w.id)
-    if (rated.length) del = del.not('person_id', 'in', `(${rated.map(([id]) => id).join(',')})`)
-    const cleared = await del
-    if (cleared.error) throw cleared.error
-    if (rated.length) {
+    const { put, clear } = ratingChanges(before?.ratings ?? null, w.ratings)
+    if (clear.length) {
+      const cleared = await supabase().from('ratings').delete().eq('watch_id', w.id).in('person_id', clear)
+      if (cleared.error) throw cleared.error
+    }
+    if (put.length) {
       const now = new Date().toISOString()
       const { error: rErr } = await supabase()
         .from('ratings')
         // stars (1–5) stays filled for phones still on the old app; score holds the real 1–10
-        .upsert(rated.map(([person_id, score]) => ({ watch_id: w.id, person_id, stars: Math.max(1, Math.ceil(score / 2)), ...(hasScore ? { score } : {}), updated_at: now })))
+        .upsert(put.map(([person_id, score]) => ({ watch_id: w.id, person_id, stars: Math.max(1, Math.ceil(score / 2)), ...(hasScore ? { score } : {}), updated_at: now })))
       if (rErr) throw rErr
     }
   },
   async remove(id) {
+    // Migration 021: removed logs are kept 30 days, so Undo brings back everyone's chat and photos
+    const soft = await supabase().rpc('remove_log', { log: id })
+    if (!soft.error) return
+    if (!missingFunction(soft.error)) throw /not_allowed/.test(soft.error.message) ? new Error(t('Only Leandro or the person who added it can remove this.')) : soft.error
     // RLS silently skips rows you may not delete, so check something was actually removed
     const { data, error } = await supabase().from('watches').delete().eq('id', id).select('id')
     if (error) throw error
     if (!data?.length) throw new Error(t('Only Leandro or the person who added it can remove this.'))
+  },
+  async undoRemove(w) {
+    const res = await supabase().rpc('restore_log', { log: w.id })
+    if (!res.error) return true
+    if (!missingFunction(res.error)) throw res.error
+    // Before 021 the log was really deleted: put it back (the app re-sends its chat and photos)
+    await cloudStore.save(w)
+    return false
+  },
+  async mergeInto(keepId, dropId) {
+    const res = await supabase().rpc('merge_logs', { keep: keepId, drop_log: dropId })
+    if (!res.error) return true
+    if (!missingFunction(res.error)) throw res.error
+    await cloudStore.remove(dropId)
+    return false
   },
   async setReaction(r) {
     const key = { watch_id: r.watchId, person_id: r.personId, target_id: r.targetId }

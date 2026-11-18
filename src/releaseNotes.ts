@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-18-safe-saves',
+    en: [
+      '🛡 Safer saving: when two of you change the same show at once (or one phone was offline), each change keeps the other\'s. A rating can no longer disappear.',
+      'Undo after removing a show, and merging two copies, now keep everyone\'s messages, reactions and photos.',
+    ],
+    pt: [
+      '🛡 Salvar mais seguro: quando dois de vocês mudam a mesma série ao mesmo tempo (ou um celular estava sem internet), uma mudança não apaga a outra. Nenhuma nota some mais.',
+      'Desfazer depois de tirar uma série, e juntar duas cópias, agora mantêm as mensagens, reações e fotos de todo mundo.',
+    ],
+  },
+  {
     id: '2026-11-18-fix-watchers',
     en: ['🛠 Fixed: some shows said someone "isn\'t in your household" and kept waiting for their rating. Each show now only lists the people of your household, and the average shows as soon as you all rate.'],
     pt: ['🛠 Corrigido: algumas séries diziam que alguém "não é da sua casa" e ficavam esperando a nota dessa pessoa. Agora cada série mostra só as pessoas da sua casa, e a média aparece assim que vocês avaliam.'],

@@ -147,7 +147,7 @@ async function onVoteRequest(id: string) {
 async function reminders() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date())
   const [{ data: watches }, { data: subs }] = await Promise.all([
-    db.from('watches').select('id, show_id, show_name, watched_by, updated_at').eq('status', 'watching').eq('kind', 'tv'),
+    db.from('watches').select('id, show_id, show_name, watched_by, updated_at').eq('status', 'watching').eq('kind', 'tv').is('deleted_at', null),
     db.from('push_subscriptions').select('endpoint, person_id, p256dh, auth'),
   ])
   // One log per show (the latest), so a show never pings twice
@@ -197,7 +197,7 @@ async function premieres(today: string, subs: Sub[]) {
   }
   if (!starts.size) return { due: 0, sent: 0 }
   const [{ data: logs }, { data: people }] = await Promise.all([
-    db.from('watches').select('id, show_id, show_name, season, status, watched_by, household_id').eq('kind', 'tv').in('show_id', [...starts.keys()]),
+    db.from('watches').select('id, show_id, show_name, season, status, watched_by, household_id').eq('kind', 'tv').is('deleted_at', null).in('show_id', [...starts.keys()]),
     db.from('people').select('id, notify_level, lang'),
   ])
   const who = new Map(((people ?? []) as { id: string; notify_level: string | null; lang: string | null }[]).map((p) => [p.id, p]))
@@ -251,6 +251,7 @@ async function evening() {
   const { data: watches } = await db
     .from('watches')
     .select('id, show_name, household_id, watched_by, status, updated_at')
+    .is('deleted_at', null)
     .in('household_id', [...new Set(due.map((p) => p.household_id!))])
   let sent = 0
   for (const p of due) {

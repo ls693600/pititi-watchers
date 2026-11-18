@@ -151,6 +151,19 @@ export const localStore: Store = {
   async save(w) {
     update((s) => ({ watches: [...s.watches.filter((x) => x.id !== w.id), w] }))
   },
+  async undoRemove(w) {
+    update((s) => ({ watches: [...s.watches.filter((x) => x.id !== w.id), w] }))
+    return false
+  },
+  async mergeInto(keepId, dropId) {
+    update((s) => ({
+      watches: s.watches.filter((x) => x.id !== dropId),
+      comments: s.comments.map((c) => (c.watchId === dropId ? { ...c, watchId: keepId } : c)),
+      reactions: s.reactions.filter((r) => r.watchId !== dropId || !s.reactions.some((k) => k.watchId === keepId && k.personId === r.personId && k.targetId === r.targetId)).map((r) => (r.watchId === dropId ? { ...r, watchId: keepId } : r)),
+      photos: (s.photos ?? []).map((p) => (p.watchId === dropId ? { ...p, watchId: keepId } : p)),
+    }))
+    return true
+  },
   async remove(id) {
     update((s) => ({
       watches: s.watches.filter((x) => x.id !== id),

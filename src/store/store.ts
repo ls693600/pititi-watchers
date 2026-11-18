@@ -35,8 +35,13 @@ export interface Snapshot {
 export interface Store {
   mode: 'local' | 'cloud'
   load(): Promise<Snapshot>
-  save(w: Watch): Promise<void>
+  /** `before`: the copy this change started from. Only what changed is sent (null: a new log, sent whole). */
+  save(w: Watch, before?: Watch | null): Promise<void>
   remove(id: string): Promise<void>
+  /** Undo a removal. True: it came back with everyone's chat, reactions and photos (021); false: re-send them. */
+  undoRemove(w: Watch): Promise<boolean>
+  /** Merge: removes the copy. True: its chat, reactions and photos moved to the kept log (021). */
+  mergeInto(keepId: string, dropId: string): Promise<boolean>
   addPerson(name: string, householdId?: string | null): Promise<Person>
   renamePerson(id: string, name: string): Promise<void>
   /** Admin: make someone a viewer (read + chat only) or a full member */

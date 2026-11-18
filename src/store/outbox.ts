@@ -2,6 +2,7 @@
 // Only changes that are safe to send twice are queued (saves, removals, messages...). Votes toggle, so
 // replaying one late could flip it back: those still say "offline" instead of queueing.
 import type { Store } from './store'
+import { isLogGone } from './diff'
 
 const KEY = 'pititi.outbox.v1'
 
@@ -22,6 +23,14 @@ export function isNetworkError(e: unknown): boolean {
   return /failed to fetch|load failed|networkerror|network request failed|fetch failed/i.test(msg)
 }
 
+/** Worth trying again later: no signal, an expired sign-in (renews itself), or the server having a bad moment. */
+export function isRetryable(e: unknown): boolean {
+  if (isNetworkError(e)) return true
+  const err = e as { message?: string; code?: string; status?: number }
+  if (typeof err?.status === 'number' && (err.status === 401 || err.status >= 500)) return true
+  return err?.code === 'PGRST301' || /jwt expired|invalid jwt|timeout|timed out|bad gateway|service unavailable|gateway timeout|internal server error/i.test(String(err?.message ?? ''))
+}
+
 /** Already there (sent twice): counts as done. */
 const isDuplicate = (e: unknown) => (e as { code?: string })?.code === '23505' || /duplicate key|already/i.test(String((e as { message?: string })?.message ?? ''))
 
@@ -39,6 +48,12 @@ function writeOutbox(list: Pending[]) {
   } catch {
     // Storage full: the change stays on screen until the app restarts
   }
+}
+
+/** Signing out: changes waiting on this phone belong to the person leaving, never to whoever signs in next. */
+export function clearOutbox() {
+  writeOutbox([])
+  notify()
 }
 
 const listeners = new Set<(n: number) => void>()
@@ -72,7 +87,7 @@ export function withOutbox(store: Store, mirror: Pick<Store, Queued>): Store & {
   }
 
   let flushing: Promise<{ sent: number; dropped: number }> | null = null
-  /** Sends what's waiting, oldest first. Stops at the first "still offline"; drops changes the server refuses. */
+  /** Sends what's waiting, oldest first. Stops at the first "try later"; drops changes the server refuses. */
   wrapped.flush = () => {
     if (flushing) return flushing
     flushing = (async () => {
@@ -83,8 +98,9 @@ export function withOutbox(store: Store, mirror: Pick<Store, Queued>): Store & {
           await (store[item.op] as (...a: unknown[]) => Promise<unknown>)(...item.args)
           sent++
         } catch (e) {
-          if (isNetworkError(e)) break
-          if (isDuplicate(e)) sent++
+          if (isRetryable(e)) break
+          // Already there, or the log was removed meanwhile (a late change must never bring it back): done
+          if (isDuplicate(e) || isLogGone(e)) sent++
           else {
             dropped++
             console.warn('Dropped an offline change the server refused:', item.op, (e as Error).message)
