@@ -39,6 +39,7 @@ import type { Session } from './store/store'
 import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList, WatchParty } from './types'
 import { lazyPart, preloadWhenIdle } from './lib/lazy'
 import { animate } from './lib/transition'
+import { readShare, withoutShare, type Shared } from './shareIn'
 
 // Screens and sheets load when first opened (Home stays in the first download); the rest follow when the phone is idle
 const QuickLog = lazyPart(() => import('./components/QuickLog').then((m) => m.QuickLog))
@@ -56,6 +57,7 @@ const TitleSheet = lazyPart(() => import('./components/TitleSheet').then((m) => 
 const MovieLog = lazyPart(() => import('./components/MovieLog').then((m) => m.MovieLog))
 const MovieNight = lazyPart(() => import('./components/MovieNight').then((m) => m.MovieNight))
 const PartyRoom = lazyPart(() => import('./components/WatchParty').then((m) => m.PartyRoom))
+const ShareInSheet = lazyPart(() => import('./components/ShareIn').then((m) => m.ShareInSheet))
 const PartyPlanner = lazyPart(() => import('./components/WatchParty').then((m) => m.PartyPlanner))
 const Lists = lazyPart(() => import('./screens/Lists').then((m) => m.Lists))
 const ListEditor = lazyPart(() => import('./screens/Lists').then((m) => m.ListEditor))
@@ -366,6 +368,21 @@ export default function App() {
       window.removeEventListener('online', reload)
     }
   }, [auth.state, reload])
+
+  // Shared from another app (Android share sheet → ?share_title/text/url) or pasted in Search
+  const [shareIn, setShareIn] = useState<Shared | null>(null)
+  const pendingShare = useRef<Shared | null>(readShare(window.location.search))
+  const [searchPrefill, setSearchPrefill] = useState<{ q: string; kind: Title['kind'] | null } | null>(null)
+  const clearPrefill = useCallback(() => setSearchPrefill(null), [])
+  const [searchKey, setSearchKey] = useState(0)
+  useEffect(() => {
+    if (!pendingShare.current || !loaded) return
+    const shared = pendingShare.current
+    pendingShare.current = null
+    // Clean the address first, so a reload (or Back) doesn't share it again
+    window.history.replaceState(null, '', withoutShare(window.location.href))
+    setShareIn(shared)
+  }, [loaded])
 
   // A tapped notification: ?open=thread:<id|family> or show:<id>
   const pendingOpen = useRef<string | null>(new URLSearchParams(window.location.search).get('open'))
@@ -829,6 +846,7 @@ export default function App() {
           />
         ) : tab === 'search' ? (
           <Search
+            key={searchKey}
             watches={homeWatches}
             month={addMonth}
             onMonth={setAddMonth}
@@ -839,6 +857,9 @@ export default function App() {
             onAddToList={(title) => searchTarget && circle.addToList(title, searchTarget.id)}
             onMore={(title) => setTitleSheet({ title, mode: 'save' })}
             readOnly={readOnly}
+            prefill={searchPrefill}
+            onPrefillUsed={clearPrefill}
+            onShare={(text) => setShareIn({ text })}
           />
         ) : tab === 'help' ? (
           <Help key={helpTopic ?? 'all'} topic={helpTopic} onBack={() => setTab(prevTab.current)} />
@@ -1152,6 +1173,30 @@ export default function App() {
           }}
           onNewRound={() => setNightOpen('setup')}
           onClose={() => setNightOpen(null)}
+        />
+      )}
+
+      {shareIn && (
+        <ShareInSheet
+          shared={shareIn}
+          readOnly={readOnly}
+          onLog={(title) => {
+            setShareIn(null)
+            startLog(title, null, currentMonth())
+          }}
+          onUpNext={(title) => {
+            setShareIn(null)
+            setTitleSheet({ title, mode: 'save' })
+          }}
+          onSearch={(q, kind) => {
+            setShareIn(null)
+            setSearchTarget(null)
+            setAddMonth(currentMonth())
+            setSearchPrefill({ q, kind })
+            setSearchKey((n) => n + 1)
+            setTab('search')
+          }}
+          onClose={() => setShareIn(null)}
         />
       )}
 

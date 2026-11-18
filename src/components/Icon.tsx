@@ -27,6 +27,7 @@ const PATHS = {
   list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
   dice: 'M5 5h14v14H5zM9 9h.01M15 15h.01M15 9h.01M9 15h.01',
   bookmark: 'M6 4h12v17l-6-4-6 4z',
+  clipboard: 'M9 3.5h6v3H9zM9 5H6v16h12V5h-3M9 12h6M9 16h4',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
   bellOff: 'M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l2 2H8M10 20a2 2 0 0 0 4 0M3 3l18 18',
   info: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 11v5M12 8h.01',

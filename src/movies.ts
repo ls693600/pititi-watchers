@@ -49,6 +49,20 @@ export async function searchMovies(q: string, signal?: AbortSignal): Promise<Mov
   return (await call<Raw[]>({ q }, signal)).map(toResult)
 }
 
+/**
+ * The movie behind an IMDb id (tt…), or null when TMDB has none. Null too while the function hasn't been
+ * updated with this lookup (it answers 400): the caller then searches by the shared title.
+ */
+export async function findMovieByImdb(imdbId: string): Promise<MovieResult | null> {
+  try {
+    const r = await call<{ movie?: Raw | null }>({ imdb: imdbId })
+    return r?.movie?.id ? toResult(r.movie) : null
+  } catch (e) {
+    if (e instanceof TypeError) throw e
+    return null
+  }
+}
+
 const memo = new Map<number, Promise<MovieInfo>>()
 
 /** Movie details (runtime, overview, where to watch), cached for the session. */

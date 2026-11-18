@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
 import { byUpdatedDesc, currentMonth, kindOf, monthLabel, titleOf } from '../logic'
 import { MoviesNotReady, searchMovies } from '../movies'
+import { findLinks } from '../shareIn'
 import { searchShows } from '../tvmaze'
 import { t } from '../i18n'
 import type { Kind, Title, Watch, WatchList } from '../types'
@@ -22,14 +23,47 @@ interface Props {
   /** Save to a list / Recommend */
   onMore: (t: Title) => void
   readOnly?: boolean
+  /** Opened from "Not this one" / "Search instead": the query (and TV or movie) to start with */
+  prefill?: { q: string; kind: Kind | null } | null
+  /** Search has taken the prefill (so a later visit starts empty) */
+  onPrefillUsed?: () => void
+  /** A pasted link or text, for "Share to Pititi" to work out */
+  onShare?: (text: string) => void
 }
+
+// Reading the clipboard needs a user tap; Safari shows its own "Paste" bubble first
+const canPaste = () => typeof navigator !== 'undefined' && typeof navigator.clipboard?.readText === 'function'
 
 const key = (x: Pick<Title, 'kind' | 'extId'>) => `${x.kind}:${x.extId}`
 
 /** Find a TV show or a movie: tap to log it, ••• to save it to a list or recommend it. */
-export function Search({ watches, month, onMonth, target, onCancelTarget, onTarget, onPick, onAddToList, onMore, readOnly = false }: Props) {
-  const [kind, setKind] = useState<Kind>('tv')
-  const [query, setQuery] = useState('')
+export function Search({ watches, month, onMonth, target, onCancelTarget, onTarget, onPick, onAddToList, onMore, readOnly = false, prefill = null, onPrefillUsed, onShare }: Props) {
+  const [kind, setKind] = useState<Kind>(prefill?.kind ?? 'tv')
+  const [query, setQuery] = useState(prefill?.q ?? '')
+  const [pasteNote, setPasteNote] = useState<string | null>(null)
+  // "Search instead" starts here once (App remounts Search for each one); a later visit starts empty
+  useEffect(() => {
+    if (prefill) onPrefillUsed?.()
+  }, [prefill, onPrefillUsed])
+  const shareable = Boolean(onShare)
+  const link = shareable ? (findLinks(query.trim())[0] ?? null) : null
+  const showPaste = shareable && !target && !readOnly && canPaste()
+
+  async function paste() {
+    setPasteNote(null)
+    let text = ''
+    try {
+      text = (await navigator.clipboard.readText()).trim()
+    } catch {
+      setPasteNote(t("Pititi couldn't read what you copied. Long-press the search box and paste it there instead."))
+      return
+    }
+    if (!text) {
+      setPasteNote(t('Nothing copied yet. Copy a link in Netflix, IMDb or another app, then tap Paste link.'))
+      return
+    }
+    onShare?.(text.slice(0, 2000))
+  }
   const [results, setResults] = useState<Title[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +80,8 @@ export function Search({ watches, month, onMonth, target, onCancelTarget, onTarg
   }, [watches, kind])
 
   useEffect(() => {
-    if (!query.trim()) return
+    // A pasted link isn't something to search for: it gets its own button below
+    if (!query.trim() || (shareable && findLinks(query.trim()).length)) return
     const ctrl = new AbortController()
     const timer = setTimeout(async () => {
       setLoading(true)
@@ -78,9 +113,11 @@ export function Search({ watches, month, onMonth, target, onCancelTarget, onTarg
       clearTimeout(timer)
       ctrl.abort()
     }
-  }, [query, kind])
+  }, [query, kind, shareable])
 
-  const shown = query.trim() ? results : recent
+  // A pasted link isn't searched: it has its own button
+  const searching = Boolean(query.trim()) && !link
+  const shown = query.trim() ? (searching ? results : []) : recent
   return (
     <div className="screen">
       <header>
@@ -124,8 +161,11 @@ export function Search({ watches, month, onMonth, target, onCancelTarget, onTarg
           placeholder={kind === 'movie' ? t('Search any movie') : t('Search any TV show')}
           aria-label={kind === 'movie' ? t('Search movies') : t('Search shows')}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setPasteNote(null)
+          }}
+          autoFocus={!prefill}
         />
       </div>
       {!target && !readOnly && (
@@ -133,8 +173,33 @@ export function Search({ watches, month, onMonth, target, onCancelTarget, onTarg
           {t('Tap to log it. ••• to save it to a list or recommend it.')}
         </p>
       )}
+      {showPaste && !query.trim() && (
+        <div className="paste-row">
+          <button type="button" className="paste-btn" onClick={paste}>
+            <Icon name="clipboard" size={17} stroke={2.1} /> {t('Paste link')}
+          </button>
+          <span className="muted small">{t('Copied a link from Netflix, IMDb or YouTube? Pititi finds the show.')}</span>
+        </div>
+      )}
+      {pasteNote && !query.trim() && (
+        <p className="paste-note" role="status">
+          {pasteNote}
+        </p>
+      )}
+      {link && (
+        <button type="button" className="paste-found" onClick={() => onShare?.(query.trim())}>
+          <span className="tip-icon" aria-hidden="true">
+            <Icon name="sparkle" size={16} stroke={2.2} />
+          </span>
+          <span className="paste-found-text">
+            <b>{t('That looks like a link')}</b>
+            <span className="muted small">{t('Tap to find the show or movie it points to')}</span>
+          </span>
+          <Icon name="right" size={18} />
+        </button>
+      )}
 
-      {query.trim() && notReady && (
+      {searching && notReady && (
         <div className="tip" role="note">
           <span className="tip-icon" aria-hidden="true">
             <Icon name="play" size={16} stroke={2.2} />
@@ -142,12 +207,11 @@ export function Search({ watches, month, onMonth, target, onCancelTarget, onTarg
           <p>{t('Movies are almost ready: Leandro needs to finish a quick setup. TV shows work now.')}</p>
         </div>
       )}
-      {query.trim() && error && <p className="error" role="alert">{error}</p>}
-      {query.trim() && loading && <p className="muted center">{t('Searching…')}</p>}
-      {query.trim() && !loading && !error && !notReady && results.length === 0 && (
+      {searching && error && <p className="error" role="alert">{error}</p>}
+      {searching && loading && <p className="muted center">{t('Searching…')}</p>}
+      {searching && !loading && !error && !notReady && results.length === 0 && (
         <p className="muted center">{t('Nothing matches "{q}". Check the spelling or try the original title.', { q: query.trim() })}</p>
       )}
-
       {!query.trim() && recent.length > 0 && <h2 className="h2">{t('Recently logged')}</h2>}
 
       {shown.length > 0 && (
