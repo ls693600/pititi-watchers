@@ -26,6 +26,8 @@ export function useWatchParties(store: Store, ready: boolean, me: string | null,
   const [data, setData] = useState<Parties>(EMPTY)
   /** server clock minus this phone's clock (ms) */
   const [offset, setOffset] = useState(0)
+  /** The first load answered (or failed): until then "no invitations" isn't known yet */
+  const [synced, setSynced] = useState(false)
   const alive = useRef(true)
   // Only the newest refresh lands (a slow older one never overwrites a newer one)
   const seq = useRef(0)
@@ -38,6 +40,7 @@ export function useWatchParties(store: Store, ready: boolean, me: string | null,
     } catch {
       // Offline: keep what's on screen
     }
+    if (alive.current && n === seq.current) setSynced(true)
   }, [store])
 
   useEffect(() => {
@@ -124,5 +127,5 @@ export function useWatchParties(store: Store, ready: boolean, me: string | null,
     }
   }
 
-  return { ...data, offset, syncClock, refresh, create, answer, control, send }
+  return { ...data, synced, offset, syncClock, refresh, create, answer, control, send }
 }
