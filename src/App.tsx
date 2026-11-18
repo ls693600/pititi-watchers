@@ -806,6 +806,7 @@ export default function App() {
             onFamilyChat={() => openThread(null)}
             listItems={circle.items}
             movieNight={movieNightCard}
+            onThisDay={myHousehold ? { household: myHousehold, photos: couch.photosOn ? couch.photos : [], episodeReactions: chat.episodeReactions } : null}
             party={
               homeParty && me ? (
                 <PartyCard
