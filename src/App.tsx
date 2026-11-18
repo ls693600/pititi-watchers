@@ -19,6 +19,7 @@ import { usePhotos } from './hooks/usePhotos'
 import { useOpenedPredictions, usePredictions } from './hooks/usePredictions'
 import { useMovieNights } from './hooks/useMovieNights'
 import { useWatchParties } from './hooks/useWatchParties'
+import { setAppBadge, useAppBadge } from './hooks/useAppBadge'
 import { PartyCard } from './components/PartyCard'
 import type { PartyTitle } from './components/WatchParty'
 import { inParty, partyEpisode, partyForHome } from './watchParty'
@@ -298,6 +299,12 @@ export default function App() {
   const [loaded, setLoaded] = useState(false)
   // Watch parties (019): their own live channel and the server's clock
   const parties = useWatchParties(store, loaded, mePerson?.id ?? null, myHousehold, flash)
+  // The number on the app icon: unread chat + unanswered party invitations + ratings waiting to be revealed
+  useAppBadge({
+    // Viewers can't answer invitations, so theirs never count
+    ready: auth.state === 'ready' && loaded && parties.synced, me: mePerson?.id ?? null, household: mePerson?.isViewer ? null : myHousehold, social,
+    comments, lastRead, parties: parties.parties, answers: parties.answers, watches, reveals,
+  })
   /** The party room that's open (its id) */
   const [partyOpen, setPartyOpen] = useState<string | null>(null)
   /** Planning a party for this title */
@@ -975,6 +982,7 @@ export default function App() {
               if (CLOUD_ENABLED && readOutbox().length) await cloud.flush().catch(() => undefined)
               clearOutbox()
               if (CLOUD_ENABLED) await forgetPush()
+              await setAppBadge(0)
               await signOut()
               setWatches([])
               setPeople([])

@@ -1268,4 +1268,5 @@ export const PT: Record<string, string> = {
   "Same episode, same time, with another household": "Mesmo episódio, mesma hora, com outra casa",
   "today {time}": "hoje {time}",
   "tomorrow {time}": "amanhã {time}",
+  "The app icon shows how many things are waiting for you.": "O ícone do app mostra quantas coisas estão esperando por você.",
 }

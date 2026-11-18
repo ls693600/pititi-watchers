@@ -383,6 +383,11 @@ export function Settings({ mode, session, isAdmin, people, watches, onAddPerson,
                         ? t('Not available in this browser')
                         : t('Messages, @mentions and new episodes')}
                 </small>
+                {(notify.state === 'on' || notify.state === 'off') && 'setAppBadge' in navigator && (
+                  <small className="muted" style={{ display: 'block', fontSize: 12.5, marginTop: 4 }}>
+                    {t('The app icon shows how many things are waiting for you.')}
+                  </small>
+                )}
               </span>
               <button
                 type="button"
