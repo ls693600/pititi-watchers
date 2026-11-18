@@ -3,6 +3,7 @@
 // GET ?trailer=movie&id=TMDB_ID  |  GET ?trailer=tv&id=TVMAZE_ID&season=2  → { key, name } (YouTube) or { key: null }
 // GET ?trending=week  → the week's most popular well-rated movies and series, mixed (series as TVmaze ids, like the app)
 // GET ?forus=tv:101,movie:693134  → titles like the ones you loved (TMDB recommendations), each with the loved titles it came from
+// GET ?imdb=tt15239678  → { movie } (same shape as a search row) or { movie: null }: "Share to Pititi" with an IMDb movie link
 const TOKEN = Deno.env.get('TMDB_TOKEN') ?? '' // v4 "API Read Access Token"
 const KEY = Deno.env.get('TMDB_KEY') ?? '' // or the v3 "API Key"
 const IMG = 'https://image.tmdb.org/t/p/'
@@ -196,6 +197,17 @@ async function forUs(refs: string[]) {
   return items.filter(Boolean).slice(0, 24)
 }
 
+/** A TMDB movie as the app's search rows */
+const movieRow = (m: Record<string, unknown>) => ({
+  id: m.id,
+  title: m.title,
+  year: typeof m.release_date === 'string' && m.release_date ? m.release_date.slice(0, 4) : null,
+  poster: m.poster_path ? `${IMG}w342${m.poster_path}` : null,
+  genres: ((m.genre_ids as number[]) ?? []).map((g) => GENRES[g]).filter(Boolean),
+  overview: m.overview || null,
+  rating: typeof m.vote_average === 'number' && m.vote_count ? Math.round((m.vote_average as number) * 10) / 10 : null,
+})
+
 const json = (body: unknown, status = 200, cache = 'public, max-age=3600') =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': cache } })
 
@@ -224,20 +236,17 @@ Deno.serve(async (req) => {
     if (u.searchParams.get('trending') === 'week') return json(await trendingWeek(), 200, 'public, max-age=21600')
     const loved = u.searchParams.get('forus')
     if (loved) return json(await forUs(loved.split(',')), 200, 'public, max-age=86400')
+    const imdb = u.searchParams.get('imdb')
+    if (imdb !== null) {
+      if (!/^tt\d{5,10}$/.test(imdb)) return json({ error: 'bad_request' }, 400, 'no-store')
+      const f = await tmdb(`/find/${imdb}`, { external_source: 'imdb_id', language: lang })
+      const m = f?.movie_results?.[0]
+      return json({ movie: m ? movieRow(m) : null }, 200, m ? 'public, max-age=604800' : 'public, max-age=86400')
+    }
     const q = u.searchParams.get('q')?.trim()
     if (q) {
       const r = await tmdb('/search/movie', { query: q.slice(0, 100), include_adult: 'false', language: lang })
-      return json(
-        (r.results ?? []).slice(0, 15).map((m: Record<string, unknown>) => ({
-          id: m.id,
-          title: m.title,
-          year: typeof m.release_date === 'string' && m.release_date ? m.release_date.slice(0, 4) : null,
-          poster: m.poster_path ? `${IMG}w342${m.poster_path}` : null,
-          genres: ((m.genre_ids as number[]) ?? []).map((g) => GENRES[g]).filter(Boolean),
-          overview: m.overview || null,
-          rating: typeof m.vote_average === 'number' && m.vote_count ? Math.round((m.vote_average as number) * 10) / 10 : null,
-        })),
-      )
+      return json((r.results ?? []).slice(0, 15).map(movieRow))
     }
     const id = Number(u.searchParams.get('id'))
     if (id > 0) {

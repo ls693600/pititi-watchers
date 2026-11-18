@@ -64,6 +64,22 @@ export async function searchShows(query: string, signal?: AbortSignal): Promise<
   return rows.map((r) => toShow(r.show))
 }
 
+/** One show by TVmaze id, or null when it doesn't exist. */
+export async function getShow(showId: number): Promise<ShowResult | null> {
+  const res = await fetch(`${BASE}/shows/${showId}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`TVmaze ${res.status}`)
+  return toShow((await res.json()) as RawShow)
+}
+
+/** The show behind an IMDb id (tt…), or null when TVmaze doesn't have it (movies, unknown ids). */
+export async function getShowByImdb(imdbId: string): Promise<ShowResult | null> {
+  const res = await fetch(`${BASE}/lookup/shows?imdb=${encodeURIComponent(imdbId)}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`TVmaze ${res.status}`)
+  return toShow((await res.json()) as RawShow)
+}
+
 export async function getSeasons(showId: number): Promise<SeasonInfo[]> {
   const rows = await get<{ id: number; number: number; episodeOrder: number | null; premiereDate: string | null; endDate: string | null }[]>(
     `/shows/${showId}/seasons`,
