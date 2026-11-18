@@ -6,6 +6,9 @@ import { bigPoster } from '../tvmaze'
 import type { CouchPhoto, EpisodeReaction, Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
+import { YearVideo } from './YearVideo'
+import { canRecordCanvas } from '../lib/recordCanvas'
+import { yearVideoData } from '../yearVideo'
 import { PosterFill } from './Poster'
 import { AvgStars } from './Stars'
 import { t } from '../i18n'
@@ -251,6 +254,11 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
   const [sharing, setSharing] = useState(false)
+  // "Share as a video" / "Save video": the panel that makes it. Browsers that can't record get the picture instead
+  const [video, setVideo] = useState<'share' | 'save' | null>(null)
+  const [videoOk] = useState(canRecordCanvas)
+  // Focus goes back to the button that opened the video panel (Safari doesn't focus buttons on tap)
+  const opener = useRef<HTMLButtonElement | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   async function share() {
@@ -276,17 +284,49 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
     }
   }
 
-  const shareBtn = (
+  const pictureBtn = (primary: boolean) => (
     <button
-      className="yr-share"
+      className={primary ? 'yr-share' : 'yr-share-alt'}
       onClick={(e) => {
         e.stopPropagation()
         share()
       }}
       disabled={sharing}
     >
-      <Icon name="share" size={18} /> {sharing ? t('Making the picture…') : t('Share our {month}', { month: year })}
+      <Icon name="share" size={primary ? 18 : 16} /> {sharing ? t('Making the picture…') : primary ? t('Share our {month}', { month: year }) : t('Share a picture')}
     </button>
+  )
+  const shareBtn = videoOk ? (
+    <div className="yr-share-box">
+      <button
+        className="yr-share"
+        onClick={(e) => {
+          e.stopPropagation()
+          opener.current = e.currentTarget
+          setVideo('share')
+        }}
+      >
+        <Icon name="play" size={18} stroke={2.4} /> {t('Share as a video')}
+      </button>
+      <div className="yr-share-more">
+        <button
+          className="yr-share-alt"
+          onClick={(e) => {
+            e.stopPropagation()
+            opener.current = e.currentTarget
+            setVideo('save')
+          }}
+        >
+          <Icon name="download" size={16} /> {t('Save video')}
+        </button>
+        {pictureBtn(false)}
+      </div>
+    </div>
+  ) : (
+    <div className="yr-share-box">
+      {pictureBtn(true)}
+      <p className="yr-video-note">{t("This browser can't make videos yet. Share a picture instead.")}</p>
+    </div>
   )
   const slides = buildSlides(r, watches, people, soFar, shareBtn, episodeReactions, photos)
   const last = slides.length - 1
@@ -301,6 +341,8 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
   }, [i, paused, last, next])
 
   useEffect(() => {
+    // The video panel handles its own keys
+    if (video) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowRight') next()
@@ -308,7 +350,7 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, next])
+  }, [onClose, next, video])
 
   const slide = slides[i]
   return (
@@ -341,6 +383,18 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
       <p className="yr-hint" aria-hidden="true">
         {i < last ? t('Tap for next · hold to pause') : ' '}
       </p>
+      {video && (
+        <YearVideo
+          data={yearVideoData({ year, watches, people, episodeReactions, photos, soFar })}
+          intent={video}
+          onClose={() => {
+            setVideo(null)
+            requestAnimationFrame(() => opener.current?.focus())
+          }}
+          onFlash={onFlash}
+          onPicture={share}
+        />
+      )}
     </div>
   )
 }
