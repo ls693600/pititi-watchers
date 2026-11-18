@@ -36,15 +36,15 @@ test.describe('Show page data health', () => {
     expect(saved.episodesByMonth).toEqual({ '2026-11': 4 })
   })
 
-  test('people from another household pulled into a log can be removed', async ({ page }) => {
-    await openAs(page, L, { extra: withLogs(ours({ watchedBy: [L, A, 'p-mar'], ratings: { 'p-mar': 6 } }), theirs) })
+  test('people from another household on a log are left out, without asking (and never block the average)', async ({ page }) => {
+    await openAs(page, L, { extra: withLogs(ours({ watchedBy: [L, A, 'p-mar'], ratings: { [L]: 8, [A]: 6 } }), theirs) })
     await page.getByRole('button', { name: 'Open War' }).click()
-    await expect(page.getByText("Marcia isn't in your household")).toBeVisible()
-    await page.getByRole('button', { name: 'Remove from this log' }).click()
-    await expect(page.getByText('Removed from this log')).toBeVisible()
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pititi.watches.v2') || '[]').find((w: { id: string }) => w.id === 'w-war'))
-    expect(saved.watchedBy).toEqual(['local-leandro', 'local-ana'])
-    expect(saved.ratings).toEqual({})
+    await expect(page.getByRole('heading', { name: 'War', level: 1 })).toBeVisible()
+    // No repair card: the app already knows Marcia belongs to her own household's log
+    await expect(page.getByText(/isn't in your household/)).toHaveCount(0)
+    await expect(page.locator('.avg-row')).toBeVisible()
+    await expect(page.locator('.avg-row')).not.toContainText(/Waiting for|Revealed when everyone rates|Marcia/)
+    // Their own log keeps her
     const theirsSaved = await page.evaluate(() => JSON.parse(localStorage.getItem('pititi.watches.v2') || '[]').find((w: { id: string }) => w.id === 'w-war-h4'))
     expect(theirsSaved.watchedBy).toEqual(['p-pero', 'p-mar'])
   })

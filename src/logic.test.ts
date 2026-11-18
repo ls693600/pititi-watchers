@@ -61,7 +61,7 @@ import {
   defaultWatchersFor,
   findDuplicate,
   moveToMonth,
-  strayWatchers,
+  keepHouseholdWatchers,
   inProgressFor,
   mergeLogs,
   premiereMonthFix,
@@ -1011,13 +1011,21 @@ describe('other households', () => {
     expect(findDuplicate([ours, { ...theirs, householdId: 'h1' }], ours)?.id).toBe('b')
   })
 
-  it('finds people from another household on a log', () => {
+  it('keeps only the household people as watchers (and their ratings)', () => {
     const people = [
       { id: 'p1', householdId: 'h1' },
+      { id: 'p2', householdId: 'h1' },
       { id: 'x', householdId: 'h2' },
     ]
-    expect(strayWatchers({ watchedBy: ['p1', 'x'], householdId: 'h1' }, people)).toEqual(['x'])
-    expect(strayWatchers({ watchedBy: ['p1', 'x'], householdId: null }, people)).toEqual([])
+    const log = { ...ours, watchedBy: ['p1', 'x', 'p2'], ratings: { p1: 8, x: 9 } }
+    const [fixed] = keepHouseholdWatchers([log], people)
+    expect(fixed.watchedBy).toEqual(['p1', 'p2'])
+    expect(fixed.ratings).toEqual({ p1: 8 })
+    // Untouched: no household on the log, someone we can't see, or nothing wrong (same object back)
+    expect(keepHouseholdWatchers([{ ...log, householdId: null }], people)[0].watchedBy).toEqual(['p1', 'x', 'p2'])
+    expect(keepHouseholdWatchers([{ ...log, watchedBy: ['p1', 'ghost'] }], people)[0].watchedBy).toEqual(['p1', 'ghost'])
+    const clean = { ...log, watchedBy: ['p1'] }
+    expect(keepHouseholdWatchers([clean], people)[0]).toBe(clean)
   })
 })
 

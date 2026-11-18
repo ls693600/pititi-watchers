@@ -1,8 +1,8 @@
--- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-019 (CI: supabase test db).
+-- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-020 (CI: supabase test db).
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(58);
+select plan(61);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -200,6 +200,18 @@ select throws_ok(
   $$ insert into public.watch_party_messages (id, party_id, body) values ('a2000000-0000-0000-0000-000000000003', 'a1000000-0000-0000-0000-000000000001', 'late') $$,
   '42501', null, 'the chat closes when the party ends (but stays readable)');
 reset role;
+
+-- Watchers stay in the log's household (020) -----------------------------------------------------------------
+update public.watches set watched_by = array[(select id from public.people where name = 'Alice'), (select id from public.people where name = 'Bob')]
+  where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+select is((select watched_by from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000001'), array[(select id from public.people where name = 'Alice')], 'a log never keeps someone from another household as a watcher');
+update public.watches set watched_by = array[(select id from public.people where name = 'Alice'), (select id from public.people where name = 'Ann')]
+  where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+insert into public.ratings (watch_id, person_id, stars) values ('aaaaaaaa-0000-0000-0000-000000000001', (select id from public.people where name = 'Ann'), 4);
+update public.people set household_id = 'b0000000-0000-0000-0000-00000000000b' where name = 'Ann';
+select is((select watched_by from public.watches where id = 'aaaaaaaa-0000-0000-0000-000000000001'), array[(select id from public.people where name = 'Alice')], 'moving a person to another household takes them off the old household''s logs');
+select is((select count(*) from public.ratings where watch_id = 'aaaaaaaa-0000-0000-0000-000000000001' and person_id = (select id from public.people where name = 'Ann')), 0::bigint, '... and their rating there no longer blocks the average');
+update public.people set household_id = 'a0000000-0000-0000-0000-00000000000a' where name = 'Ann';
 
 -- App health (016): only the admin reads it; nobody can trigger the watchdog from the app
 set local role authenticated;

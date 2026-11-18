@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-18-fix-watchers',
+    en: ['🛠 Fixed: some shows said someone "isn\'t in your household" and kept waiting for their rating. Each show now only lists the people of your household, and the average shows as soon as you all rate.'],
+    pt: ['🛠 Corrigido: algumas séries diziam que alguém "não é da sua casa" e ficavam esperando a nota dessa pessoa. Agora cada série mostra só as pessoas da sua casa, e a média aparece assim que vocês avaliam.'],
+  },
+  {
     id: '2026-11-16-time',
     en: ['⏱ We have time: in Tonight, pick 30 min, 1 hour, 2 hours or all night and see what fits: the next episodes of your shows, or a movie from your lists.'],
     pt: ['⏱ Temos tempo: no Hoje à noite, escolha 30 min, 1 hora, 2 horas ou a noite toda e veja o que cabe: os próximos episódios das suas séries, ou um filme das suas listas.'],

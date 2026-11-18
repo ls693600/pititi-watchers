@@ -240,11 +240,19 @@ export function sameHome(a: Pick<Watch, 'householdId'>, b: Pick<Watch, 'househol
 }
 
 /** People on a log who belong to another household (e.g. pulled in by merging with another family's log). */
-export function strayWatchers(w: Pick<Watch, 'watchedBy' | 'householdId'>, people: Pick<Person, 'id' | 'householdId'>[]): string[] {
-  if (!w.householdId) return []
-  return w.watchedBy.filter((id) => {
-    const p = people.find((x) => x.id === id)
-    return Boolean(p?.householdId && p.householdId !== w.householdId)
+/**
+ * A log's watchers are people of its household. Someone from another household (an old cross-family merge, or a person
+ * later moved) is left out, with their rating there, so they never block the average or the reveal. The database
+ * enforces the same rule (020); this keeps the app right even with older data.
+ */
+export function keepHouseholdWatchers(list: Watch[], people: Pick<Person, 'id' | 'householdId'>[]): Watch[] {
+  const home = new Map(people.map((p) => [p.id, p.householdId ?? null]))
+  const outside = (w: Watch, id: string) => home.has(id) && home.get(id) !== w.householdId
+  return list.map((w) => {
+    if (!w.householdId || !w.watchedBy.some((id) => outside(w, id))) return w
+    const watchedBy = w.watchedBy.filter((id) => !outside(w, id))
+    const ratings = watchedBy.length ? Object.fromEntries(Object.entries(w.ratings).filter(([id]) => watchedBy.includes(id))) : w.ratings
+    return { ...w, watchedBy, ratings }
   })
 }
 

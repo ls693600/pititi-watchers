@@ -1,7 +1,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
+import { keepHouseholdWatchers, addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { Home } from './screens/Home'
@@ -283,7 +283,8 @@ export default function App() {
         else if (sent) flash(t('Back online: {n} changes synced', { n: sent }))
       }
       const snap = await store.load()
-      setWatches(snap.watches)
+      const logs = keepHouseholdWatchers(snap.watches, snap.people)
+      setWatches(logs)
       setPeople(snap.people)
       takeCircle(snap)
       takeChat(snap)
@@ -291,14 +292,14 @@ export default function App() {
       takePredictions(snap)
       takeNights(snap)
       setOffline(false)
-      queueReveals(snap.watches)
-      checkBadges(snap.watches)
+      queueReveals(logs)
+      checkBadges(logs)
       // Last, so a message meant for you isn't covered by a badge toast
       announce(snap)
     } catch {
       // Cloud unreachable: fall back to the last synced copy
       const snap = cache.read()
-      setWatches(snap.watches)
+      setWatches(keepHouseholdWatchers(snap.watches, snap.people))
       setPeople(snap.people)
       takeCircle(snap)
       takeChat({ comments: snap.comments, reactions: snap.reactions, episodeReactions: snap.episodeReactions })

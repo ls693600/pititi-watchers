@@ -10,7 +10,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, strayWatchers, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, CouchPhoto, EpisodeEmoji, Guess, Prediction, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -153,8 +153,6 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const duplicate = isNew ? null : findDuplicate(watches, w)
   const pair = isNew || duplicate ? null : rewatchPair(watches, stored)
   const seasonInfo = seasons?.find((x) => x.number === w.season)
-  // People from another household on this log (an older merge with another family's copy pulled them in)
-  const strays = isNew ? [] : strayWatchers(stored, everyone)
   const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
 
   async function shareShow() {
@@ -303,22 +301,6 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
               })}
             </p>
             <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>{t('Merge into one')}</button>
-          </div>
-        </div>
-      )}
-
-      {!readOnly && strays.length > 0 && (
-        <div className="health-card" role="alert">
-          <Icon name="users" size={20} stroke={2.2} />
-          <div>
-            <b>{t(strays.length === 1 ? "{names} isn't in your household" : "{names} aren't in your household", { names: strays.map((id) => everyone.find((p) => p.id === id)?.name ?? t('Someone')).join(' & ') })}</b>
-            <p>{t("They were added to this log by mistake, from another family's log of the same show. Their log stays as it is.")}</p>
-            <button
-              className="btn sm dark"
-              onClick={() => save((cur) => ({ ...cur, watchedBy: cur.watchedBy.filter((id) => !strays.includes(id)) }), t('Removed from this log'))}
-            >
-              {t('Remove from this log')}
-            </button>
           </div>
         </div>
       )}
