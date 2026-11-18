@@ -1268,4 +1268,17 @@ export const PT: Record<string, string> = {
   "Same episode, same time, with another household": "Mesmo episódio, mesma hora, com outra casa",
   "today {time}": "hoje {time}",
   "tomorrow {time}": "amanhã {time}",
+  // On this day
+  "On this day": "Neste dia",
+  "1 year ago": "há 1 ano",
+  "6 months ago": "há 6 meses",
+  "1 month ago": "há 1 mês",
+  "Finished {show} S{season}": "Vocês terminaram {show} T{season}",
+  "Watched {show}": "Vocês assistiram {show}",
+  "Started {show}": "Vocês começaram {show}",
+  "Started {show} S{season}": "Vocês começaram {show} T{season}",
+  "{name} reacted {emoji} to {show}": "{name} reagiu {emoji} a {show}",
+  "{name} reacted {emoji} to S{season} E{episode} of {show}": "{name} reagiu {emoji} ao T{season} E{episode} de {show}",
+  "Couch night photo": "Foto da noite no sofá",
+  "Hide On this day until tomorrow": "Esconder o Neste dia até amanhã",
 }

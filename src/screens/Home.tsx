@@ -4,6 +4,7 @@ import { LongPress } from '../components/LongPress'
 import { Icon } from '../components/Icon'
 import { PosterFill } from '../components/Poster'
 import { ReleaseCarousel } from '../components/ReleaseCarousel'
+import { OnThisDay } from '../components/OnThisDay'
 import { WatchedSheet } from '../components/WatchedSheet'
 import { SeasonsSheet } from '../components/SeasonsSheet'
 import { WhatsNewCard } from '../components/WhatsNew'
@@ -32,7 +33,7 @@ import {
   watchesInMonth,
 } from '../logic'
 import { getLang, setLang, t } from '../i18n'
-import type { Comment, Kind, ListItem, Person, Title, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Kind, ListItem, Person, Title, Watch, WatchList } from '../types'
 import type { Festive } from '../festive'
 import { lazyPart } from '../lib/lazy'
 
@@ -76,6 +77,8 @@ interface Props {
   party?: React.ReactNode
   /** "It's back": start a finished show's new season */
   onStartSeason?: (head: Watch, season: SeasonInfo) => void
+  /** "On this day": your household's photos and episode reactions (null: no household, no card) */
+  onThisDay?: { household: string; photos: CouchPhoto[]; episodeReactions: EpisodeReaction[] } | null
 }
 
 const TIP_KEY = 'pititi.tip.hold.v1'
@@ -87,9 +90,10 @@ interface HomePrefs {
   back: boolean
   picks: boolean
   festive: boolean
+  onThisDay: boolean
 }
 const PREFS_KEY = 'pititi.home.v1'
-const DEFAULT_PREFS: HomePrefs = { chat: true, month: true, back: true, picks: true, festive: true }
+const DEFAULT_PREFS: HomePrefs = { chat: true, month: true, back: true, picks: true, festive: true, onThisDay: true }
 
 function readPrefs(): HomePrefs {
   try {
@@ -115,7 +119,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null, timeFit = null, party = null } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null, timeFit = null, party = null, onThisDay = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<{ sort: MonthSort; kind: Kind | null } | null>(null)
@@ -273,6 +277,10 @@ export function Home(props: Props) {
         </button>
           )}
         </section>
+      )}
+
+      {!loading && prefs.onThisDay && onThisDay && (
+        <OnThisDay watches={watches} photos={onThisDay.photos} episodeReactions={onThisDay.episodeReactions} people={everyone} household={onThisDay.household} onOpen={onOpen} />
       )}
 
       {isCurrent && watching.length > 0 && (
@@ -481,6 +489,7 @@ function CustomizeHome({ prefs, festive, onChange, onClose }: { prefs: HomePrefs
     ['back', `${t('Tonight')} · ${t("It's back")}`],
     ['picks', `${t('Tonight')} · ${t('For us')} / ${t('Trending')}`],
     ['festive', `${t('Tonight')} · ${t('Festive picks')}`, festive ? undefined : t('Only on special days')],
+    ['onThisDay', t('On this day')],
   ]
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={t('Customize Home')}>
