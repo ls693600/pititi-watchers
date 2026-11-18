@@ -1,8 +1,8 @@
--- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-021 (CI: supabase test db).
+-- Pititi Watchers: database rules, tested on a fresh copy built from migrations 001-023 (CI: supabase test db).
 -- Two households, a viewer and a stranger; each check runs as that person, exactly as the app's requests do.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(72);
+select plan(75);
 
 -- Fixture (as the database owner, rules off) ----------------------------------------------------------------
 insert into public.households (id, name, share_log) values
@@ -69,9 +69,17 @@ update public.households set share_log = false where id = 'a0000000-0000-0000-00
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 select is((select count(*) from public.watches where household_id = 'a0000000-0000-0000-0000-00000000000a'), 0::bigint, 'a private household log is hidden from other households');
-select is((select count(*) from public.couch_photos), 1::bigint, 'the whole family sees couch photos');
+select is((select count(*) from public.couch_photos), 0::bigint, 'a private household''s couch photos stay private');
+select is((select count(*) from public.episode_reactions where person_id <> public.my_person_id()), 0::bigint, '... and so do its episode reactions');
 select is_empty($$ delete from public.couch_photos where id = 'c0000000-0000-0000-0000-000000000001' returning 1 $$, 'a member cannot remove someone else''s photo');
 reset role;
+update public.households set share_log = true where id = 'a0000000-0000-0000-0000-00000000000a';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+select is((select count(*) from public.couch_photos), 1::bigint, 'once the household shares its log again, the family sees its photos');
+select is_empty($$ delete from public.couch_photos where id = 'c0000000-0000-0000-0000-000000000001' returning 1 $$, '... and still cannot remove someone else''s photo');
+reset role;
+update public.households set share_log = false where id = 'a0000000-0000-0000-0000-00000000000a';
 
 -- Vera (viewer) ----------------------------------------------------------------------------------------------
 set local role authenticated;
