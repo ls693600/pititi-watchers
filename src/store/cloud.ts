@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, Prediction, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, PartyAnswer, PartyMessage, Prediction, WatchParty, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import { t } from '../i18n'
 import { cache } from './local'
 import type { Session, Store } from './store'
@@ -418,6 +418,33 @@ export async function renewInviteCode(): Promise<string> {
   return code
 }
 
+interface PartyRow {
+  id: string
+  host_household_id: string
+  created_by: string | null
+  kind: 'tv' | 'movie'
+  ext_id: number
+  title: string
+  poster: string | null
+  season: number | null
+  episode: number | null
+  runtime: number | null
+  starts_at: string
+  state: WatchParty['state']
+  play_at: string | null
+  position_sec: number
+  paused_by: string | null
+  updated_at: string
+  created_at: string
+}
+const toParty = (r: PartyRow, guests: string[]): WatchParty => ({
+  id: r.id, hostHouseholdId: r.host_household_id, createdBy: r.created_by, kind: r.kind, extId: r.ext_id, title: r.title, poster: r.poster,
+  season: r.season, episode: r.episode, runtime: r.runtime, startsAt: r.starts_at, state: r.state, playAt: r.play_at, positionSec: r.position_sec,
+  pausedBy: r.paused_by, updatedAt: r.updated_at, createdAt: r.created_at, guests,
+})
+/** Parties from the last 90 days: the live ones, and the chat of past ones on the show's page */
+const PARTY_DAYS = 90
+
 /** The server sends at most 1,000 rows per request: read page after page so nothing is silently cut off. */
 const PAGE = 1000
 async function all<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>) {
@@ -548,6 +575,72 @@ export const cloudStore: Store = {
     const { data, error } = await supabase().from('watches').delete().eq('id', id).select('id')
     if (error) throw error
     if (!data?.length) throw new Error(t('Only Leandro or the person who added it can remove this.'))
+  },
+  async loadParties() {
+    const since = new Date(Date.now() - PARTY_DAYS * 86_400_000).toISOString()
+    const [p, g, a, m] = await Promise.all([
+      all((x, y) => supabase().from('watch_parties').select('*').gte('created_at', since).order('created_at').order('id').range(x, y)),
+      all((x, y) => supabase().from('watch_party_guests').select('party_id, household_id').order('party_id').order('household_id').range(x, y)),
+      all((x, y) => supabase().from('watch_party_people').select('party_id, person_id, answer').order('party_id').order('person_id').range(x, y)),
+      all((x, y) => supabase().from('watch_party_messages').select('id, party_id, person_id, kind, body, at_sec, created_at').gte('created_at', since).order('created_at').order('id').range(x, y)),
+    ])
+    // Migration 019 not run: parties stay hidden
+    if (p.error || g.error || a.error || m.error) return { parties: [], answers: [], messages: [], on: false }
+    const guests = new Map<string, string[]>()
+    for (const r of g.data as { party_id: string; household_id: string }[]) guests.set(r.party_id, [...(guests.get(r.party_id) ?? []), r.household_id])
+    return {
+      parties: (p.data as PartyRow[]).map((r) => toParty(r, guests.get(r.id) ?? [])),
+      answers: (a.data as { party_id: string; person_id: string; answer: PartyAnswer['answer'] }[]).map((r) => ({ partyId: r.party_id, personId: r.person_id, answer: r.answer })),
+      messages: (m.data as { id: string; party_id: string; person_id: string; kind: PartyMessage['kind']; body: string; at_sec: number | null; created_at: string }[]).map((r) => ({
+        id: r.id, partyId: r.party_id, personId: r.person_id, kind: r.kind, body: r.body, atSec: r.at_sec, createdAt: r.created_at,
+      })),
+      on: true,
+    }
+  },
+  subscribeParties(onChange) {
+    // Chat and reactions arrive in bursts: one refresh per burst, quickly
+    let t: ReturnType<typeof setTimeout> | undefined
+    const ping = () => {
+      clearTimeout(t)
+      t = setTimeout(onChange, 150)
+    }
+    const channel = supabase()
+      .channel('family-parties')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'watch_parties' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'watch_party_guests' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'watch_party_people' }, ping)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'watch_party_messages' }, ping)
+      .subscribe()
+    return () => {
+      clearTimeout(t)
+      supabase().removeChannel(channel)
+    }
+  },
+  async createParty(p) {
+    const { error } = await supabase().rpc('create_watch_party', {
+      party: p.id, guest_households: p.guests, party_kind: p.kind, party_ext_id: p.extId, party_title: p.title, party_poster: p.poster,
+      party_season: p.season, party_episode: p.episode, party_runtime: p.runtime, party_starts_at: p.startsAt,
+    })
+    if (error) throw error
+  },
+  async answerParty(a) {
+    const { error } = await supabase().from('watch_party_people').upsert({ party_id: a.partyId, answer: a.answer, updated_at: new Date().toISOString() })
+    if (error) throw error
+  },
+  async partyControl(id, action, atSec = null) {
+    const { data, error } = await supabase().rpc('party_control', { party: id, action, at_sec: atSec })
+    if (error) throw error
+    const row = data as (PartyRow & { server_now: string }) | null
+    return { party: row ? toParty(row, []) : null, serverNow: row ? Date.parse(row.server_now) : Date.now() }
+  },
+  async sendPartyMessage(m) {
+    const { error } = await supabase().from('watch_party_messages').insert({ id: m.id, party_id: m.partyId, kind: m.kind, body: m.body, at_sec: m.atSec, created_at: m.createdAt })
+    if (error) throw error
+  },
+  async serverNow() {
+    const { data, error } = await supabase().rpc('server_now')
+    if (error) throw error
+    return Date.parse(data as string)
   },
   async undoRemove(w) {
     const res = await supabase().rpc('restore_log', { log: w.id })

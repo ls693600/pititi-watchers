@@ -1,4 +1,4 @@
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, PartyAnswer, PartyMessage, Prediction, WatchParty, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 
 export interface Snapshot {
   watches: Watch[]
@@ -30,6 +30,14 @@ export interface Snapshot {
   nightVotes: NightVote[]
   /** False until migration 018 is run: Decide together stays hidden */
   nightOn: boolean
+}
+
+export interface Parties {
+  parties: WatchParty[]
+  answers: PartyAnswer[]
+  messages: PartyMessage[]
+  /** False until migration 019 is run: watch parties stay hidden */
+  on: boolean
 }
 
 export interface Store {
@@ -83,6 +91,15 @@ export interface Store {
   /** After the reveal: mark someone's guess right, wrong, or clear it */
   judgeGuess(predictionId: string, personId: string, verdict: Guess['verdict']): Promise<void>
   removePrediction(id: string): Promise<void>
+  // Watch parties (019): loaded and synced on their own, so a busy party chat doesn't reload everything
+  loadParties(): Promise<Parties>
+  subscribeParties(onChange: () => void): () => void
+  createParty(p: WatchParty): Promise<void>
+  answerParty(a: PartyAnswer): Promise<void>
+  /** start / pause / resume / end / cancel; returns the party and the server's clock (ms) */
+  partyControl(id: string, action: 'start' | 'pause' | 'resume' | 'end' | 'cancel', atSec?: number | null, who?: { me: string; household: string | null }): Promise<{ party: WatchParty | null; serverNow: number }>
+  sendPartyMessage(m: PartyMessage): Promise<void>
+  serverNow(): Promise<number>
   startNight(n: MovieNight): Promise<void>
   voteNight(v: NightVote): Promise<void>
   addComment(c: Comment): Promise<void>

@@ -146,6 +146,52 @@ export interface NightVote {
   createdAt: string
 }
 
+/** Watch party: one household plans the same episode or movie, at the same time, with other households. */
+export interface WatchParty {
+  id: string
+  hostHouseholdId: string
+  createdBy: string | null
+  kind: Kind
+  /** TVmaze show id / TMDB movie id */
+  extId: number
+  title: string
+  poster: string | null
+  season: number | null
+  episode: number | null
+  runtime: number | null
+  /** The planned start */
+  startsAt: string
+  state: 'planned' | 'playing' | 'paused' | 'ended' | 'cancelled'
+  /** Playing: the moment everyone presses play (server clock) */
+  playAt: string | null
+  /** Where it plays from (seconds) */
+  positionSec: number
+  pausedBy: string | null
+  updatedAt: string
+  createdAt: string
+  /** Invited households (the host's is hostHouseholdId) */
+  guests: string[]
+}
+
+export interface PartyAnswer {
+  partyId: string
+  personId: string
+  answer: 'join' | 'no'
+}
+
+export interface PartyMessage {
+  id: string
+  partyId: string
+  personId: string
+  kind: 'text' | 'react'
+  body: string
+  /** Seconds into the episode, when known */
+  atSec: number | null
+  createdAt: string
+}
+
+export const PARTY_REACTIONS = ['😱', '😂', '😭', '🔥', '❤️'] as const
+
 /** A photo of the night, on a log. The whole family sees them. */
 export interface CouchPhoto {
   id: string

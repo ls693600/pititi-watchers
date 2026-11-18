@@ -72,6 +72,8 @@ interface Props {
   movieNight?: { startedBy: string | null; left: number; match: string | null; active: boolean; onOpen: () => void; onNew: () => void } | null
   /** "We have time": your household's lists, and starting a movie from them */
   timeFit?: { lists: WatchList[]; household: string | null; onWatch: (item: ListItem) => void } | null
+  /** Watch party invitation (or the party that's on), right under the Family chat */
+  party?: React.ReactNode
   /** "It's back": start a finished show's new season */
   onStartSeason?: (head: Watch, season: SeasonInfo) => void
 }
@@ -113,7 +115,7 @@ function greeting(now = new Date()): string {
 }
 
 export function Home(props: Props) {
-  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null, timeFit = null } = props
+  const { watches, people, me, viewer, month, filter, onFilter, onMonth, onOpen, onAddEpisode, onActions, onAdd, onProfile, readOnly = false, loading = false, everyone = props.people, festive = null, familyChat = null, onFamilyChat, listItems = [], onSaveTitle, onStartSeason, movieNight = null, timeFit = null, party = null } = props
   const [showTip, setShowTip] = useState(() => !tipSeen())
   /** Tapped a tile: the month's shows, sorted by what was tapped */
   const [breakdown, setBreakdown] = useState<{ sort: MonthSort; kind: Kind | null } | null>(null)
@@ -200,6 +202,8 @@ export function Home(props: Props) {
       {!loading && <WhatsNewCard />}
 
       {prefs.chat && familyChat && onFamilyChat && <FamilyChatStrip chat={familyChat} people={everyone} onOpen={onFamilyChat} />}
+
+      {!loading && party}
 
       {!loading && movieNight && (
         <button type="button" className={`night-entry ${movieNight.active ? 'live' : ''}`} onClick={movieNight.onOpen}>

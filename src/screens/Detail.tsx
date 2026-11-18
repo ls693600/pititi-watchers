@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { AvgStars, Stars } from '../components/Stars'
 import { CouchPhotos } from '../components/CouchPhotos'
 import { Predictions } from '../components/Predictions'
+import { PartyChatLog } from '../components/WatchParty'
 import { EpisodeReactions } from '../components/EpisodeReactions'
 import { Icon } from '../components/Icon'
 import { Poster } from '../components/Poster'
@@ -12,7 +13,7 @@ import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
 import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
-import type { Comment, CouchPhoto, EpisodeEmoji, Guess, Prediction, EpisodeReaction, Person, Reaction, Title, Watch } from '../types'
+import type { Comment, CouchPhoto, EpisodeEmoji, Guess, Prediction, EpisodeReaction, Person, Reaction, Title, Watch, WatchParty, PartyMessage } from '../types'
 import { drawShowCard, shareImage } from '../share'
 import { getMovie, type MovieInfo } from '../movies'
 import { t } from '../i18n'
@@ -68,12 +69,14 @@ interface Props {
     onJudge: (predictionId: string, personId: string, verdict: Guess['verdict']) => void
     onRemove: (p: Prediction) => void
   } | null
+  /** Watch party: plan one for this title, and the chat of past ones (null: migration 019 not run, no other household, a new log) */
+  party?: { onPlan: () => void; past: WatchParty[]; messages: PartyMessage[] } | null
   /** Couch night photos on this log (null hides them: migration 014 not run, or a new log) */
   couch?: { photos: CouchPhoto[]; canAdd: boolean; uploading: boolean; isAdmin: boolean; onAdd: (f: File) => void; onRemove: (p: CouchPhoto) => Promise<boolean> } | null
   onClose: () => void
 }
 
-export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, couch = null, predict = null, onClose }: Props) {
+export function Detail({ initial, isNew, watches, people, everyone, readOnly, owner, me, viewer, saving, canDelete, onSave, onDelete, onMerge, onFlash, social, reactions, comments, onReact, onComment, onRemoveComment, onRate, onChatSeen, onMore, onSwitchLog, episodeFx = null, couch = null, predict = null, party = null, onClose }: Props) {
   // The phone's Back leaves the show page
   useBackClose(true, onClose)
   const [w, setW] = useState<Watch>(initial)
@@ -448,6 +451,17 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
         </section>
       )}
 
+      {party && (
+        <button type="button" className="party-entry" onClick={party.onPlan}>
+          <span aria-hidden="true">🎉</span>
+          <span>
+            <b>{t('Watch party')}</b>
+            <span>{t('Same episode, same time, with another household')}</span>
+          </span>
+          <Icon name="right" size={18} />
+        </button>
+      )}
+
       <section className="card">
         {people.length > 1 && !readOnly && (
           <div className="together-row">
@@ -645,6 +659,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
           onRemove={predict.onRemove}
         />
       )}
+
+      {party && <PartyChatLog parties={party.past} messages={party.messages} people={everyone} />}
 
       {couch && (
         <CouchPhotos

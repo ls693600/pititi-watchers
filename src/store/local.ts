@@ -1,6 +1,7 @@
 import { newId, sameEpisodeReaction } from '../logic'
-import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, Prediction, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
+import type { Comment, CouchPhoto, EpisodeReaction, Guess, MovieNight, NightVote, PartyAnswer, PartyMessage, Prediction, WatchParty, Household, ListItem, Person, Reaction, Recommendation, Watch, WatchList } from '../types'
 import type { Snapshot, Store } from './store'
+import { applyControl } from '../watchParty'
 
 const WATCHES = 'pititi.watches.v2'
 const PEOPLE = 'pititi.people.v2'
@@ -18,6 +19,10 @@ const LISTS = 'pititi.lists.v1'
 const ITEMS = 'pititi.listitems.v1'
 const RECS = 'pititi.recs.v1'
 const MUTES = 'pititi.mutes.v1'
+const PARTIES = 'pititi.parties.v1'
+const PARTY_ANSWERS = 'pititi.partyanswers.v1'
+const PARTY_MESSAGES = 'pititi.partymessages.v1'
+const PARTY_KEYS = [PARTIES, PARTY_ANSWERS, PARTY_MESSAGES]
 const KEYS = [WATCHES, PEOPLE, REACTIONS, COMMENTS, HOUSEHOLDS, LISTS, ITEMS, RECS, MUTES, EPISODE_REACTIONS, PHOTOS, PREDICTIONS, GUESSES, NIGHTS, NIGHT_VOTES]
 
 const DEFAULT_PEOPLE: Person[] = [
@@ -261,6 +266,39 @@ export const localStore: Store = {
   },
   async removePrediction(id) {
     update((s) => ({ predictions: (s.predictions ?? []).filter((p) => p.id !== id), guesses: (s.guesses ?? []).filter((g) => g.predictionId !== id) }))
+  },
+  // Watch parties on this phone only (no other households here): same rules as the server
+  async loadParties() {
+    return { parties: readJson<WatchParty[]>(PARTIES, []), answers: readJson<PartyAnswer[]>(PARTY_ANSWERS, []), messages: readJson<PartyMessage[]>(PARTY_MESSAGES, []), on: true }
+  },
+  subscribeParties(onChange) {
+    const handler = (e: StorageEvent) => PARTY_KEYS.includes(e.key ?? '') && onChange()
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  },
+  async createParty(p) {
+    localStorage.setItem(PARTIES, JSON.stringify([...readJson<WatchParty[]>(PARTIES, []).filter((x) => x.id !== p.id), p]))
+    if (p.createdBy) await localStore.answerParty({ partyId: p.id, personId: p.createdBy, answer: 'join' })
+  },
+  async answerParty(a) {
+    const list = readJson<PartyAnswer[]>(PARTY_ANSWERS, []).filter((x) => !(x.partyId === a.partyId && x.personId === a.personId))
+    localStorage.setItem(PARTY_ANSWERS, JSON.stringify([...list, a]))
+  },
+  async partyControl(id, action, atSec = null, who) {
+    const list = readJson<WatchParty[]>(PARTIES, [])
+    const p = list.find((x) => x.id === id)
+    if (!p || !who) throw new Error('not_your_party')
+    const joined = readJson<PartyAnswer[]>(PARTY_ANSWERS, []).some((a) => a.partyId === id && a.personId === who.me && a.answer === 'join')
+    const now = Date.now()
+    const next = applyControl(p, action, { now, me: who.me, myHousehold: who.household, joined, atSec })
+    localStorage.setItem(PARTIES, JSON.stringify(list.map((x) => (x.id === id ? next : x))))
+    return { party: next, serverNow: now }
+  },
+  async sendPartyMessage(m) {
+    localStorage.setItem(PARTY_MESSAGES, JSON.stringify([...readJson<PartyMessage[]>(PARTY_MESSAGES, []).filter((x) => x.id !== m.id), m]))
+  },
+  async serverNow() {
+    return Date.now()
   },
   async startNight(n) {
     update((s) => ({ nights: [...(s.nights ?? []).filter((x) => x.id !== n.id), n] }))

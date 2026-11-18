@@ -1,7 +1,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { CLOUD_ENABLED } from './config'
-import { keepHouseholdWatchers, addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
+import { keepHouseholdWatchers, tapEpisode, addEpisode, averageRating, totalUnread, familyChatSummary, defaultWatchersFor, finishSeason, joinWatchers, mergeLogs, openTwin, inProgressFor, sameHome, reconcileMonths, setOwnRating, canDelete, ratedShows, ratingLogs, ratingTarget, revealKey, withShowRatings, householdWatches, householdMembers, householdLabel, movieWatch, currentMonth, monthLabel, newId, nextSeasonDraft, pendingReveals, withSeason } from './logic'
 import { QuickActions } from './components/QuickActions'
 import { UpdateBanner } from './components/UpdateBanner'
 import { Home } from './screens/Home'
@@ -18,6 +18,10 @@ import { useChat } from './hooks/useChat'
 import { usePhotos } from './hooks/usePhotos'
 import { useOpenedPredictions, usePredictions } from './hooks/usePredictions'
 import { useMovieNights } from './hooks/useMovieNights'
+import { useWatchParties } from './hooks/useWatchParties'
+import { PartyCard } from './components/PartyCard'
+import type { PartyTitle } from './components/WatchParty'
+import { inParty, partyEpisode, partyForHome } from './watchParty'
 import { activeNight, nightState } from './movieNight'
 import { lovedTitles } from './forUs'
 import { tonight } from './lib/photo'
@@ -31,7 +35,7 @@ import { FestiveAmbient, FestiveRain } from './components/Festive'
 import { appHealth, changePassword, clearProblems, cloudStore, currentSession, onPasswordRecovery, sendPasswordReset, setNewPassword, recentProblems, getInviteCode, getViewerCode, joinOptions, renewInviteCode, signIn, signOut, signUp } from './store/cloud'
 import { cache, localStore } from './store/local'
 import type { Session } from './store/store'
-import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList } from './types'
+import type { Comment, CouchPhoto, ListItem, Person, Reaction, Title, Watch, WatchList, WatchParty } from './types'
 import { lazyPart, preloadWhenIdle } from './lib/lazy'
 import { animate } from './lib/transition'
 
@@ -50,9 +54,11 @@ const Family = lazyPart(() => import('./screens/Family').then((m) => m.Family))
 const TitleSheet = lazyPart(() => import('./components/TitleSheet').then((m) => m.TitleSheet))
 const MovieLog = lazyPart(() => import('./components/MovieLog').then((m) => m.MovieLog))
 const MovieNight = lazyPart(() => import('./components/MovieNight').then((m) => m.MovieNight))
+const PartyRoom = lazyPart(() => import('./components/WatchParty').then((m) => m.PartyRoom))
+const PartyPlanner = lazyPart(() => import('./components/WatchParty').then((m) => m.PartyPlanner))
 const Lists = lazyPart(() => import('./screens/Lists').then((m) => m.Lists))
 const ListEditor = lazyPart(() => import('./screens/Lists').then((m) => m.ListEditor))
-const PARTS = [MovieNight, QuickLog, Reveal, Detail, Login, PasswordSheet, Search, Settings, Help, Messages, Stats, Family, TitleSheet, MovieLog, Lists, ListEditor]
+const PARTS = [MovieNight, PartyRoom, QuickLog, Reveal, Detail, Login, PasswordSheet, Search, Settings, Help, Messages, Stats, Family, TitleSheet, MovieLog, Lists, ListEditor]
 
 // Cloud changes made without signal wait on the phone (and in its offline copy) and sync when it's back
 const cloud = withOutbox(cloudStore, localStore)
@@ -290,6 +296,12 @@ export default function App() {
 
   /** First load finished: until then Home shows nothing rather than a misleading "nothing logged yet" */
   const [loaded, setLoaded] = useState(false)
+  // Watch parties (019): their own live channel and the server's clock
+  const parties = useWatchParties(store, loaded, mePerson?.id ?? null, myHousehold, flash)
+  /** The party room that's open (its id) */
+  const [partyOpen, setPartyOpen] = useState<string | null>(null)
+  /** Planning a party for this title */
+  const [partyPlan, setPartyPlan] = useState<PartyTitle | null>(null)
   // Once Home is up, fetch the other screens in the background so later taps are instant (and work offline)
   useEffect(() => {
     if (loaded) preloadWhenIdle(PARTS)
@@ -377,6 +389,7 @@ export default function App() {
     } else if (kind === 'quickmark') setQuickMark(true)
     else if (kind === 'settings') setTab('settings')
     else if (kind === 'movienight' && id) setNightOpen(id)
+    else if (kind === 'party' && id) setPartyOpen(id)
     else if (kind === 'add') {
       setAddMonth(currentMonth())
       setTab('search')
@@ -593,6 +606,39 @@ export default function App() {
           onNew: () => setNightOpen('setup'),
         }
       : null
+  // Watch parties: members of a household, once 019 is run, with at least one other household to invite
+  const canParty = parties.on && !!me && !!myHousehold && !(auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false) && circle.households.length > 1
+  const homeParty = canParty ? partyForHome(parties.parties, myHousehold) : null
+  const openParty = partyOpen ? (parties.parties.find((p) => p.id === partyOpen) ?? null) : null
+  /** What to watch at a party planned from a show's page: the next episode of that log (a finished season: the next one) */
+  const partyTitleFor = (w: Watch): PartyTitle => {
+    const movie = (w.kind ?? 'tv') === 'movie'
+    const finished = w.status === 'done' || (w.totalEpisodes != null && w.episodesWatched >= w.totalEpisodes)
+    return {
+      kind: movie ? 'movie' : 'tv', extId: w.showId, title: w.showName, poster: w.poster, runtime: w.runtime,
+      season: movie ? null : finished ? w.season + 1 : w.season,
+      episode: movie ? null : finished ? 1 : w.episodesWatched + 1,
+    }
+  }
+  /** After the party: the button that marks it in your own log (or adds it) */
+  const partyMark = (p: WatchParty): { label: string; run: () => void } | null => {
+    if (!inParty(p, myHousehold)) return null
+    const title: Title = { kind: p.kind, extId: p.extId, title: p.title, poster: p.poster, year: null, genres: [], runtime: p.runtime, network: null }
+    if (p.kind === 'tv') {
+      const log = homeWatches.find((w) => (w.kind ?? 'tv') === 'tv' && w.showId === p.extId && w.season === p.season)
+      if (log && p.episode != null) {
+        if (log.episodesWatched >= p.episode) return null
+        return {
+          label: t('Mark {ep} as watched', { ep: partyEpisode(p) ?? '' }),
+          run: () => void persist({ ...tapEpisode(log, p.episode!), month: currentMonth(), updatedAt: new Date().toISOString() }, t('Episode {n} logged', { n: p.episode! }), { undo: true }),
+        }
+      }
+      return { label: t('Add {title} to your log', { title: p.title }), run: () => startLog(title) }
+    }
+    const log = homeWatches.find((w) => w.kind === 'movie' && w.showId === p.extId)
+    if (log?.status === 'done') return null
+    return { label: t('Log {title} as watched', { title: p.title }), run: () => startLog(title) }
+  }
   const detailHousehold = detail?.watch.householdId ?? myHousehold
   const readOnly = auth.session?.isViewer ?? people.find((p) => p.id === me)?.isViewer ?? false
   const isAdmin = auth.session ? auth.session.isAdmin : true
@@ -664,6 +710,15 @@ export default function App() {
                     onGuess: predict.guess,
                     onJudge: predict.judge,
                     onRemove: predict.remove,
+                  }
+                : null
+            }
+            party={
+              canParty && !detail.isNew
+                ? {
+                    onPlan: () => setPartyPlan(partyTitleFor(watchesRef.current.find((x) => x.id === detail.watch.id) ?? detail.watch)),
+                    past: parties.parties.filter((p) => p.kind === ((detail.watch.kind ?? 'tv') === 'movie' ? 'movie' : 'tv') && p.extId === detail.watch.showId),
+                    messages: parties.messages,
                   }
                 : null
             }
@@ -744,6 +799,19 @@ export default function App() {
             onFamilyChat={() => openThread(null)}
             listItems={circle.items}
             movieNight={movieNightCard}
+            party={
+              homeParty && me ? (
+                <PartyCard
+                  party={homeParty}
+                  answers={parties.answers}
+                  people={people}
+                  households={circle.households}
+                  me={me}
+                  onAnswer={(a) => parties.answer(homeParty.id, a)}
+                  onOpen={() => setPartyOpen(homeParty.id)}
+                />
+              ) : null
+            }
             timeFit={{ lists: circle.lists, household: myHousehold, onWatch: (item) => startLog(item, item, currentMonth()) }}
             onSaveTitle={(title) => setTitleSheet({ title, mode: 'save' })}
             onAdd={() => {
@@ -1012,6 +1080,43 @@ export default function App() {
             setMovieDraft(null)
             setFromItem(null)
           }}
+        />
+      )}
+
+      {partyPlan && me && (
+        <PartyPlanner
+          what={partyPlan}
+          households={circle.households.filter((h) => h.id !== myHousehold)}
+          people={people}
+          onCreate={async (guests, startsAt) => {
+            const p = await parties.create({ ...partyPlan, guests, startsAt })
+            if (p) setPartyOpen(p.id)
+            return !!p
+          }}
+          onClose={() => setPartyPlan(null)}
+        />
+      )}
+
+      {openParty && me && (
+        <PartyRoom
+          party={openParty}
+          answers={parties.answers}
+          messages={parties.messages}
+          people={people}
+          households={circle.households}
+          me={me}
+          myHousehold={myHousehold}
+          offset={parties.offset}
+          canMark={partyMark(openParty)?.label ?? null}
+          onAnswer={(a) => parties.answer(openParty.id, a)}
+          onControl={(action, atSec) => parties.control(openParty, action, atSec ?? null)}
+          onSend={(kind, body, atSec) => parties.send(openParty.id, kind, body, atSec)}
+          onMark={() => {
+            partyMark(openParty)?.run()
+            setPartyOpen(null)
+          }}
+          onSyncClock={parties.syncClock}
+          onClose={() => setPartyOpen(null)}
         />
       )}
 

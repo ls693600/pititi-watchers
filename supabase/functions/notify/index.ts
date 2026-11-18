@@ -123,6 +123,60 @@ async function onMovieNight(id: string) {
   return { sent }
 }
 
+/** Watch party: invitations, the 15-minute reminder, "starting now" and "cancelled", each in the person's language and time */
+async function onParty(id: string, stage: string) {
+  const { data: p } = await db.from('watch_parties').select('id, host_household_id, created_by, kind, title, season, episode, starts_at, state').eq('id', id).single()
+  if (!p) return { sent: 0 }
+  const [{ data: guests }, { data: answers }, { data: hosts }] = await Promise.all([
+    db.from('watch_party_guests').select('household_id').eq('party_id', id),
+    db.from('watch_party_people').select('person_id, answer').eq('party_id', id),
+    db.from('households').select('id, name').eq('id', p.host_household_id),
+  ])
+  const homes = [p.host_household_id, ...((guests ?? []) as { household_id: string }[]).map((g) => g.household_id)]
+  const { data: people } = await db.from('people').select('id, name, household_id, notify_level, lang, tz, is_viewer').in('household_id', homes)
+  type P = { id: string; name: string; household_id: string; notify_level: string | null; lang: string | null; tz: string | null; is_viewer: boolean }
+  const all = ((people ?? []) as P[]).filter((x) => !x.is_viewer && x.notify_level !== 'off')
+  const joined = new Set(((answers ?? []) as { person_id: string; answer: string }[]).filter((a) => a.answer === 'join').map((a) => a.person_id))
+  const host = (hosts ?? [])[0]?.name ?? 'Family'
+  const what = p.kind === 'tv' && p.season && p.episode ? `${p.title} S${p.season} E${p.episode}` : p.title
+  const at = (x: P) => {
+    try {
+      return new Intl.DateTimeFormat(x.lang === 'pt' ? 'pt-BR' : 'en-CA', { timeZone: x.tz || 'America/Toronto', weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(p.starts_at))
+    } catch {
+      return ''
+    }
+  }
+  // invite: the invited households; soon / start / cancel: everyone who said Join (not whoever did it)
+  const to =
+    stage === 'invite' ? all.filter((x) => x.household_id !== p.host_household_id)
+    : stage === 'cancel' ? all.filter((x) => joined.has(x.id) && x.id !== p.created_by)
+    : all.filter((x) => joined.has(x.id))
+  const who = new Map(to.map((x) => [x.id, x]))
+  const sent = await deliver(await subsFor(to.map((x) => x.id)), (personId) => {
+    const x = who.get(personId)
+    if (!x) return null
+    const pt = x.lang === 'pt'
+    const open = `party:${p.id}`
+    const tag = `party:${p.id}`
+    if (stage === 'invite')
+      return pt
+        ? { title: `🎉 ${host} chamou vocês pra uma watch party`, body: `${what} · ${at(x)}. Topam?`, open, tag }
+        : { title: `🎉 ${host} invites you to a watch party`, body: `${what} · ${at(x)}. Are you in?`, open, tag }
+    if (stage === 'soon')
+      return pt
+        ? { title: `⏰ Watch party em 15 min`, body: `${what}. Peguem a pipoca!`, open, tag }
+        : { title: `⏰ Watch party in 15 min`, body: `${what}. Grab the popcorn!`, open, tag }
+    if (stage === 'start')
+      return pt
+        ? { title: `▶ A watch party começou`, body: `${what}: abra para a contagem 3-2-1.`, open, tag }
+        : { title: `▶ The watch party is starting`, body: `${what}: open for the 3-2-1.`, open, tag }
+    if (stage === 'cancel')
+      return pt ? { title: `Watch party cancelada`, body: what, open, tag } : { title: `Watch party cancelled`, body: what, open, tag }
+    return null
+  })
+  return { sent }
+}
+
 async function onVoteRequest(id: string) {
   const { data: l } = await db.from('lists').select('*').eq('id', id).single()
   if (!l || !l.ask_votes) return { sent: 0 }
@@ -326,6 +380,7 @@ Deno.serve(async (req) => {
       : body.type === 'recommendation' && id ? await onRecommendation(id)
       : body.type === 'votes' && id ? await onVoteRequest(id)
       : body.type === 'movienight' && id ? await onMovieNight(id)
+      : body.type === 'party' && id && typeof body.stage === 'string' ? await onParty(id, body.stage)
       : body.type === 'reminders' ? await reminders().then(async (r) => (await heartbeat('reminders', r), r))
       : body.type === 'evening' ? await evening().then(async (r) => (await heartbeat('evening', r), r))
       : body.type === 'health' && Array.isArray(body.stale) ? await health(body.stale.filter((j: unknown) => typeof j === 'string'))

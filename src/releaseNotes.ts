@@ -10,6 +10,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-20-watch-party',
+    en: [
+      '🎉 Watch party: on a show\'s page, invite other households to watch the same episode (or movie) at the same time, each on your own couch.',
+      'Everyone gets a 3-2-1 to press play together. Chat and react while you watch; anyone who joined can pause for everyone. Afterwards, one tap marks it watched.',
+    ],
+    pt: [
+      '🎉 Watch party: na página da série, chame outras casas para assistir ao mesmo episódio (ou filme) na mesma hora, cada uma no seu sofá.',
+      'Todo mundo vê um 3-2-1 para apertar o play junto. Conversem e reajam enquanto assistem; quem topou pode pausar pra todo mundo. No fim, um toque marca como visto.',
+    ],
+  },
+  {
     id: '2026-11-19-dates',
     en: [
       '📅 Episodes airing tomorrow no longer show as out tonight, and "It\'s back" no longer comes a day early.',
