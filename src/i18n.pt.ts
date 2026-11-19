@@ -1326,4 +1326,8 @@ export const PT: Record<string, string> = {
   "Next season": "Próxima temporada",
   "Comes out {date}": "Estreia {date}",
   "Coming later": "Ainda sem data",
+  "You're on Season {n}": "Vocês estão na temporada {n}",
+  "{a} of {b} episodes": "{a} de {b} episódios",
+  "{n} episodes so far": "{n} episódios até agora",
+  "Go to Season {n}": "Ir para a temporada {n}",
 }

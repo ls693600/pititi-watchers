@@ -32,7 +32,7 @@ test.describe("A show's seasons on Home", () => {
     await sheet.getByRole('button', { name: /Start Season 3/ }).click()
     await expect(sheet).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Mayor of Kingstown', level: 1 })).toBeVisible()
-    await expect(page.getByRole('combobox', { name: 'Season' }).or(page.getByLabel('Season', { exact: true }))).toHaveValue('3')
+    await expect(page.getByRole('combobox', { name: /^Season/ })).toHaveValue('3')
   })
 
   test('a later season already logged in another month opens that log instead', async ({ page }) => {

@@ -10,9 +10,18 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-21-current-season',
+    en: ["🛠 Fixed: tapping a finished season in \"Watched this month\" now opens the season you're watching now, so you can mark the next episode. An older season's page also shows \"You're on Season 2\" with a button to get there."],
+    pt: ["🛠 Corrigido: tocar numa temporada terminada em \"Vistos este mês\" agora abre a temporada que vocês estão vendo, para marcar o próximo episódio. A página de uma temporada antiga também mostra \"Vocês estão na temporada 2\" com um botão para ir até ela."],
+  },
+  {
     id: '2026-11-21-later-seasons',
-    en: ["📺 Rewatching a show? Tap its poster on Home: besides the seasons you watched, you can start the next ones (Season 3, 4...) right there, and see when the next season comes out."],
-    pt: ["📺 Revendo uma série? Toque no pôster no Início: além das temporadas que vocês viram, dá para começar as próximas (Temporada 3, 4...) ali mesmo e ver quando sai a próxima."],
+    en: [
+      "📺 Rewatching a show? Tap its poster on Home: besides the seasons you watched, you can start the next ones (Season 3, 4...) right there, and see when the next season comes out.",
+    ],
+    pt: [
+      "📺 Revendo uma série? Toque no pôster no Início: além das temporadas que vocês viram, dá para começar as próximas (Temporada 3, 4...) ali mesmo e ver quando sai a próxima.",
+    ],
   },
   {
     id: '2026-11-21-phase-c',

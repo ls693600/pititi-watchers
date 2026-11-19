@@ -63,6 +63,7 @@ import {
   moveToMonth,
   keepHouseholdWatchers,
   laterSeasons,
+  currentSeasonLog,
   inProgressFor,
   mergeLogs,
   premiereMonthFix,
@@ -1136,5 +1137,19 @@ describe('laterSeasons', () => {
   })
   it('seasons out of order from the server still come in order', () => {
     expect(laterSeasons([{ season: 1 }], [seasons[3], seasons[1], seasons[2]]).aired.map((s) => s.number)).toEqual([2, 3, 4])
+  })
+})
+
+describe('currentSeasonLog', () => {
+  const log = (id: string, season: number, status: 'done' | 'watching', extra: Partial<Watch> = {}) =>
+    ({ id, showId: 77, kind: 'tv', householdId: 'h1', season, status, updatedAt: '2026-11-01T00:00:00Z', episodesWatched: 5, ...extra }) as Watch
+  it('a finished earlier season points to the later season being watched', () => {
+    expect(currentSeasonLog([log('s1', 1, 'done'), log('s2', 2, 'watching')], log('s1', 1, 'done'))?.id).toBe('s2')
+  })
+  it('nothing when the later season is finished, it is the same log, another household, or a movie', () => {
+    expect(currentSeasonLog([log('s1', 1, 'done'), log('s2', 2, 'done')], log('s1', 1, 'done'))).toBeNull()
+    expect(currentSeasonLog([log('s2', 2, 'watching')], log('s2', 2, 'watching'))).toBeNull()
+    expect(currentSeasonLog([log('x', 2, 'watching', { householdId: 'h2' })], log('s1', 1, 'done'))).toBeNull()
+    expect(currentSeasonLog([log('m2', 2, 'watching', { kind: 'movie' })], log('m1', 1, 'done', { kind: 'movie' }))).toBeNull()
   })
 })

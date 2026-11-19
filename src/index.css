@@ -1445,3 +1445,11 @@ body:has(.trailer-wrap) #root { filter: blur(10px) saturate(0.9); transition: fi
 /* Season sheet: start the next season */
 .season-num.start { background: var(--grad); color: #fff; }
 .season-upcoming { display: flex; align-items: center; gap: 12px; padding: 10px 0; min-height: 58px; opacity: .75; }
+
+/* Show page: you're on a later season */
+.now-season { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: var(--brand-soft); color: var(--text); }
+.now-season-num { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--grad); color: #fff; font-family: var(--display); font-weight: 900; font-size: 18px; }
+.now-season-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.now-season-text b { font-size: 15px; text-wrap: balance; }
+.now-season-text span { font-size: 13px; color: var(--muted); }
+.now-season .btn { flex: none; }

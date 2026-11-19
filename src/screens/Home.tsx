@@ -18,6 +18,7 @@ import { FestiveDeco } from '../components/Festive'
 import type { MonthSort, ShowGroup } from '../logic'
 import {
   averageRating,
+  currentSeasonLog,
   groupSeasons,
   homeSlice,
   seasonRange,
@@ -418,7 +419,8 @@ export function Home(props: Props) {
             {cards.map((g, i) => {
               const w = g.head
               const many = g.logs.length > 1
-              const open = () => (many ? setSeasonsFor(g) : onOpen(w))
+              // A finished season of a show you're still watching opens the season you're on now
+              const open = () => (many ? setSeasonsFor(g) : onOpen(currentSeasonLog(watches, w) ?? w))
               const watchers = [...new Set(g.logs.flatMap((x) => x.watchedBy))]
               const avg = averageRating(w)
               // One rating per show: only its latest season asks for it

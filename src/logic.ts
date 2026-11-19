@@ -1288,3 +1288,10 @@ export function laterSeasons<T extends Pick<SeasonInfo, 'number' | 'aired'>>(log
   const after = seasons.filter((s) => s.number > last).sort((a, b) => a.number - b.number)
   return { aired: after.filter((s) => s.aired), upcoming: after.find((s) => !s.aired) ?? null }
 }
+
+/** The season of this show you're watching now, when it's a later one than this log (what a tap should open). */
+export function currentSeasonLog(all: Watch[], w: Watch): Watch | null {
+  if (kindOf(w) === 'movie') return null
+  const later = all.filter((x) => showKey(x) === showKey(w) && x.id !== w.id && x.season > w.season && x.status === 'watching')
+  return later.sort((a, b) => b.season - a.season || b.updatedAt.localeCompare(a.updatedAt))[0] ?? null
+}

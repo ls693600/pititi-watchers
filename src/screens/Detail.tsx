@@ -11,7 +11,7 @@ import { Poster } from '../components/Poster'
 import { Avatar } from '../components/Avatar'
 import { FamilyChat } from '../components/FamilyChat'
 import { Reactions } from '../components/Reactions'
-import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, tapEpisode, timesWatchedFor, withSeason, showStatusLabel } from '../logic'
+import { airLabel, averageRating, canReact, titleOf, logForSeason, nextSeasonDraft, newId, isPriorWatch, rewatchPair, scoreLabel, togetherWatchers, findDuplicate, premiereMonthFix, canEditRating, canSeeRating, capToAired, defaultSeason, monthLabel, moveToMonth, pendingRaters, tapEpisode, timesWatchedFor, withSeason, showStatusLabel, currentSeasonLog } from '../logic'
 import { bigPoster, getEpisodes, getSeasons, getShowInfo, type EpisodeInfo, type SeasonInfo, type ShowInfo } from '../tvmaze'
 import type { Comment, CouchPhoto, EpisodeEmoji, Guess, Prediction, EpisodeReaction, Person, Reaction, Title, Watch, WatchParty, PartyMessage } from '../types'
 import { drawShowCard, shareImage } from '../share'
@@ -157,6 +157,8 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
   const duplicate = isNew ? null : findDuplicate(watches, w)
   const pair = isNew || duplicate ? null : rewatchPair(watches, stored)
   const seasonInfo = seasons?.find((x) => x.number === w.season)
+  // An earlier season of a show you're watching now: point to the current one
+  const current = isNew ? null : currentSeasonLog(watches, stored)
   const earlyMonth = premiereMonthFix(w.month, seasonInfo?.premiereDate)
 
   async function shareShow() {
@@ -306,6 +308,19 @@ export function Detail({ initial, isNew, watches, people, everyone, readOnly, ow
             </p>
             <button className="btn sm dark" onClick={() => onMerge(w, duplicate)}>{t('Merge into one')}</button>
           </div>
+        </div>
+      )}
+
+      {!isNew && current && (
+        <div className="now-season" role="note">
+          <span className="now-season-num" aria-hidden="true">{current.season}</span>
+          <span className="now-season-text">
+            <b>{t("You're on Season {n}", { n: current.season })}</b>
+            <span>{current.totalEpisodes ? t('{a} of {b} episodes', { a: current.episodesWatched, b: current.totalEpisodes }) : t('{n} episodes so far', { n: current.episodesWatched })}</span>
+          </span>
+          <button className="btn sm primary" aria-label={t('Go to Season {n}', { n: current.season })} onClick={() => onSwitchLog(current, false)}>
+            {t('Open')} <Icon name="right" size={16} stroke={2.6} />
+          </button>
         </div>
       )}
 
