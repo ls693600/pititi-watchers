@@ -1,0 +1,1 @@
+import{o as e,t}from"./i18n-B60zQ8vz.js";import{a as n}from"./movies-znDJR8xi.js";var r=e();function i(e,i,a){let o=t()===`pt`&&e===`tv`,[s,c]=(0,r.useState)(null);return(0,r.useEffect)(()=>{if(!o)return;let e=!0;return n(i).then(t=>e&&c({id:i,text:t})).catch(()=>void 0),()=>{e=!1}},[o,i]),o&&s?.id===i&&s.text?s.text:a}export{i as t};
