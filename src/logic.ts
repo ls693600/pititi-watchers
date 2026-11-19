@@ -1278,3 +1278,13 @@ export function sortMonthRows(rows: MonthRow[], by: MonthSort): MonthRow[] {
   const az = (a: MonthRow, b: MonthRow) => a.title.localeCompare(b.title)
   return [...rows].sort((a, b) => (by === 'az' ? az(a, b) : by === 'hours' ? b.minutes - a.minutes || az(a, b) : b.episodes - a.episodes || az(a, b)))
 }
+
+/**
+ * The seasons after the last one logged here: every season that has aired (S3, S4, ...) and, after them, the next
+ * one that hasn't aired yet (so the sheet can say when it comes). In order.
+ */
+export function laterSeasons<T extends Pick<SeasonInfo, 'number' | 'aired'>>(logs: Pick<Watch, 'season'>[], seasons: T[]): { aired: T[]; upcoming: T | null } {
+  const last = Math.max(0, ...logs.map((w) => w.season))
+  const after = seasons.filter((s) => s.number > last).sort((a, b) => a.number - b.number)
+  return { aired: after.filter((s) => s.aired), upcoming: after.find((s) => !s.aired) ?? null }
+}

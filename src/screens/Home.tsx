@@ -295,6 +295,15 @@ export function Home(props: Props) {
             setSeasonsFor(null)
             onOpen(w)
           }}
+          all={watches}
+          onStartSeason={
+            readOnly || !onStartSeason
+              ? undefined
+              : (head, season) => {
+                  setSeasonsFor(null)
+                  onStartSeason(head, season)
+                }
+          }
           onClose={() => setSeasonsFor(null)}
         />
       )}

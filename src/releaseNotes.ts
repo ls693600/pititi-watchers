@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-21-later-seasons',
+    en: ["📺 Rewatching a show? Tap its poster on Home: besides the seasons you watched, you can start the next ones (Season 3, 4...) right there, and see when the next season comes out."],
+    pt: ["📺 Revendo uma série? Toque no pôster no Início: além das temporadas que vocês viram, dá para começar as próximas (Temporada 3, 4...) ali mesmo e ver quando sai a próxima."],
+  },
+  {
     id: '2026-11-21-phase-c',
     en: [
       '🕰️ On this day: Home brings back a couch photo or a show you finished on this day, 1 year ago (or 6 months, or 1 month while the app is still young).',

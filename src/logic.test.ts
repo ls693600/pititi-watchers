@@ -62,6 +62,7 @@ import {
   findDuplicate,
   moveToMonth,
   keepHouseholdWatchers,
+  laterSeasons,
   inProgressFor,
   mergeLogs,
   premiereMonthFix,
@@ -1121,5 +1122,19 @@ describe('predictions', () => {
     const g = (personId: string, verdict: Guess['verdict'], id = Math.random().toString()) => ({ predictionId: id, personId, guess: 'x', verdict, createdAt: '' })
     const s = predictionScores([g('a', 'right'), g('a', 'right'), g('a', 'wrong'), g('l', 'right'), g('l', null), g('k', null)], ['l', 'a', 'k'])
     expect(s).toEqual([{ personId: 'a', right: 2, judged: 3 }, { personId: 'l', right: 1, judged: 1 }])
+  })
+})
+
+describe('laterSeasons', () => {
+  const seasons = [1, 2, 3, 4, 5].map((n) => ({ number: n, aired: n <= 4 }))
+  it('lists every aired season after the last one logged, then the next one to come', () => {
+    expect(laterSeasons([{ season: 1 }, { season: 2 }], seasons)).toEqual({ aired: [seasons[2], seasons[3]], upcoming: seasons[4] })
+  })
+  it('nothing after the last season; a show with no seasons info is fine', () => {
+    expect(laterSeasons([{ season: 5 }], seasons)).toEqual({ aired: [], upcoming: null })
+    expect(laterSeasons([{ season: 1 }], [])).toEqual({ aired: [], upcoming: null })
+  })
+  it('seasons out of order from the server still come in order', () => {
+    expect(laterSeasons([{ season: 1 }], [seasons[3], seasons[1], seasons[2]]).aired.map((s) => s.number)).toEqual([2, 3, 4])
   })
 })

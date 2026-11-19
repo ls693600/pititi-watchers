@@ -244,6 +244,11 @@ function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
 }
 
 /** Air dates of a show-season's episodes, for telling new episodes from old ones. */
+/** A show's seasons, at most every 6 hours (Home's season sheet asks for it on each open). */
+export function getSeasonsCached(showId: number): Promise<SeasonInfo[]> {
+  return cached(`seasons:${showId}`, () => getSeasons(showId))
+}
+
 export function getSeasonEpisodesCached(showId: number, season: number): Promise<EpisodeInfo[] | null> {
   return cached(`eps:${showId}:${season}`, async () => {
     const seasons = await getSeasons(showId)

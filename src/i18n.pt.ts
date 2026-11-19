@@ -1322,4 +1322,8 @@ export const PT: Record<string, string> = {
   "Video saved. Send it from your photos or files.": "Vídeo salvo. Envie pelas suas fotos ou arquivos.",
   "Video shared": "Vídeo compartilhado",
   "Couldn't make the video. Try again, or share a picture instead.": "Não deu para criar o vídeo. Tente de novo ou compartilhe uma imagem.",
+  "Start Season {n}": "Começar a temporada {n}",
+  "Next season": "Próxima temporada",
+  "Comes out {date}": "Estreia {date}",
+  "Coming later": "Ainda sem data",
 }
