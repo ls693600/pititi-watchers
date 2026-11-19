@@ -1,13 +1,16 @@
-// Records an animated canvas into a video file on the phone: canvas.captureStream + MediaRecorder, no audio.
+// Records an animated canvas into a video file on the phone: canvas.captureStream + MediaRecorder,
+// with the music track mixed in when there is one.
 // MP4 first (WhatsApp plays it everywhere; iPhone Safari and recent Chrome make it), WebM otherwise.
 
 export const VIDEO_TYPES = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'] as const
+/** Same order, with sound (AAC in MP4, Opus in WebM) */
+export const AV_TYPES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'] as const
 
 /** The first video type this browser can record, or null. `isTypeSupported` is injectable for tests. */
-export function pickMime(isTypeSupported?: (type: string) => boolean): string | null {
+export function pickMime(isTypeSupported?: (type: string) => boolean, withAudio = false): string | null {
   const check = isTypeSupported ?? (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function' ? (x: string) => MediaRecorder.isTypeSupported(x) : null)
   if (!check) return null
-  for (const type of VIDEO_TYPES) {
+  for (const type of withAudio ? AV_TYPES : VIDEO_TYPES) {
     try {
       if (check(type)) return type
     } catch {
@@ -43,6 +46,8 @@ export interface RecordOptions {
   /** 0–1 while recording */
   onProgress?: (done: number) => void
   signal?: AbortSignal
+  /** Music for the video: its track, and `start` called the moment recording begins */
+  audio?: { track: MediaStreamTrack; start: () => void }
 }
 
 const abortError = () => new DOMException('Cancelled', 'AbortError')
@@ -60,8 +65,9 @@ export function recordCanvas(canvas: HTMLCanvasElement, opts: RecordOptions): Pr
     try {
       opts.draw(0)
       stream = canvas.captureStream(fps)
+      if (opts.audio) stream = new MediaStream([...stream.getVideoTracks(), opts.audio.track])
       // ~6 Mbps keeps 1080×1920 text sharp; a 20 s video stays around 10–15 MB
-      recorder = new MediaRecorder(stream, { mimeType: opts.mime, videoBitsPerSecond: 6_000_000 })
+      recorder = new MediaRecorder(stream, { mimeType: opts.mime, videoBitsPerSecond: 6_000_000, ...(opts.audio ? { audioBitsPerSecond: 128_000 } : {}) })
     } catch (e) {
       return reject(e instanceof Error ? e : new Error(String(e)))
     }
@@ -126,6 +132,11 @@ export function recordCanvas(canvas: HTMLCanvasElement, opts: RecordOptions): Pr
       timer = setTimeout(tick, 1000 / fps)
     }
     recorder.start(500)
+    try {
+      opts.audio?.start()
+    } catch {
+      // No music this time: the video still records
+    }
     tick()
   })
 }

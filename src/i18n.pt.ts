@@ -1330,4 +1330,6 @@ export const PT: Record<string, string> = {
   "{a} of {b} episodes": "{a} de {b} episódios",
   "{n} episodes so far": "{n} episódios até agora",
   "Go to Season {n}": "Ir para a temporada {n}",
+  "Sound on": "Som ligado",
+  "Sound off": "Som desligado",
 }

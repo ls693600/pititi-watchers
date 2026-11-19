@@ -10,6 +10,11 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    id: '2026-11-22-video-music',
+    en: ['🎵 The Year in Review video now has its own music: it starts calm, picks up with a beat for your top shows and ends on a big finish. Turn the sound off while it\'s being made if the house is asleep. The video always keeps the music.'],
+    pt: ['🎵 O vídeo da Retrospectiva agora tem música própria: começa calma, ganha batida nas séries favoritas e termina num final épico. Desligue o som enquanto ele é feito se a casa estiver dormindo. O vídeo sempre fica com a música.'],
+  },
+  {
     id: '2026-11-21-current-season',
     en: ["🛠 Fixed: tapping a finished season in \"Watched this month\" now opens the season you're watching now, so you can mark the next episode. An older season's page also shows \"You're on Season 2\" with a button to get there."],
     pt: ["🛠 Corrigido: tocar numa temporada terminada em \"Vistos este mês\" agora abre a temporada que vocês estão vendo, para marcar o próximo episódio. A página de uma temporada antiga também mostra \"Vocês estão na temporada 2\" com um botão para ir até ela."],

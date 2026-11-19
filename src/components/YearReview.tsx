@@ -7,6 +7,7 @@ import type { CouchPhoto, EpisodeReaction, Person, Watch } from '../types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { YearVideo } from './YearVideo'
+import { primeAudio } from '../lib/soundtrackAudio'
 import { canRecordCanvas } from '../lib/recordCanvas'
 import { yearVideoData } from '../yearVideo'
 import { PosterFill } from './Poster'
@@ -303,6 +304,7 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
         onClick={(e) => {
           e.stopPropagation()
           opener.current = e.currentTarget
+          primeAudio()
           setVideo('share')
         }}
       >
@@ -314,6 +316,7 @@ export function YearReview({ year, watches, people, episodeReactions = [], photo
           onClick={(e) => {
             e.stopPropagation()
             opener.current = e.currentTarget
+            primeAudio()
             setVideo('save')
           }}
         >

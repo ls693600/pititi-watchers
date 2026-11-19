@@ -125,4 +125,23 @@ test.describe('Year in Review video', () => {
     if (await canRecord(page)) await expect(review.getByRole('button', { name: 'Share as a video' })).toBeVisible()
     else await expect(review.getByText("This browser can't make videos yet. Share a picture instead.")).toBeVisible()
   })
+
+  test('The video has music, and the speaker can be switched off while it is made', async ({ page }) => {
+    await stubShare(page)
+    const review = await openEndSlide(page)
+    test.skip(!(await canRecord(page)), 'This test browser cannot record a canvas; the fallback test covers it')
+    const download = page.waitForEvent('download', { timeout: 30_000 })
+    await review.getByRole('button', { name: 'Save video' }).click()
+    const panel = page.getByRole('dialog', { name: 'Year video' })
+    const sound = panel.getByRole('button', { name: 'Sound on' })
+    await expect(sound).toHaveAttribute('aria-pressed', 'true')
+    await sound.click()
+    await expect(panel.getByRole('button', { name: 'Sound off' })).toHaveAttribute('aria-pressed', 'false')
+    const file = await download
+    const bytes = await import('node:fs').then(async (fs) => fs.readFileSync(await file.path()))
+    // The file carries a sound track: Opus in WebM, AAC ("mp4a") in MP4
+    expect(bytes.includes('OpusHead') || bytes.includes('mp4a') || bytes.includes('A_AAC')).toBe(true)
+    // The finished video isn't muted, so the music plays in the preview
+    await expect(panel.locator('video')).not.toHaveAttribute('muted', /.*/)
+  })
 })

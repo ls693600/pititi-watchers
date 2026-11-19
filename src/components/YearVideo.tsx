@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useBackClose } from '../hooks/useBackClose'
 import { t } from '../i18n'
 import { baseType, extFor, pickMime, recordCanvas } from '../lib/recordCanvas'
+import { livePlayback, primeAudio, renderSoundtrack, type LivePlayback } from '../lib/soundtrackAudio'
+import { soundtrack } from '../soundtrack'
 import { APP_URL } from '../config'
 import { VIDEO_H, VIDEO_W, drawFrame, sceneImages, totalMs, videoScenes, type VideoData, type VideoImage } from '../yearVideo'
 import { Icon } from './Icon'
@@ -89,6 +91,14 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
   const firstBtn = useRef<HTMLButtonElement>(null)
   const [state, setState] = useState<State>({ step: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  /** The phone's speaker while it's being made (the video always has the music) */
+  const [sound, setSound] = useState(true)
+  const live = useRef<LivePlayback | null>(null)
+  const soundRef = useRef(sound)
+  useEffect(() => {
+    soundRef.current = sound
+    live.current?.setMonitor(sound)
+  }, [sound])
   const canShareFiles = state.step === 'done' && !!navigator.canShare?.({ files: [state.file] })
 
   // The effect reads these when it runs; a new attempt (Try again) starts it over
@@ -106,22 +116,44 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
       const k = speed()
       const scenes = videoScenes(data, { speed: k })
       const urls = sceneImages(scenes)
-      const loaded = await Promise.all(urls.map((u) => loadImage(u, ctl.signal)))
+      // The music is written while the pictures load; no music (old phone, no Web Audio) never stops the video
+      const [loaded, music] = await Promise.all([Promise.all(urls.map((u) => loadImage(u, ctl.signal))), renderSoundtrack(soundtrack(scenes, k)).catch(() => null)])
       if (ctl.signal.aborted) return
       const images = new Map<string, VideoImage>()
       urls.forEach((u, i) => loaded[i] && images.set(u, loaded[i]))
       const el = canvas.current
       const ctx = el?.getContext('2d')
-      const mime = pickMime()
-      if (!el || !ctx || !mime) return setState({ step: 'error' })
+      const silentMime = pickMime()
+      if (!el || !ctx || !silentMime) return setState({ step: 'error' })
       setState({ step: 'recording', pct: 0 })
-      const blob = await recordCanvas(el, {
-        durationMs: totalMs(scenes),
-        mime,
-        signal: ctl.signal,
-        draw: (ms) => drawFrame(ctx, scenes, ms, images, k),
-        onProgress: (p) => setState((s) => (s.step === 'recording' && Math.round(p * 100) !== s.pct ? { step: 'recording', pct: Math.round(p * 100) } : s)),
-      })
+      const record = (mime: string, audio: LivePlayback | null) =>
+        recordCanvas(el, {
+          durationMs: totalMs(scenes),
+          mime,
+          signal: ctl.signal,
+          audio: audio ?? undefined,
+          draw: (ms) => drawFrame(ctx, scenes, ms, images, k),
+          onProgress: (p) => setState((s) => (s.step === 'recording' && Math.round(p * 100) !== s.pct ? { step: 'recording', pct: Math.round(p * 100) } : s)),
+        })
+      const avMime = music ? pickMime(undefined, true) : null
+      const audio = music && avMime ? livePlayback(music, soundRef.current) : null
+      live.current = audio
+      let mime = audio && avMime ? avMime : silentMime
+      let blob: Blob
+      try {
+        blob = await record(mime, audio)
+      } catch (e) {
+        // This phone can't put sound in the video: make it without music rather than not at all
+        if ((e as Error)?.name === 'AbortError' || !audio) throw e
+        audio.stop()
+        live.current = null
+        mime = silentMime
+        setState({ step: 'recording', pct: 0 })
+        blob = await record(mime, null)
+      } finally {
+        live.current?.stop()
+        live.current = null
+      }
       const file = new File([blob], `pititi-${data.year}.${extFor(mime)}`, { type: baseType(mime) })
       url = URL.createObjectURL(file)
       // The preview's cover: the title frame once everything has arrived (the very first frame is empty)
@@ -145,6 +177,8 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
     })
     return () => {
       ctl.abort()
+      live.current?.stop()
+      live.current = null
       if (url) URL.revokeObjectURL(url)
     }
   }, [attempt])
@@ -173,7 +207,7 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
     <div className="yv" role="dialog" aria-modal="true" aria-label={t('Year video')} onClick={(e) => e.stopPropagation()}>
       <div className="yv-frame">
         <canvas ref={canvas} width={VIDEO_W} height={VIDEO_H} className="yv-canvas" hidden={state.step === 'done'} aria-label={t('Video preview')} role="img" />
-        {state.step === 'done' && <video className="yv-canvas" src={state.url} poster={state.poster || undefined} controls playsInline muted preload="metadata" aria-label={t('Video preview')} />}
+        {state.step === 'done' && <video className="yv-canvas" src={state.url} poster={state.poster || undefined} controls playsInline preload="metadata" aria-label={t('Video preview')} />}
       </div>
 
       {(state.step === 'loading' || state.step === 'recording') && (
@@ -184,9 +218,14 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
           <div className="yv-bar" role="progressbar" aria-label={t('Video progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
             <i style={{ width: `${pct}%` }} />
           </div>
-          <button ref={firstBtn} className="yv-btn ghost" onClick={onClose}>
-            {t('Cancel')}
-          </button>
+          <div className="yv-row">
+            <button className="yv-btn ghost" aria-pressed={sound} onClick={() => setSound((on) => !on)}>
+              <Icon name={sound ? 'volume' : 'mute'} size={18} /> {sound ? t('Sound on') : t('Sound off')}
+            </button>
+            <button ref={firstBtn} className="yv-btn ghost" onClick={onClose}>
+              {t('Cancel')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -229,7 +268,10 @@ export function YearVideo({ data, intent, onClose, onFlash, onPicture }: Props) 
           <p className="yv-status" role="alert">
             {t("Couldn't make the video. Try again, or share a picture instead.")}
           </p>
-          <button ref={firstBtn} className="yv-btn primary" onClick={() => setAttempt((n) => n + 1)}>
+          <button ref={firstBtn} className="yv-btn primary" onClick={() => {
+              primeAudio()
+              setAttempt((n) => n + 1)
+            }}>
             {t('Try again')}
           </button>
           {onPicture && (
